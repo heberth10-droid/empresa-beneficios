@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { Suspense, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { supabase } from "@/lib/supabaseClient";
@@ -17,19 +17,13 @@ function addDays(d: Date, days: number) {
   return x;
 }
 
-/**
- * Intento robusto: soporta pay_days como:
- * - array [5,20]
- * - string "5,20"
- * - string "{5,20}"
- * - string "[5,20]"
- */
 function parsePayDays(raw: any): number[] {
   if (!raw) return [];
   if (Array.isArray(raw)) return raw.map((x) => Number(x)).filter((n) => Number.isFinite(n));
+
   if (typeof raw === "string") {
     const s = raw.trim();
-    // Postgres array "{5,20}"
+
     if (s.startsWith("{") && s.endsWith("}")) {
       return s
         .slice(1, -1)
@@ -37,27 +31,25 @@ function parsePayDays(raw: any): number[] {
         .map((x) => Number(x.trim()))
         .filter((n) => Number.isFinite(n));
     }
-    // JSON "[5,20]"
+
     if (s.startsWith("[") && s.endsWith("]")) {
       try {
         const arr = JSON.parse(s);
-        if (Array.isArray(arr)) return arr.map((x) => Number(x)).filter((n) => Number.isFinite(n));
+        if (Array.isArray(arr)) {
+          return arr.map((x) => Number(x)).filter((n) => Number.isFinite(n));
+        }
       } catch {}
     }
-    // "5,20"
+
     return s
       .split(",")
       .map((x) => Number(x.trim()))
       .filter((n) => Number.isFinite(n));
   }
+
   return [];
 }
 
-/**
- * Calcula próximas fechas de descuento (aprox) según:
- * - pay_frequency: "MONTHLY" o "BIWEEKLY" (si tu DB usa otros valores, igual cae al fallback)
- * - pay_days: [día] o [día1,día2]
- */
 function buildInstallmentDates(opts: {
   count: number;
   pay_frequency?: string | null;
@@ -70,9 +62,7 @@ function buildInstallmentDates(opts: {
   const today = new Date();
   const results: Date[] = [];
 
-  // fallback simple si no hay configuración
   if (days.length === 0 || (!freq.includes("MONTH") && !freq.includes("BIWEEK"))) {
-    // cada 15 días (aprox)
     let d = addDays(today, 15);
     for (let i = 0; i < count; i++) {
       results.push(d);
@@ -81,7 +71,6 @@ function buildInstallmentDates(opts: {
     return results.map((d) => d.toISOString().slice(0, 10));
   }
 
-  // helper: crea una fecha segura en un mes (si el día excede el último del mes, cae al último)
   const dateInMonth = (year: number, month0: number, day: number) => {
     const lastDay = new Date(year, month0 + 1, 0).getDate();
     const safeDay = Math.max(1, Math.min(day, lastDay));
@@ -91,21 +80,16 @@ function buildInstallmentDates(opts: {
   const y = today.getFullYear();
   const m = today.getMonth();
 
-  // genera un “calendario” de fechas futuras
   const candidateDates: Date[] = [];
 
-  // miramos este mes + los siguientes 12 meses (sobra)
   for (let k = 0; k < 14; k++) {
     const mm = m + k;
     const yy = y + Math.floor(mm / 12);
     const month0 = ((mm % 12) + 12) % 12;
 
     if (freq.includes("MONTH")) {
-      // mensual: usar el primer día configurado
-      const day = days[0];
-      candidateDates.push(dateInMonth(yy, month0, day));
+      candidateDates.push(dateInMonth(yy, month0, days[0]));
     } else {
-      // quincenal: usar 2 días si existen, si solo hay 1, repite ese
       const d1 = days[0];
       const d2 = days[1] ?? days[0];
       candidateDates.push(dateInMonth(yy, month0, d1));
@@ -113,7 +97,6 @@ function buildInstallmentDates(opts: {
     }
   }
 
-  // filtra desde mañana/hoy hacia adelante (>= hoy)
   const filtered = candidateDates
     .filter((d) => d.getTime() >= new Date(today.toDateString()).getTime())
     .sort((a, b) => a.getTime() - b.getTime());
@@ -123,7 +106,6 @@ function buildInstallmentDates(opts: {
     results.push(d);
   }
 
-  // si faltan (raro), completa con +15 días
   while (results.length < count) {
     const last = results[results.length - 1] || addDays(today, 15);
     results.push(addDays(last, 15));
@@ -132,18 +114,15 @@ function buildInstallmentDates(opts: {
   return results.map((d) => d.toISOString().slice(0, 10));
 }
 
-export default function CheckoutPage() {
+function CheckoutPageContent() {
   const router = useRouter();
   const { items, subtotal, clear } = useCart();
 
-  // Documento
   const [documentType, setDocumentType] = useState("CC");
   const [documentNumber, setDocumentNumber] = useState("");
 
-  // Cuotas
   const [installments, setInstallments] = useState(1);
 
-  // Envío
   const [shippingName, setShippingName] = useState("");
   const [shippingPhone, setShippingPhone] = useState("");
   const [shippingAddress, setShippingAddress] = useState("");
@@ -151,14 +130,11 @@ export default function CheckoutPage() {
   const [shippingDepartment, setShippingDepartment] = useState("");
   const [shippingNotes, setShippingNotes] = useState("");
 
-  // Datos empleado/empresa para mostrar cupo + calendario estimado
   const [employeeInfo, setEmployeeInfo] = useState<any>(null);
   const [companyPayConfig, setCompanyPayConfig] = useState<any>(null);
 
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
-
-  // para evitar que al limpiar carrito te mande a /cart
   const [justConfirmed, setJustConfirmed] = useState(false);
 
   const cartPayload = useMemo(() => {
@@ -194,13 +170,11 @@ export default function CheckoutPage() {
     });
   }, [installments, companyPayConfig]);
 
-  // Solo al entrar: si carrito vacío, mandar a cart.
   useEffect(() => {
     if (!items || items.length === 0) router.push("/market/cart");
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Cargar info del empleado cuando cambia doc (para mostrar cupo y max cuotas)
   useEffect(() => {
     async function loadEmployee() {
       setEmployeeInfo(null);
@@ -217,13 +191,10 @@ export default function CheckoutPage() {
         .eq("document_number", doc)
         .single();
 
-      // No bloqueamos el checkout solo por no encontrarlo mientras escribe,
-      // pero sí mostramos mensaje abajo si está completo y no existe.
       if (error || !emp) return;
 
       setEmployeeInfo(emp);
 
-      // traer configuración de pago de la empresa para previsualizar fechas
       if (emp.company_id) {
         const { data: comp } = await supabase
           .from("companies")
@@ -234,7 +205,6 @@ export default function CheckoutPage() {
         if (comp) setCompanyPayConfig(comp);
       }
 
-      // ajustar cuotas si supera el máximo
       const mi = Number(emp.max_installments || 1);
       if (Number.isFinite(mi) && installments > mi) setInstallments(mi);
     }
@@ -253,7 +223,6 @@ export default function CheckoutPage() {
     if (!shippingCity.trim()) return setErrorMsg("Falta la ciudad.");
     if (!shippingDepartment.trim()) return setErrorMsg("Falta el departamento.");
 
-    // mostrar viabilidad de cupo (si ya tenemos info)
     if (employeeInfo) {
       if (employeeInfo.active === false) return setErrorMsg("Empleado no encontrado o inactivo.");
       if (creditLimit > 0 && installmentAmount > creditLimit) {
@@ -286,17 +255,11 @@ export default function CheckoutPage() {
       return;
     }
 
-    // ✅ FIX: evitar que el checkout “detecte carrito vacío” y te mande a /cart
     setJustConfirmed(true);
-
-    // Primero redirigimos…
     router.push(`/market/order/${orderId}`);
-
-    // …y luego limpiamos el carrito (después de navegar)
     setTimeout(() => clear(), 50);
   }
 
-  // si por alguna razón el usuario se queda aquí y ya confirmó, no lo mandamos al carrito
   useEffect(() => {
     if (justConfirmed) return;
     if (items && items.length === 0) router.push("/market/cart");
@@ -327,9 +290,7 @@ export default function CheckoutPage() {
       )}
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        {/* Izquierda: Datos */}
         <div className="space-y-6">
-          {/* Documento / cuotas */}
           <div className="border border-slate-800 bg-slate-900 rounded-lg p-5 space-y-4">
             <h2 className="text-lg font-semibold">Validación del empleado</h2>
 
@@ -376,7 +337,6 @@ export default function CheckoutPage() {
                 })}
               </select>
 
-              {/* ✅ Muestra máximo permitido y viabilidad */}
               <div className="text-xs text-slate-400 mt-2 space-y-1">
                 {showMax && (
                   <div>
@@ -405,7 +365,6 @@ export default function CheckoutPage() {
             </div>
           </div>
 
-          {/* ✅ Resumen de cuotas (en vivo) */}
           <div className="border border-slate-800 bg-slate-900 rounded-lg p-5 space-y-3">
             <h2 className="text-lg font-semibold">Resumen de pagos</h2>
 
@@ -432,11 +391,10 @@ export default function CheckoutPage() {
             </div>
 
             <div className="text-xs text-slate-500">
-              *Las fechas son una previsualización con base en la regla de pago de la empresa (si está configurada).
+              *Las fechas son una previsualización con base en la regla de pago de la empresa.
             </div>
           </div>
 
-          {/* Envío */}
           <div className="border border-slate-800 bg-slate-900 rounded-lg p-5 space-y-4">
             <h2 className="text-lg font-semibold">Dirección de envío</h2>
 
@@ -507,7 +465,6 @@ export default function CheckoutPage() {
           </div>
         </div>
 
-        {/* Derecha: Resumen */}
         <div className="space-y-4">
           <div className="border border-slate-800 bg-slate-900 rounded-lg p-5 space-y-3">
             <h2 className="text-lg font-semibold">Resumen</h2>
@@ -537,11 +494,19 @@ export default function CheckoutPage() {
             </button>
 
             <div className="text-xs text-slate-500">
-              Al confirmar, se valida empleado/cupo y se genera la orden lista para despacho (PROCESSED).
+              Al confirmar, se valida empleado/cupo y se genera la orden lista para despacho.
             </div>
           </div>
         </div>
       </div>
     </div>
+  );
+}
+
+export default function CheckoutPage() {
+  return (
+    <Suspense fallback={<div className="p-6">Cargando checkout...</div>}>
+      <CheckoutPageContent />
+    </Suspense>
   );
 }
