@@ -1,11 +1,11 @@
 "use client";
 
+import { Suspense, useEffect, useState } from "react";
 import Link from "next/link";
-import { useEffect, useState } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
 
-export default function ThankYouPage() {
+function ThankYouPageContent() {
   const sp = useSearchParams();
   const router = useRouter();
   const orderId = sp.get("order");
@@ -26,7 +26,6 @@ export default function ThankYouPage() {
         return;
       }
 
-      // 1) Cargar order
       const { data: orderData, error: orderError } = await supabase
         .from("orders")
         .select("id, status, subtotal, installments, installment_amount, created_at")
@@ -39,7 +38,6 @@ export default function ThankYouPage() {
         return;
       }
 
-      // 2) Cargar items
       const { data: itemsData, error: itemsError } = await supabase
         .from("order_items")
         .select("id, name_snapshot, price_snapshot, qty")
@@ -63,7 +61,11 @@ export default function ThankYouPage() {
   }, [orderId]);
 
   if (loading) {
-    return <div className="max-w-2xl mx-auto p-6 text-slate-300">Cargando confirmación...</div>;
+    return (
+      <div className="max-w-2xl mx-auto p-6 text-slate-300">
+        Cargando confirmación...
+      </div>
+    );
   }
 
   if (errorMsg) {
@@ -72,14 +74,12 @@ export default function ThankYouPage() {
         <h1 className="text-2xl font-bold text-red-300">Ups</h1>
         <p className="text-slate-300">{errorMsg}</p>
 
-        <div className="flex gap-3">
-          <button
-            onClick={() => router.push("/market")}
-            className="px-6 py-3 rounded border border-slate-700 text-slate-200 hover:bg-slate-900 transition"
-          >
-            Volver al catálogo
-          </button>
-        </div>
+        <button
+          onClick={() => router.push("/market")}
+          className="px-6 py-3 rounded border border-slate-700 text-slate-200 hover:bg-slate-900 transition"
+        >
+          Volver al catálogo
+        </button>
       </div>
     );
   }
@@ -92,9 +92,7 @@ export default function ThankYouPage() {
     <div className="max-w-2xl mx-auto space-y-6">
       <div>
         <h1 className="text-2xl font-bold text-emerald-400">¡Compra confirmada!</h1>
-        <p className="text-slate-300 mt-1">
-          Tu orden fue creada correctamente.
-        </p>
+        <p className="text-slate-300 mt-1">Tu orden fue creada correctamente.</p>
       </div>
 
       <div className="border border-slate-800 bg-slate-900 rounded-lg p-4 space-y-2">
@@ -119,7 +117,9 @@ export default function ThankYouPage() {
 
         <div className="flex justify-between">
           <span className="text-slate-300">Valor por cuota</span>
-          <span className="text-slate-100 font-semibold">${installmentAmount.toFixed(2)}</span>
+          <span className="text-slate-100 font-semibold">
+            ${installmentAmount.toFixed(2)}
+          </span>
         </div>
       </div>
 
@@ -160,5 +160,13 @@ export default function ThankYouPage() {
         </Link>
       </div>
     </div>
+  );
+}
+
+export default function ThankYouPage() {
+  return (
+    <Suspense fallback={<div className="p-6">Cargando confirmación...</div>}>
+      <ThankYouPageContent />
+    </Suspense>
   );
 }
