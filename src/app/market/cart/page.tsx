@@ -1,9 +1,10 @@
 "use client";
 
+import { Suspense } from "react";
 import Link from "next/link";
 import { useCart } from "@/components/cart/CartProvider";
 
-export default function CartPage() {
+function CartPageContent() {
   const { items, subtotal, setQty, removeItem, clear } = useCart();
 
   return (
@@ -41,7 +42,8 @@ export default function CartPage() {
                   alt={it.name}
                   className="w-20 h-20 rounded border border-slate-800 object-cover"
                   onError={(e) => {
-                    (e.currentTarget as HTMLImageElement).src = "/no-image.png";
+                    (e.currentTarget as HTMLImageElement).src =
+                      "/no-image.png";
                   }}
                 />
 
@@ -115,5 +117,13 @@ export default function CartPage() {
         </>
       )}
     </div>
+  );
+}
+
+export default function CartPage() {
+  return (
+    <Suspense fallback={<div className="p-6">Cargando carrito...</div>}>
+      <CartPageContent />
+    </Suspense>
   );
 }
