@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { Suspense, useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
 
@@ -65,7 +65,7 @@ function Chip({ label, onClear }: { label: string; onClear: () => void }) {
   );
 }
 
-export default function MarketplaceHome() {
+function MarketplaceHomeContent() {
   const sp = useSearchParams();
 
   const qFromUrl = useMemo(() => (sp.get("q") || "").trim(), [sp]);
@@ -287,7 +287,6 @@ export default function MarketplaceHome() {
 
   return (
     <div className="max-w-6xl mx-auto px-4 py-6 space-y-5">
-      {/* FILTROS */}
       <div className="border border-slate-200 bg-white rounded-2xl p-4 space-y-4">
         <div className="grid grid-cols-1 md:grid-cols-12 gap-3">
           <div className="md:col-span-4">
@@ -481,5 +480,13 @@ export default function MarketplaceHome() {
         </>
       )}
     </div>
+  );
+}
+
+export default function MarketplaceHome() {
+  return (
+    <Suspense fallback={<div className="p-6">Cargando marketplace...</div>}>
+      <MarketplaceHomeContent />
+    </Suspense>
   );
 }
