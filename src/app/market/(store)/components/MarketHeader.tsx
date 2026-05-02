@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { ShoppingCart } from "lucide-react";
+import { Building2, Rocket, ShoppingCart } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { useCart } from "@/components/cart/CartProvider";
 
@@ -70,7 +70,11 @@ export default function MarketHeader() {
               )}
             </button>
 
-            <Link href="/login" className="text-sm font-semibold" style={{ color: NOVA_AQUA }}>
+            <Link
+              href="/login"
+              className="text-sm font-semibold"
+              style={{ color: NOVA_AQUA }}
+            >
               Iniciar sesión
             </Link>
           </div>
@@ -100,8 +104,37 @@ export default function MarketHeader() {
             </button>
           </div>
 
-          <div className="text-[11px] mt-1" style={{ color: "rgba(255,255,255,0.65)" }}>
-            Tip: escribe y presiona Enter.
+          <div className="mt-3 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+            <nav className="flex flex-wrap items-center justify-center sm:justify-start gap-2">
+              <Link
+                href="/brand"
+                className="inline-flex items-center gap-2 rounded-full px-4 py-2 text-xs md:text-sm font-bold transition shadow-sm"
+                style={{
+                  backgroundColor: NOVA_AQUA,
+                  color: NOVA_BLUE,
+                }}
+              >
+                <Rocket className="w-4 h-4" />
+                Quiero vender
+              </Link>
+
+              <Link
+                href="/company"
+                className="inline-flex items-center gap-2 rounded-full px-4 py-2 text-xs md:text-sm font-bold transition border"
+                style={{
+                  color: NOVA_AQUA,
+                  borderColor: "rgba(47,240,214,0.45)",
+                  backgroundColor: "rgba(255,255,255,0.06)",
+                }}
+              >
+                <Building2 className="w-4 h-4" />
+                Soy empleador
+              </Link>
+            </nav>
+
+            <div className="text-[11px] text-center sm:text-right text-white/60">
+              Únete como marca o empresa aliada
+            </div>
           </div>
         </div>
 
@@ -123,7 +156,11 @@ export default function MarketHeader() {
             )}
           </button>
 
-          <Link href="/login" className="text-sm font-semibold transition" style={{ color: NOVA_AQUA }}>
+          <Link
+            href="/login"
+            className="text-sm font-semibold transition"
+            style={{ color: NOVA_AQUA }}
+          >
             Iniciar sesión
           </Link>
         </div>
