@@ -52,7 +52,6 @@ export default function BrandSidebar() {
 
   return (
     <aside className="w-64 flex flex-col justify-between border-r border-slate-800 bg-slate-900/40 backdrop-blur p-4">
-      {/* TOP */}
       <div>
         <div className="mb-6">
           <div className="text-2xl font-extrabold text-emerald-400">NOVA</div>
@@ -66,6 +65,8 @@ export default function BrandSidebar() {
             <div className="px-4 pt-2 pb-1 text-xs font-bold uppercase tracking-wide text-slate-500">
               Productos
             </div>
+
+            <SubItem href="/brand/product-brands" label="Crear marca" />
             <SubItem href="/brand/products" label="Crear producto" />
             <SubItem href="/brand/products/list" label="Listado de productos" />
           </div>
@@ -74,7 +75,6 @@ export default function BrandSidebar() {
         </nav>
       </div>
 
-      {/* BOTTOM */}
       <div className="space-y-2 pt-6 border-t border-slate-800">
         <Item href="/brand/profile" label="Mi perfil" />
 
