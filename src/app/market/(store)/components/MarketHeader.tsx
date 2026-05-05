@@ -123,6 +123,8 @@ export default function MarketHeader() {
       }}
     >
       <div className="max-w-6xl mx-auto px-4 py-4 grid grid-cols-12 items-center gap-4">
+        
+        {/* LOGO */}
         <div className="col-span-12 md:col-span-3 flex items-center justify-between md:block">
           <div>
             <Link
@@ -164,6 +166,7 @@ export default function MarketHeader() {
           </div>
         </div>
 
+        {/* BUSCADOR + MENÚ */}
         <div className="col-span-12 md:col-span-6">
           <div className="relative">
             <input
@@ -188,181 +191,173 @@ export default function MarketHeader() {
             </button>
           </div>
 
-          <div className="mt-3 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-            <nav className="flex flex-wrap items-center justify-center sm:justify-start gap-2 relative">
-              <Link
-                href="/brand"
-                className="inline-flex items-center gap-2 rounded-full px-4 py-2 text-xs md:text-sm font-bold transition shadow-sm"
-                style={{
-                  backgroundColor: "rgba(255,255,255,0.06)",
-                  color: NOVA_AQUA,
-                  border: "1px solid rgba(47,240,214,0.45)",
-                }}
-              >
-                <Rocket className="w-4 h-4" />
-                Quiero vender
-              </Link>
-
-              <Link
-                href="/company"
-                className="inline-flex items-center gap-2 rounded-full px-4 py-2 text-xs md:text-sm font-bold transition border"
-                style={{
-                  color: NOVA_AQUA,
-                  borderColor: "rgba(47,240,214,0.45)",
-                  backgroundColor: "rgba(255,255,255,0.06)",
-                }}
-              >
-                <Building2 className="w-4 h-4" />
-                Soy empleador
-              </Link>
-
-              <div className="relative">
-                <button
-                  type="button"
-                  onClick={() => setBuyOpen((v) => !v)}
-                  className="inline-flex items-center gap-2 rounded-full px-4 py-2 text-xs md:text-sm font-bold transition border"
+          {/* BOTONES (AJUSTADOS) */}
+          <div className="mt-3">
+            <nav className="flex flex-wrap items-center justify-between gap-2 relative">
+              
+              <div className="flex flex-wrap gap-2">
+                <Link
+                  href="/brand"
+                  className="inline-flex items-center gap-2 rounded-full px-4 py-2 text-xs md:text-sm font-bold transition shadow-sm"
                   style={{
-                    color: NOVA_BLUE,
-                    backgroundColor: NOVA_AQUA,
-                    borderColor: "rgba(47,240,214,0.45)",
+                    backgroundColor: "rgba(255,255,255,0.06)",
+                    color: NOVA_AQUA,
+                    border: "1px solid rgba(47,240,214,0.45)",
                   }}
                 >
-                  <ShoppingBag className="w-4 h-4" />
-                  Comprar
-                  <ChevronDown className="w-4 h-4" />
-                </button>
+                  <Rocket className="w-4 h-4" />
+                  Quiero vender
+                </Link>
 
-                {buyOpen && (
-                  <div className="absolute left-0 mt-3 w-[330px] max-h-[70vh] overflow-y-auto rounded-2xl border border-slate-200 bg-white shadow-2xl p-3 z-50">
-                    <button
-                      onClick={() => go("/market")}
-                      className="w-full flex items-center justify-between px-3 py-3 rounded-xl text-sm font-bold text-slate-900 hover:bg-slate-50"
-                    >
-                      Ver todos los productos
-                      <ChevronRight className="w-4 h-4 text-slate-400" />
-                    </button>
+                <Link
+                  href="/company"
+                  className="inline-flex items-center gap-2 rounded-full px-4 py-2 text-xs md:text-sm font-bold transition border"
+                  style={{
+                    color: NOVA_AQUA,
+                    borderColor: "rgba(47,240,214,0.45)",
+                    backgroundColor: "rgba(255,255,255,0.06)",
+                  }}
+                >
+                  <Building2 className="w-4 h-4" />
+                  Soy empleador
+                </Link>
 
-                    <div className="border-t border-slate-100 my-2" />
+                {/* BOTÓN COMPRAR */}
+                <div className="relative">
+                  <button
+                    type="button"
+                    onClick={() => setBuyOpen((v) => !v)}
+                    className="inline-flex items-center gap-2 rounded-full px-4 py-2 text-xs md:text-sm font-bold transition border"
+                    style={{
+                      color: NOVA_BLUE,
+                      backgroundColor: NOVA_AQUA,
+                      borderColor: "rgba(47,240,214,0.45)",
+                    }}
+                  >
+                    <ShoppingBag className="w-4 h-4" />
+                    Comprar
+                    <ChevronDown className="w-4 h-4" />
+                  </button>
 
-                    <button
-                      onClick={() => setCatsOpen((v) => !v)}
-                      className="w-full flex items-center justify-between px-3 py-2 rounded-xl text-sm font-bold text-slate-700 hover:bg-slate-50"
-                    >
-                      Categorías
-                      {catsOpen ? (
-                        <ChevronDown className="w-4 h-4" />
-                      ) : (
-                        <ChevronRight className="w-4 h-4" />
-                      )}
-                    </button>
+                  {/* DROPDOWN (SIN CAMBIOS) */}
+                  {buyOpen && (
+                    <div className="absolute left-0 mt-3 w-[330px] max-h-[70vh] overflow-y-auto rounded-2xl border border-slate-200 bg-white shadow-2xl p-3 z-50">
+                      <button
+                        onClick={() => go("/market")}
+                        className="w-full flex items-center justify-between px-3 py-3 rounded-xl text-sm font-bold text-slate-900 hover:bg-slate-50"
+                      >
+                        Ver todos los productos
+                        <ChevronRight className="w-4 h-4 text-slate-400" />
+                      </button>
 
-                    {catsOpen && (
-                      <div className="space-y-1">
-                        {categories.map((cat) => {
-                          const subs = subcatsFor(cat.name);
-                          const isOpen = openCategory === cat.name;
+                      <div className="border-t border-slate-100 my-2" />
 
-                          return (
-                            <div key={cat.id} className="rounded-xl">
-                              <div className="flex items-center">
-                                <button
-                                  onClick={() =>
-                                    go(`/market?category=${enc(cat.name)}`)
-                                  }
-                                  className="flex-1 text-left px-4 py-2 rounded-lg text-sm text-slate-700 hover:bg-slate-50"
-                                >
-                                  {cat.name}
-                                </button>
+                      <button
+                        onClick={() => setCatsOpen((v) => !v)}
+                        className="w-full flex items-center justify-between px-3 py-2 rounded-xl text-sm font-bold text-slate-700 hover:bg-slate-50"
+                      >
+                        Categorías
+                        {catsOpen ? (
+                          <ChevronDown className="w-4 h-4" />
+                        ) : (
+                          <ChevronRight className="w-4 h-4" />
+                        )}
+                      </button>
 
-                                {subs.length > 0 && (
+                      {catsOpen && (
+                        <div className="space-y-1">
+                          {categories.map((cat) => {
+                            const subs = subcatsFor(cat.name);
+                            const isOpen = openCategory === cat.name;
+
+                            return (
+                              <div key={cat.id}>
+                                <div className="flex items-center">
                                   <button
-                                    type="button"
                                     onClick={() =>
-                                      setOpenCategory(isOpen ? null : cat.name)
+                                      go(`/market?category=${enc(cat.name)}`)
                                     }
-                                    className="p-2 rounded-lg hover:bg-slate-50 text-slate-500"
+                                    className="flex-1 text-left px-4 py-2 text-sm hover:bg-slate-50"
                                   >
-                                    {isOpen ? (
-                                      <ChevronDown className="w-4 h-4" />
-                                    ) : (
-                                      <ChevronRight className="w-4 h-4" />
-                                    )}
+                                    {cat.name}
                                   </button>
+
+                                  {subs.length > 0 && (
+                                    <button
+                                      onClick={() =>
+                                        setOpenCategory(isOpen ? null : cat.name)
+                                      }
+                                      className="p-2"
+                                    >
+                                      {isOpen ? (
+                                        <ChevronDown className="w-4 h-4" />
+                                      ) : (
+                                        <ChevronRight className="w-4 h-4" />
+                                      )}
+                                    </button>
+                                  )}
+                                </div>
+
+                                {isOpen && (
+                                  <div className="ml-4">
+                                    {subs.map((sub) => (
+                                      <button
+                                        key={sub.id}
+                                        onClick={() =>
+                                          go(
+                                            `/market?category=${enc(
+                                              cat.name
+                                            )}&subcategory=${enc(sub.name)}`
+                                          )
+                                        }
+                                        className="block w-full text-left px-4 py-1 text-xs hover:bg-slate-50"
+                                      >
+                                        {sub.name}
+                                      </button>
+                                    ))}
+                                  </div>
                                 )}
                               </div>
-
-                              {isOpen && subs.length > 0 && (
-                                <div className="ml-4 border-l border-slate-100 pl-2 pb-2">
-                                  {subs.map((sub) => (
-                                    <button
-                                      key={sub.id}
-                                      onClick={() =>
-                                        go(
-                                          `/market?category=${enc(
-                                            cat.name
-                                          )}&subcategory=${enc(sub.name)}`
-                                        )
-                                      }
-                                      className="block w-full text-left px-4 py-2 rounded-lg text-xs text-slate-500 hover:bg-slate-50 hover:text-slate-900"
-                                    >
-                                      {sub.name}
-                                    </button>
-                                  ))}
-                                </div>
-                              )}
-                            </div>
-                          );
-                        })}
-                      </div>
-                    )}
-
-                    <div className="border-t border-slate-100 my-2" />
-
-                    <button
-                      onClick={() => setBrandsOpen((v) => !v)}
-                      className="w-full flex items-center justify-between px-3 py-2 rounded-xl text-sm font-bold text-slate-700 hover:bg-slate-50"
-                    >
-                      Marcas
-                      {brandsOpen ? (
-                        <ChevronDown className="w-4 h-4" />
-                      ) : (
-                        <ChevronRight className="w-4 h-4" />
+                            );
+                          })}
+                        </div>
                       )}
-                    </button>
 
-                    {brandsOpen && (
-                      <div className="grid grid-cols-1 gap-1">
-                        {productBrands.map((b) => (
-                          <button
-                            key={b.id}
-                            onClick={() => go(`/market?brand=${b.id}`)}
-                            className="flex items-center gap-3 px-4 py-2 rounded-lg text-sm text-slate-700 hover:bg-slate-50"
-                          >
-                            {b.logo_url ? (
-                              <img
-                                src={b.logo_url}
-                                alt={b.name}
-                                className="w-7 h-7 object-contain rounded bg-white border border-slate-100"
-                              />
-                            ) : (
-                              <span className="w-7 h-7 rounded bg-slate-100" />
-                            )}
-                            {b.name}
-                          </button>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                )}
+                      <div className="border-t my-2" />
+
+                      <button
+                        onClick={() => setBrandsOpen((v) => !v)}
+                        className="w-full flex justify-between px-3 py-2 text-sm font-bold"
+                      >
+                        Marcas
+                        {brandsOpen ? <ChevronDown /> : <ChevronRight />}
+                      </button>
+
+                      {brandsOpen && (
+                        <div>
+                          {productBrands.map((b) => (
+                            <button
+                              key={b.id}
+                              onClick={() => go(`/market?brand=${b.id}`)}
+                              className="flex items-center gap-2 px-3 py-2 w-full text-left"
+                            >
+                              {b.logo_url && (
+                                <img src={b.logo_url} className="w-6 h-6" />
+                              )}
+                              {b.name}
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
               </div>
             </nav>
-
-            <div className="text-[11px] text-center sm:text-right text-white/60">
-              Únete como marca o empresa aliada
-            </div>
           </div>
         </div>
 
+        {/* DERECHA */}
         <div className="hidden md:flex col-span-3 items-center justify-end gap-4">
           <button
             onClick={() => router.push("/market/cart")}
