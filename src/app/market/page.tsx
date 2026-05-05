@@ -18,6 +18,12 @@ type MarketCategory = {
   image_url?: string | null;
 };
 
+type MarketSubcategory = {
+  id: string;
+  category_name: string;
+  name: string;
+};
+
 function formatCOP(n: number) {
   return new Intl.NumberFormat("es-CO", {
     style: "currency",
@@ -69,9 +75,19 @@ function MarketplaceHomeContent() {
   const sp = useSearchParams();
 
   const qFromUrl = useMemo(() => (sp.get("q") || "").trim(), [sp]);
+  const categoryFromUrl = useMemo(() => (sp.get("category") || "").trim(), [sp]);
+  const subcategoryFromUrl = useMemo(
+    () => (sp.get("subcategory") || "").trim(),
+    [sp]
+  );
+  const brandFromUrl = useMemo(() => (sp.get("brand") || "").trim(), [sp]);
 
-  const [brandId, setBrandId] = useState<string>("ALL");
-  const [category, setCategory] = useState<string>("ALL");
+  const [brandId, setBrandId] = useState<string>(brandFromUrl || "ALL");
+  const [category, setCategory] = useState<string>(categoryFromUrl || "ALL");
+  const [subcategory, setSubcategory] = useState<string>(
+    subcategoryFromUrl || "ALL"
+  );
+
   const [onlyAvailable, setOnlyAvailable] = useState(false);
   const [onlyDiscount, setOnlyDiscount] = useState(false);
   const [sort, setSort] = useState<"NEW" | "PRICE_ASC" | "PRICE_DESC">("NEW");
@@ -81,21 +97,41 @@ function MarketplaceHomeContent() {
 
   const [brands, setBrands] = useState<Brand[]>([]);
   const [categories, setCategories] = useState<MarketCategory[]>([]);
+  const [subcategories, setSubcategories] = useState<MarketSubcategory[]>([]);
   const [products, setProducts] = useState<any[]>([]);
   const [total, setTotal] = useState<number>(0);
 
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState<string | null>(null);
 
+  useEffect(() => {
+    setBrandId(brandFromUrl || "ALL");
+    setCategory(categoryFromUrl || "ALL");
+    setSubcategory(subcategoryFromUrl || "ALL");
+  }, [brandFromUrl, categoryFromUrl, subcategoryFromUrl]);
+
   const totalPages = useMemo(() => {
     const t = Math.ceil((total || 0) / pageSize);
     return t <= 0 ? 1 : t;
   }, [total]);
 
+  const filteredSubcategories = useMemo(() => {
+    if (category === "ALL") return [];
+
+    return subcategories.filter(
+      (s) =>
+        s.category_name.trim().toLowerCase() === category.trim().toLowerCase()
+    );
+  }, [subcategories, category]);
+
   const isHomeMode =
     !qFromUrl &&
+    !brandFromUrl &&
+    !categoryFromUrl &&
+    !subcategoryFromUrl &&
     brandId === "ALL" &&
     category === "ALL" &&
+    subcategory === "ALL" &&
     !onlyAvailable &&
     !onlyDiscount &&
     sort === "NEW";
@@ -103,7 +139,7 @@ function MarketplaceHomeContent() {
   useEffect(() => {
     async function loadBrands() {
       const { data, error } = await supabase
-        .from("brands")
+        .from("product_brands")
         .select("id,name")
         .eq("active", true)
         .order("name", { ascending: true });
@@ -136,8 +172,37 @@ function MarketplaceHomeContent() {
   }, []);
 
   useEffect(() => {
+    async function loadSubcats() {
+      const { data, error } = await supabase
+        .from("market_subcategories")
+        .select("id,category_name,name")
+        .eq("active", true)
+        .order("sort_order", { ascending: true })
+        .order("name", { ascending: true });
+
+      if (error) {
+        console.error("Subcategories error:", error.message);
+        setSubcategories([]);
+        return;
+      }
+
+      setSubcategories((data || []) as any);
+    }
+
+    loadSubcats();
+  }, []);
+
+  useEffect(() => {
     setPage(1);
-  }, [brandId, category, onlyAvailable, onlyDiscount, sort, qFromUrl]);
+  }, [
+    brandId,
+    category,
+    subcategory,
+    onlyAvailable,
+    onlyDiscount,
+    sort,
+    qFromUrl,
+  ]);
 
   useEffect(() => {
     setLoading(true);
@@ -148,13 +213,14 @@ function MarketplaceHomeContent() {
         let query = supabase
           .from("products")
           .select(
-            "id, name, description, price, discount_price, stock, active, brand_id, category, images, image_url, created_at",
+            "id, name, description, price, discount_price, stock, active, brand_id, product_brand_id, category, subcategory, images, image_url, created_at",
             { count: "exact" }
           )
           .eq("active", true);
 
-        if (brandId !== "ALL") query = query.eq("brand_id", brandId);
+        if (brandId !== "ALL") query = query.eq("product_brand_id", brandId);
         if (category !== "ALL") query = query.eq("category", category);
+        if (subcategory !== "ALL") query = query.eq("subcategory", subcategory);
         if (onlyAvailable) query = query.gt("stock", 0);
         if (onlyDiscount) query = query.gt("discount_price", 0);
         if (qFromUrl) query = query.ilike("name", `%${qFromUrl}%`);
@@ -214,11 +280,21 @@ function MarketplaceHomeContent() {
     }, 150);
 
     return () => clearTimeout(t);
-  }, [brandId, category, onlyAvailable, onlyDiscount, sort, qFromUrl, page]);
+  }, [
+    brandId,
+    category,
+    subcategory,
+    onlyAvailable,
+    onlyDiscount,
+    sort,
+    qFromUrl,
+    page,
+  ]);
 
   function resetFilters() {
     setBrandId("ALL");
     setCategory("ALL");
+    setSubcategory("ALL");
     setOnlyAvailable(false);
     setOnlyDiscount(false);
     setSort("NEW");
@@ -250,7 +326,17 @@ function MarketplaceHomeContent() {
     if (category !== "ALL") {
       arr.push({
         label: `Categoría: ${category}`,
-        clear: () => setCategory("ALL"),
+        clear: () => {
+          setCategory("ALL");
+          setSubcategory("ALL");
+        },
+      });
+    }
+
+    if (subcategory !== "ALL") {
+      arr.push({
+        label: `Subcategoría: ${subcategory}`,
+        clear: () => setSubcategory("ALL"),
       });
     }
 
@@ -283,13 +369,22 @@ function MarketplaceHomeContent() {
     }
 
     return arr;
-  }, [qFromUrl, brandId, brandName, category, onlyAvailable, onlyDiscount, sort]);
+  }, [
+    qFromUrl,
+    brandId,
+    brandName,
+    category,
+    subcategory,
+    onlyAvailable,
+    onlyDiscount,
+    sort,
+  ]);
 
   return (
     <div className="max-w-6xl mx-auto px-4 py-6 space-y-5">
       <div className="border border-slate-200 bg-white rounded-2xl p-4 space-y-4">
         <div className="grid grid-cols-1 md:grid-cols-12 gap-3">
-          <div className="md:col-span-4">
+          <div className="md:col-span-3">
             <label className="text-xs text-slate-500">Marca</label>
             <select
               value={brandId}
@@ -305,11 +400,14 @@ function MarketplaceHomeContent() {
             </select>
           </div>
 
-          <div className="md:col-span-4">
+          <div className="md:col-span-3">
             <label className="text-xs text-slate-500">Categoría</label>
             <select
               value={category}
-              onChange={(e) => setCategory(e.target.value)}
+              onChange={(e) => {
+                setCategory(e.target.value);
+                setSubcategory("ALL");
+              }}
               className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2 mt-1"
             >
               <option value="ALL">Todas</option>
@@ -321,7 +419,26 @@ function MarketplaceHomeContent() {
             </select>
           </div>
 
-          <div className="md:col-span-4">
+          <div className="md:col-span-3">
+            <label className="text-xs text-slate-500">Subcategoría</label>
+            <select
+              value={subcategory}
+              onChange={(e) => setSubcategory(e.target.value)}
+              disabled={category === "ALL"}
+              className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2 mt-1 disabled:bg-slate-100 disabled:text-slate-400"
+            >
+              <option value="ALL">
+                {category === "ALL" ? "Primero categoría" : "Todas"}
+              </option>
+              {filteredSubcategories.map((s) => (
+                <option key={s.id} value={s.name}>
+                  {s.name}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div className="md:col-span-3">
             <label className="text-xs text-slate-500">Orden</label>
             <select
               value={sort}
@@ -388,7 +505,10 @@ function MarketplaceHomeContent() {
 
           <CategoriesCarousel
             categories={categories}
-            onSelect={(name) => setCategory(name)}
+            onSelect={(name) => {
+              setCategory(name);
+              setSubcategory("ALL");
+            }}
           />
 
           <BestSellersByCategory />
