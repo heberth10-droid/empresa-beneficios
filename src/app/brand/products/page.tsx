@@ -794,6 +794,39 @@ export default function BrandProductsPage() {
     return map;
   }
 
+  async function importExternalImagesToSupabase(row: BulkProductRow) {
+  const importedUrls: string[] = [];
+
+  for (const imageUrl of row.images) {
+    try {
+      const res = await fetch("/api/import-product-image", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          imageUrl,
+          brandId: brand.id,
+          sku: row.sku,
+        }),
+      });
+
+      const json = await res.json();
+
+      if (!res.ok || !json.publicUrl) {
+        console.warn("No se pudo importar imagen:", imageUrl, json.error);
+        continue;
+      }
+
+      importedUrls.push(json.publicUrl);
+    } catch (error) {
+      console.warn("Error importando imagen:", imageUrl, error);
+    }
+  }
+
+  return importedUrls;
+}
+
   async function confirmBulkUpload() {
     if (bulkInvalidRows.length > 0) {
       alert("Corrige los errores antes de confirmar la carga.");
