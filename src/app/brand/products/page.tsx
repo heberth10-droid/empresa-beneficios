@@ -871,6 +871,8 @@ export default function BrandProductsPage() {
         const existingId = existingBySku.get(row.sku.toLowerCase());
         const pb = productBrandMap.get(row.product_brand.trim().toLowerCase());
 
+        const importedImages = await importExternalImagesToSupabase(row);
+
         const payload = {
           brand_id: brand.id,
           product_brand_id: pb?.id || null,
@@ -882,7 +884,7 @@ export default function BrandProductsPage() {
           discount_price: row.discount_price,
           stock: row.stock,
           description: row.description,
-          images: row.images,
+          images: importedImages.length > 0 ? importedImages: row.images,
           active: true,
         };
 
