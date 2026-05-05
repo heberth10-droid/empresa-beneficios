@@ -14,6 +14,12 @@ type MarketCategory = {
   image_url?: string | null;
 };
 
+type MarketSubcategory = {
+  id: string;
+  category_name: string;
+  name: string;
+};
+
 type ProductBrand = {
   id: string;
   seller_brand_id: string;
@@ -27,6 +33,7 @@ type BulkProductRow = {
   name: string;
   sku: string;
   category: string;
+  subcategory: string;
   product_brand: string;
   product_brand_logo_url: string;
   price: number;
@@ -41,6 +48,7 @@ const REQUIRED_COLUMNS = [
   "name",
   "sku",
   "category",
+  "subcategory",
   "product_brand",
   "price",
   "stock",
@@ -84,16 +92,21 @@ export default function BrandProductsPage() {
   const [brand, setBrand] = useState<any>(null);
   const [products, setProducts] = useState<any[]>([]);
   const [categories, setCategories] = useState<MarketCategory[]>([]);
+  const [subcategories, setSubcategories] = useState<MarketSubcategory[]>([]);
   const [productBrands, setProductBrands] = useState<ProductBrand[]>([]);
 
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [category, setCategory] = useState("");
   const [newCategory, setNewCategory] = useState("");
+  const [subcategory, setSubcategory] = useState("");
+  const [newSubcategory, setNewSubcategory] = useState("");
 
   const [productBrandId, setProductBrandId] = useState("");
   const [newProductBrandName, setNewProductBrandName] = useState("");
-  const [newProductBrandLogo, setNewProductBrandLogo] = useState<File | null>(null);
+  const [newProductBrandLogo, setNewProductBrandLogo] = useState<File | null>(
+    null
+  );
 
   const [price, setPrice] = useState("");
   const [discountPrice, setDiscountPrice] = useState("");
@@ -112,6 +125,18 @@ export default function BrandProductsPage() {
   const [bulkFileName, setBulkFileName] = useState("");
   const [bulkParsing, setBulkParsing] = useState(false);
   const [bulkSaving, setBulkSaving] = useState(false);
+
+  const selectedCategoryName = newCategory.trim() || category.trim();
+
+  const filteredSubcategories = useMemo(() => {
+    if (!selectedCategoryName) return [];
+
+    return subcategories.filter(
+      (s) =>
+        s.category_name.trim().toLowerCase() ===
+        selectedCategoryName.trim().toLowerCase()
+    );
+  }, [subcategories, selectedCategoryName]);
 
   const bulkValidRows = useMemo(
     () => bulkRows.filter((r) => r.errors.length === 0),
@@ -160,6 +185,7 @@ export default function BrandProductsPage() {
       await Promise.all([
         loadProducts(brandData.id),
         loadCategories(),
+        loadSubcategories(),
         loadProductBrands(brandData.id),
       ]);
 
@@ -194,6 +220,23 @@ export default function BrandProductsPage() {
     }
 
     setCategories((data || []) as MarketCategory[]);
+  }
+
+  async function loadSubcategories() {
+    const { data, error } = await supabase
+      .from("market_subcategories")
+      .select("id,category_name,name")
+      .eq("active", true)
+      .order("sort_order", { ascending: true })
+      .order("name", { ascending: true });
+
+    if (error) {
+      console.error("Error cargando subcategorías:", error);
+      setSubcategories([]);
+      return;
+    }
+
+    setSubcategories((data || []) as MarketSubcategory[]);
   }
 
   async function loadProductBrands(brandId: string) {
@@ -260,10 +303,14 @@ export default function BrandProductsPage() {
       });
 
     if (uploadError) {
-      throw new Error("No se pudo subir el logo de la marca: " + uploadError.message);
+      throw new Error(
+        "No se pudo subir el logo de la marca: " + uploadError.message
+      );
     }
 
-    return supabase.storage.from(BRAND_LOGO_BUCKET).getPublicUrl(filePath).data.publicUrl;
+    return supabase.storage
+      .from(BRAND_LOGO_BUCKET)
+      .getPublicUrl(filePath).data.publicUrl;
   }
 
   async function ensureCategory() {
@@ -290,6 +337,31 @@ export default function BrandProductsPage() {
     throw new Error("Debes seleccionar o crear una categoría.");
   }
 
+  async function ensureSubcategory(finalCategory: string) {
+    const cleanNew = newSubcategory.trim();
+    const cleanSelected = subcategory.trim();
+
+    if (cleanNew) {
+      const { error } = await supabase.from("market_subcategories").insert({
+        category_name: finalCategory,
+        name: cleanNew,
+        active: true,
+        sort_order: 100,
+      });
+
+      if (error && !error.message.toLowerCase().includes("duplicate")) {
+        throw new Error("No se pudo crear la subcategoría: " + error.message);
+      }
+
+      await loadSubcategories();
+      return cleanNew;
+    }
+
+    if (cleanSelected) return cleanSelected;
+
+    return null;
+  }
+
   async function ensureProductBrand() {
     const cleanNew = newProductBrandName.trim();
     const selected = productBrandId.trim();
@@ -313,11 +385,16 @@ export default function BrandProductsPage() {
         .single();
 
       if (error || !createdBrand) {
-        throw new Error("No se pudo crear la marca del producto: " + (error?.message || ""));
+        throw new Error(
+          "No se pudo crear la marca del producto: " + (error?.message || "")
+        );
       }
 
       if (newProductBrandLogo) {
-        const logoUrl = await uploadProductBrandLogo(createdBrand.id, newProductBrandLogo);
+        const logoUrl = await uploadProductBrandLogo(
+          createdBrand.id,
+          newProductBrandLogo
+        );
 
         const { error: updateLogoError } = await supabase
           .from("product_brands")
@@ -325,7 +402,10 @@ export default function BrandProductsPage() {
           .eq("id", createdBrand.id);
 
         if (updateLogoError) {
-          throw new Error("Marca creada, pero no se pudo guardar el logo: " + updateLogoError.message);
+          throw new Error(
+            "Marca creada, pero no se pudo guardar el logo: " +
+              updateLogoError.message
+          );
         }
       }
 
@@ -342,11 +422,15 @@ export default function BrandProductsPage() {
     try {
       setSaving(true);
 
-      if (!name.trim()) throw new Error("El nombre del producto es obligatorio.");
-      if (!price || Number(price) <= 0) throw new Error("El precio debe ser mayor a 0.");
-      if (!stock || Number(stock) < 0) throw new Error("El stock es obligatorio.");
+      if (!name.trim())
+        throw new Error("El nombre del producto es obligatorio.");
+      if (!price || Number(price) <= 0)
+        throw new Error("El precio debe ser mayor a 0.");
+      if (!stock || Number(stock) < 0)
+        throw new Error("El stock es obligatorio.");
 
       const finalCategory = await ensureCategory();
+      const finalSubcategory = await ensureSubcategory(finalCategory);
       const finalProductBrandId = await ensureProductBrand();
 
       const { data: newProduct, error: productError } = await supabase
@@ -357,6 +441,7 @@ export default function BrandProductsPage() {
           name: name.trim(),
           description: description.trim(),
           category: finalCategory,
+          subcategory: finalSubcategory,
           price: Number(price),
           discount_price: discountPrice ? Number(discountPrice) : null,
           sku: sku.trim(),
@@ -394,6 +479,8 @@ export default function BrandProductsPage() {
       setDescription("");
       setCategory("");
       setNewCategory("");
+      setSubcategory("");
+      setNewSubcategory("");
       setProductBrandId("");
       setNewProductBrandName("");
       setNewProductBrandLogo(null);
@@ -405,6 +492,8 @@ export default function BrandProductsPage() {
       setVariants([]);
 
       await loadProducts(brand.id);
+      await loadCategories();
+      await loadSubcategories();
       await loadProductBrands(brand.id);
     } catch (e: any) {
       alert(e?.message || "Error creando producto");
@@ -445,8 +534,11 @@ export default function BrandProductsPage() {
     const productName = String(clean.name || "").trim();
     const productSku = String(clean.sku || "").trim();
     const productCategory = String(clean.category || "").trim();
+    const productSubcategory = String(clean.subcategory || "").trim();
     const productBrand = String(clean.product_brand || "").trim();
-    const productBrandLogoUrl = String(clean.product_brand_logo_url || "").trim();
+    const productBrandLogoUrl = String(
+      clean.product_brand_logo_url || ""
+    ).trim();
     const productDescription = String(clean.description || "").trim();
     const productImages = parseImages(clean.images);
 
@@ -462,10 +554,13 @@ export default function BrandProductsPage() {
     if (!productName) errors.push("Falta name");
     if (!productSku) errors.push("Falta sku");
     if (!productCategory) errors.push("Falta category");
+    if (!productSubcategory) errors.push("Falta subcategory");
     if (!productBrand) errors.push("Falta product_brand");
     if (!productDescription) errors.push("Falta description");
-    if (!Number.isFinite(productPrice) || productPrice <= 0) errors.push("price inválido");
-    if (!Number.isFinite(productStock) || productStock < 0) errors.push("stock inválido");
+    if (!Number.isFinite(productPrice) || productPrice <= 0)
+      errors.push("price inválido");
+    if (!Number.isFinite(productStock) || productStock < 0)
+      errors.push("stock inválido");
 
     if (
       productDiscount !== null &&
@@ -487,6 +582,7 @@ export default function BrandProductsPage() {
       name: productName,
       sku: productSku,
       category: productCategory,
+      subcategory: productSubcategory,
       product_brand: productBrand,
       product_brand_logo_url: productBrandLogoUrl,
       price: productPrice,
@@ -532,6 +628,7 @@ export default function BrandProductsPage() {
               name: "",
               sku: "",
               category: "",
+              subcategory: "",
               product_brand: "",
               product_brand_logo_url: "",
               price: 0,
@@ -556,6 +653,7 @@ export default function BrandProductsPage() {
             name: "",
             sku: "",
             category: "",
+            subcategory: "",
             product_brand: "",
             product_brand_logo_url: "",
             price: 0,
@@ -575,7 +673,9 @@ export default function BrandProductsPage() {
     const fileName = file.name.toLowerCase();
 
     if (!fileName.endsWith(".csv")) {
-      alert("Por ahora solo se acepta archivo .csv. Puedes exportar tu Excel como CSV.");
+      alert(
+        "Por ahora solo se acepta archivo .csv. Puedes exportar tu Excel como CSV."
+      );
       return;
     }
 
@@ -605,10 +705,82 @@ export default function BrandProductsPage() {
       );
 
       if (error && !error.message.toLowerCase().includes("duplicate")) {
-        throw new Error("No se pudieron crear las categorías nuevas: " + error.message);
+        throw new Error(
+          "No se pudieron crear las categorías nuevas: " + error.message
+        );
       }
 
       await loadCategories();
+    }
+  }
+
+  async function ensureBulkSubcategories(rows: BulkProductRow[]) {
+    const { data: freshSubcategories, error } = await supabase
+      .from("market_subcategories")
+      .select("id,category_name,name")
+      .eq("active", true);
+
+    if (error) throw new Error(error.message);
+
+    const existingMap = new Map<string, boolean>();
+
+    for (const s of freshSubcategories || []) {
+      existingMap.set(
+        `${String(s.category_name).trim().toLowerCase()}::${String(s.name)
+          .trim()
+          .toLowerCase()}`,
+        true
+      );
+    }
+
+    const uniquePairs = Array.from(
+      new Map(
+        rows
+          .filter((r) => r.category.trim() && r.subcategory.trim())
+          .map((r) => [
+            `${r.category.trim().toLowerCase()}::${r.subcategory
+              .trim()
+              .toLowerCase()}`,
+            {
+              category_name: r.category.trim(),
+              name: r.subcategory.trim(),
+            },
+          ])
+      ).values()
+    );
+
+    const toCreate = uniquePairs.filter(
+      (s) =>
+        !existingMap.has(
+          `${s.category_name.trim().toLowerCase()}::${s.name
+            .trim()
+            .toLowerCase()}`
+        )
+    );
+
+    if (toCreate.length > 0) {
+      const { error: insertError } = await supabase
+        .from("market_subcategories")
+        .insert(
+          toCreate.map((s) => ({
+            category_name: s.category_name,
+            name: s.name,
+            active: true,
+            sort_order: 100,
+          }))
+        );
+
+      if (
+        insertError &&
+        !insertError.message.toLowerCase().includes("duplicate")
+      ) {
+        throw new Error(
+          "No se pudieron crear las subcategorías nuevas: " +
+            insertError.message
+        );
+      }
+
+      await loadSubcategories();
     }
   }
 
@@ -620,7 +792,10 @@ export default function BrandProductsPage() {
 
     if (freshError) throw new Error(freshError.message);
 
-    const map = new Map<string, { id: string; name: string; logo_url: string | null }>();
+    const map = new Map<
+      string,
+      { id: string; name: string; logo_url: string | null }
+    >();
 
     for (const b of freshBrands || []) {
       map.set(String(b.name).trim().toLowerCase(), b as any);
@@ -704,6 +879,7 @@ export default function BrandProductsPage() {
 
     try {
       await ensureBulkCategories(bulkValidRows);
+      await ensureBulkSubcategories(bulkValidRows);
       const productBrandMap = await ensureBulkProductBrands(bulkValidRows);
 
       const { data: existingProducts, error: existingErr } = await supabase
@@ -732,6 +908,7 @@ export default function BrandProductsPage() {
           name: row.name,
           sku: row.sku,
           category: row.category,
+          subcategory: row.subcategory,
           price: row.price,
           discount_price: row.discount_price,
           stock: row.stock,
@@ -748,7 +925,9 @@ export default function BrandProductsPage() {
             .eq("brand_id", brand.id);
 
           if (error) {
-            throw new Error(`Error actualizando SKU ${row.sku}: ${error.message}`);
+            throw new Error(
+              `Error actualizando SKU ${row.sku}: ${error.message}`
+            );
           }
 
           updated++;
@@ -765,6 +944,7 @@ export default function BrandProductsPage() {
 
       await loadProducts(brand.id);
       await loadCategories();
+      await loadSubcategories();
       await loadProductBrands(brand.id);
 
       alert(`Carga completada.\nCreados: ${created}\nActualizados: ${updated}`);
@@ -781,8 +961,8 @@ export default function BrandProductsPage() {
 
   function downloadTemplateCSV() {
     const csv =
-      "name,sku,category,product_brand,product_brand_logo_url,price,stock,description,images,discount_price\n" +
-      'Proteína Whey 2lb,WHEY-001,Suplementos,Nutrex,https://logo-marca.png,120000,25,"Proteína de alta calidad","https://imagen1.jpg,https://imagen2.jpg",99000\n';
+      "name,sku,category,subcategory,product_brand,product_brand_logo_url,price,stock,description,images,discount_price\n" +
+      'Proteína Whey 2lb,WHEY-001,Suplementos,Proteínas,Nutrex,https://logo-marca.png,120000,25,"Proteína de alta calidad","https://imagen1.jpg,https://imagen2.jpg",99000\n';
 
     const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
     const url = URL.createObjectURL(blob);
@@ -796,7 +976,11 @@ export default function BrandProductsPage() {
   }
 
   if (loading || !brand) {
-    return <div className="p-10 text-slate-300">Cargando panel de productos…</div>;
+    return (
+      <div className="p-10 text-slate-300">
+        Cargando panel de productos…
+      </div>
+    );
   }
 
   return (
@@ -804,14 +988,17 @@ export default function BrandProductsPage() {
       <div>
         <h1 className="text-3xl font-bold">Productos de {brand.name}</h1>
         <p className="text-slate-400">
-          Administra catálogo, marcas comerciales, categorías, variantes e inventario.
+          Administra catálogo, marcas comerciales, categorías, subcategorías,
+          variantes e inventario.
         </p>
       </div>
 
       <div className="bg-slate-900 p-6 border border-slate-800 rounded-lg space-y-5">
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
           <div>
-            <h2 className="text-xl font-semibold">Carga masiva de productos</h2>
+            <h2 className="text-xl font-semibold">
+              Carga masiva de productos
+            </h2>
             <p className="text-slate-400 text-sm">
               Sube un CSV, revisa la vista previa y confirma la carga.
             </p>
@@ -839,8 +1026,11 @@ export default function BrandProductsPage() {
 
           <div className="text-xs text-slate-500 mt-3">
             Columnas requeridas:{" "}
-            <b>name, sku, category, product_brand, price, stock, description, images</b>.{" "}
-            Opcionales: <b>discount_price, product_brand_logo_url</b>.
+            <b>
+              name, sku, category, subcategory, product_brand, price, stock,
+              description, images
+            </b>
+            . Opcionales: <b>discount_price, product_brand_logo_url</b>.
           </div>
         </div>
 
@@ -853,7 +1043,8 @@ export default function BrandProductsPage() {
             <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-2">
               <div className="text-sm text-slate-300">
                 Archivo: <b>{bulkFileName}</b> · Válidos:{" "}
-                <b className="text-emerald-400">{bulkValidRows.length}</b> · Errores:{" "}
+                <b className="text-emerald-400">{bulkValidRows.length}</b> ·
+                Errores:{" "}
                 <b className="text-red-300">{bulkInvalidRows.length}</b>
               </div>
 
@@ -888,6 +1079,7 @@ export default function BrandProductsPage() {
                     <th className="p-3 text-left">Producto</th>
                     <th className="p-3 text-left">SKU</th>
                     <th className="p-3 text-left">Categoría</th>
+                    <th className="p-3 text-left">Subcategoría</th>
                     <th className="p-3 text-left">Marca</th>
                     <th className="p-3 text-left">Precio</th>
                     <th className="p-3 text-left">Stock</th>
@@ -902,8 +1094,15 @@ export default function BrandProductsPage() {
                       <td className="p-3 text-slate-400">{r.rowNumber}</td>
                       <td className="p-3 text-slate-200">{r.name || "—"}</td>
                       <td className="p-3 text-slate-400">{r.sku || "—"}</td>
-                      <td className="p-3 text-slate-300">{r.category || "—"}</td>
-                      <td className="p-3 text-slate-300">{r.product_brand || "—"}</td>
+                      <td className="p-3 text-slate-300">
+                        {r.category || "—"}
+                      </td>
+                      <td className="p-3 text-slate-300">
+                        {r.subcategory || "—"}
+                      </td>
+                      <td className="p-3 text-slate-300">
+                        {r.product_brand || "—"}
+                      </td>
                       <td className="p-3 text-emerald-400">
                         {Number.isFinite(r.price) ? formatCOP(r.price) : "—"}
                       </td>
@@ -913,7 +1112,9 @@ export default function BrandProductsPage() {
                       <td className="p-3 text-slate-300">{r.images.length}</td>
                       <td className="p-3">
                         {r.errors.length > 0 ? (
-                          <span className="text-red-300">{r.errors.join(", ")}</span>
+                          <span className="text-red-300">
+                            {r.errors.join(", ")}
+                          </span>
                         ) : (
                           <span className="text-emerald-400">Listo</span>
                         )}
@@ -995,7 +1196,9 @@ export default function BrandProductsPage() {
               type="file"
               accept="image/png,image/jpeg,image/webp"
               className="mt-2 block w-full text-sm text-slate-300"
-              onChange={(e) => setNewProductBrandLogo(e.target.files?.[0] || null)}
+              onChange={(e) =>
+                setNewProductBrandLogo(e.target.files?.[0] || null)
+              }
             />
 
             <p className="text-xs text-slate-500 mt-1">
@@ -1012,6 +1215,8 @@ export default function BrandProductsPage() {
               value={category}
               onChange={(e) => {
                 setCategory(e.target.value);
+                setSubcategory("");
+                setNewSubcategory("");
                 if (e.target.value) setNewCategory("");
               }}
             >
@@ -1034,11 +1239,62 @@ export default function BrandProductsPage() {
               value={newCategory}
               onChange={(e) => {
                 setNewCategory(e.target.value);
+                setSubcategory("");
+                setNewSubcategory("");
                 if (e.target.value.trim()) setCategory("");
               }}
             />
             <p className="text-xs text-slate-500 mt-1">
-              Si escribes una nueva, se usará esta en lugar de la categoría seleccionada.
+              Si escribes una nueva, se usará esta en lugar de la categoría
+              seleccionada.
+            </p>
+          </div>
+
+          <div>
+            <label className="text-sm text-slate-300 font-semibold mb-1 block">
+              Subcategoría existente
+            </label>
+
+            <select
+              className="p-3 bg-slate-800 rounded w-full"
+              value={subcategory}
+              onChange={(e) => {
+                setSubcategory(e.target.value);
+                if (e.target.value) setNewSubcategory("");
+              }}
+              disabled={!selectedCategoryName}
+            >
+              <option value="">
+                {selectedCategoryName
+                  ? "Seleccionar subcategoría"
+                  : "Primero selecciona una categoría"}
+              </option>
+              {filteredSubcategories.map((s) => (
+                <option key={s.id} value={s.name}>
+                  {s.name}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div>
+            <label className="text-sm text-slate-300 font-semibold mb-1 block">
+              Crear nueva subcategoría
+            </label>
+
+            <input
+              className="p-3 bg-slate-800 rounded w-full"
+              placeholder="Ej: Proteínas, Creatinas, Ropa deportiva"
+              value={newSubcategory}
+              onChange={(e) => {
+                setNewSubcategory(e.target.value);
+                if (e.target.value.trim()) setSubcategory("");
+              }}
+              disabled={!selectedCategoryName}
+            />
+
+            <p className="text-xs text-slate-500 mt-1">
+              Se creará dentro de la categoría seleccionada o nueva.
             </p>
           </div>
 
@@ -1208,9 +1464,23 @@ export default function BrandProductsPage() {
               </p>
             )}
 
+            {p.subcategory && (
+              <p className="text-xs text-slate-500 mt-1">
+                Subcategoría: {p.subcategory}
+              </p>
+            )}
+
             <p className="text-emerald-400 text-lg font-bold mt-2">
               ${Number(p.price || 0).toLocaleString("es-CO")}
             </p>
+
+            <button
+              type="button"
+              onClick={() => router.push(`/brand/products/${p.id}`)}
+              className="mt-3 px-4 py-2 rounded bg-slate-800 hover:bg-slate-700 text-sm font-semibold"
+            >
+              Editar producto
+            </button>
           </div>
         ))}
       </div>
