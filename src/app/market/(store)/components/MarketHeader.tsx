@@ -1,167 +1,199 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter, useSearchParams } from "next/navigation";
-import { Building2, Rocket, ShoppingCart } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
+import { Building2, Rocket, ShoppingCart, ChevronDown } from "lucide-react";
+import { useEffect, useState } from "react";
+import { supabase } from "@/lib/supabaseClient";
 import { useCart } from "@/components/cart/CartProvider";
 
 const NOVA_BLUE = "#071A3A";
 const NOVA_AQUA = "#2FF0D6";
 
-const searchInputClass =
-  "w-full rounded-full px-4 py-2.5 pr-24 text-sm bg-white text-slate-900 placeholder-slate-400 border border-slate-300 focus:outline-none focus:ring-2 focus:ring-emerald-400 focus:border-emerald-400 shadow-sm";
-
 export default function MarketHeader() {
   const router = useRouter();
-  const sp = useSearchParams();
   const { count } = useCart();
 
-  const initialQ = useMemo(() => sp.get("q") || "", [sp]);
-  const [q, setQ] = useState("");
+  const [open, setOpen] = useState(false);
+  const [openCategories, setOpenCategories] = useState(false);
+  const [openBrands, setOpenBrands] = useState(false);
+
+  const [categories, setCategories] = useState<any[]>([]);
+  const [subcategories, setSubcategories] = useState<any[]>([]);
+  const [brands, setBrands] = useState<any[]>([]);
 
   useEffect(() => {
-    setQ(initialQ);
-  }, [initialQ]);
+    loadData();
+  }, []);
 
-  function goSearch() {
-    const value = q.trim();
-    const url = value ? `/market?q=${encodeURIComponent(value)}` : "/market";
+  async function loadData() {
+    const { data: cats } = await supabase
+      .from("market_categories")
+      .select("id,name")
+      .eq("active", true);
+
+    const { data: subs } = await supabase
+      .from("market_subcategories")
+      .select("id,name,category_name")
+      .eq("active", true);
+
+    const { data: brandsData } = await supabase
+      .from("product_brands")
+      .select("id,name")
+      .eq("active", true);
+
+    setCategories(cats || []);
+    setSubcategories(subs || []);
+    setBrands(brandsData || []);
+  }
+
+  function go(url: string) {
+    setOpen(false);
     router.push(url);
+  }
+
+  function getSubs(cat: string) {
+    return subcategories.filter(
+      (s) => s.category_name?.toLowerCase() === cat.toLowerCase()
+    );
   }
 
   return (
     <header
-      className="w-full border-b"
+      className="w-full border-b relative"
       style={{
         backgroundColor: NOVA_BLUE,
         borderColor: "rgba(255,255,255,0.08)",
       }}
     >
       <div className="max-w-6xl mx-auto px-4 py-4 grid grid-cols-12 items-center gap-4">
-        <div className="col-span-12 md:col-span-3 flex items-center justify-between md:block">
-          <div>
-            <Link
-              href="/market"
-              className="text-2xl font-black tracking-tight"
-              style={{ color: NOVA_AQUA }}
-            >
-              NOVA
-            </Link>
-            <div className="text-xs" style={{ color: "rgba(47,240,214,0.75)" }}>
-              Marketplace
-            </div>
-          </div>
+        {/* LOGO */}
+        <div className="col-span-6 md:col-span-3">
+          <Link
+            href="/market"
+            className="text-2xl font-black"
+            style={{ color: NOVA_AQUA }}
+          >
+            NOVA
+          </Link>
+        </div>
 
-          <div className="md:hidden flex items-center gap-4">
-            <button
-              onClick={() => router.push("/market/cart")}
-              className="relative inline-flex items-center gap-2 text-sm font-semibold"
-              style={{ color: "rgba(255,255,255,0.9)" }}
-            >
-              <ShoppingCart className="w-5 h-5" style={{ color: NOVA_AQUA }} />
-              {count > 0 && (
-                <span
-                  className="inline-flex items-center justify-center min-w-[20px] h-5 px-1 rounded-full text-xs font-bold"
-                  style={{ backgroundColor: NOVA_AQUA, color: NOVA_BLUE }}
+        {/* BOTÓN COMPRAR */}
+        <div className="col-span-6 md:col-span-6 flex items-center gap-3">
+          <button
+            onClick={() => setOpen(!open)}
+            className="flex items-center gap-2 px-4 py-2 rounded-full text-sm font-bold"
+            style={{
+              backgroundColor: NOVA_AQUA,
+              color: NOVA_BLUE,
+            }}
+          >
+            Comprar
+            <ChevronDown size={16} />
+          </button>
+
+          {/* DROPDOWN */}
+          {open && (
+            <div className="absolute top-20 left-4 md:left-[20%] w-[320px] bg-white text-black rounded-xl shadow-xl p-4 z-50 space-y-3">
+              {/* TODOS */}
+              <div
+                className="font-semibold cursor-pointer hover:text-emerald-600"
+                onClick={() => go("/market")}
+              >
+                Ver todos los productos
+              </div>
+
+              {/* CATEGORÍAS */}
+              <div>
+                <div
+                  className="flex justify-between items-center cursor-pointer font-semibold"
+                  onClick={() => setOpenCategories(!openCategories)}
                 >
-                  {count}
-                </span>
-              )}
-            </button>
+                  Categorías <ChevronDown size={14} />
+                </div>
 
-            <Link
-              href="/login"
-              className="text-sm font-semibold"
-              style={{ color: NOVA_AQUA }}
-            >
-              Iniciar sesión
-            </Link>
-          </div>
-        </div>
+                {openCategories && (
+                  <div className="ml-2 mt-2 space-y-2 max-h-60 overflow-auto">
+                    {categories.map((c) => (
+                      <div key={c.id}>
+                        <div
+                          className="cursor-pointer text-sm hover:text-emerald-600"
+                          onClick={() =>
+                            go(`/market?category=${encodeURIComponent(c.name)}`)
+                          }
+                        >
+                          {c.name}
+                        </div>
 
-        <div className="col-span-12 md:col-span-6">
-          <div className="relative">
-            <input
-              value={q}
-              onChange={(e) => setQ(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter") goSearch();
-              }}
-              placeholder="Buscar productos, marcas o categorías…"
-              className={searchInputClass}
-            />
+                        {/* SUBCATEGORÍAS */}
+                        <div className="ml-3 mt-1 space-y-1">
+                          {getSubs(c.name).map((s) => (
+                            <div
+                              key={s.id}
+                              className="text-xs cursor-pointer text-gray-600 hover:text-emerald-600"
+                              onClick={() =>
+                                go(
+                                  `/market?category=${encodeURIComponent(
+                                    c.name
+                                  )}&subcategory=${encodeURIComponent(s.name)}`
+                                )
+                              }
+                            >
+                              - {s.name}
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
 
-            <button
-              onClick={goSearch}
-              className="absolute right-1 top-1 bottom-1 px-4 rounded-full text-sm font-bold transition"
-              style={{
-                backgroundColor: NOVA_AQUA,
-                color: NOVA_BLUE,
-              }}
-            >
-              Buscar
-            </button>
-          </div>
+              {/* MARCAS */}
+              <div>
+                <div
+                  className="flex justify-between items-center cursor-pointer font-semibold"
+                  onClick={() => setOpenBrands(!openBrands)}
+                >
+                  Marcas <ChevronDown size={14} />
+                </div>
 
-          <div className="mt-3 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-            <nav className="flex flex-wrap items-center justify-center sm:justify-start gap-2">
-              <Link
-                href="/brand"
-                className="inline-flex items-center gap-2 rounded-full px-4 py-2 text-xs md:text-sm font-bold transition shadow-sm"
-                style={{
-                  backgroundColor: NOVA_AQUA,
-                  color: NOVA_BLUE,
-                }}
-              >
-                <Rocket className="w-4 h-4" />
-                Quiero vender
-              </Link>
-
-              <Link
-                href="/company"
-                className="inline-flex items-center gap-2 rounded-full px-4 py-2 text-xs md:text-sm font-bold transition border"
-                style={{
-                  color: NOVA_AQUA,
-                  borderColor: "rgba(47,240,214,0.45)",
-                  backgroundColor: "rgba(255,255,255,0.06)",
-                }}
-              >
-                <Building2 className="w-4 h-4" />
-                Soy empleador
-              </Link>
-            </nav>
-
-            <div className="text-[11px] text-center sm:text-right text-white/60">
-              Únete como marca o empresa aliada
+                {openBrands && (
+                  <div className="ml-2 mt-2 space-y-2 max-h-60 overflow-auto">
+                    {brands.map((b) => (
+                      <div
+                        key={b.id}
+                        className="cursor-pointer text-sm hover:text-emerald-600"
+                        onClick={() =>
+                          go(`/market?brand=${encodeURIComponent(b.id)}`)
+                        }
+                      >
+                        {b.name}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
             </div>
-          </div>
+          )}
         </div>
 
-        <div className="hidden md:flex col-span-3 items-center justify-end gap-4">
+        {/* DERECHA */}
+        <div className="col-span-12 md:col-span-3 flex justify-end items-center gap-4">
           <button
             onClick={() => router.push("/market/cart")}
-            className="relative inline-flex items-center gap-2 text-sm font-semibold transition"
-            style={{ color: "rgba(255,255,255,0.9)" }}
+            className="relative"
           >
-            <ShoppingCart className="w-5 h-5" style={{ color: NOVA_AQUA }} />
-            <span className="hidden lg:inline">Carrito</span>
+            <ShoppingCart color={NOVA_AQUA} />
             {count > 0 && (
-              <span
-                className="ml-1 inline-flex items-center justify-center min-w-[20px] h-5 px-1 rounded-full text-xs font-bold"
-                style={{ backgroundColor: NOVA_AQUA, color: NOVA_BLUE }}
-              >
+              <span className="absolute -top-2 -right-2 bg-emerald-400 text-black text-xs px-1 rounded-full">
                 {count}
               </span>
             )}
           </button>
 
-          <Link
-            href="/login"
-            className="text-sm font-semibold transition"
-            style={{ color: NOVA_AQUA }}
-          >
-            Iniciar sesión
+          <Link href="/login" style={{ color: NOVA_AQUA }}>
+            Login
           </Link>
         </div>
       </div>
