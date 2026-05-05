@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import Papa from "papaparse";
 
 const IMAGE_BUCKET = "product-images";
+const BRAND_LOGO_BUCKET = "product-brand-logos";
 
 type MarketCategory = {
   id: string;
@@ -13,11 +14,21 @@ type MarketCategory = {
   image_url?: string | null;
 };
 
+type ProductBrand = {
+  id: string;
+  seller_brand_id: string;
+  name: string;
+  logo_url: string | null;
+  active: boolean;
+};
+
 type BulkProductRow = {
   rowNumber: number;
   name: string;
   sku: string;
   category: string;
+  product_brand: string;
+  product_brand_logo_url: string;
   price: number;
   stock: number;
   description: string;
@@ -30,6 +41,7 @@ const REQUIRED_COLUMNS = [
   "name",
   "sku",
   "category",
+  "product_brand",
   "price",
   "stock",
   "description",
@@ -43,11 +55,7 @@ function normalizeHeader(value: string) {
 function parseImages(value: any): string[] {
   const raw = String(value || "").trim();
   if (!raw) return [];
-
-  return raw
-    .split(",")
-    .map((x) => x.trim())
-    .filter(Boolean);
+  return raw.split(",").map((x) => x.trim()).filter(Boolean);
 }
 
 function parseMoney(value: any) {
@@ -76,12 +84,17 @@ export default function BrandProductsPage() {
   const [brand, setBrand] = useState<any>(null);
   const [products, setProducts] = useState<any[]>([]);
   const [categories, setCategories] = useState<MarketCategory[]>([]);
+  const [productBrands, setProductBrands] = useState<ProductBrand[]>([]);
 
-  // Form manual
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [category, setCategory] = useState("");
   const [newCategory, setNewCategory] = useState("");
+
+  const [productBrandId, setProductBrandId] = useState("");
+  const [newProductBrandName, setNewProductBrandName] = useState("");
+  const [newProductBrandLogo, setNewProductBrandLogo] = useState<File | null>(null);
+
   const [price, setPrice] = useState("");
   const [discountPrice, setDiscountPrice] = useState("");
   const [sku, setSku] = useState("");
@@ -89,14 +102,12 @@ export default function BrandProductsPage() {
   const [files, setFiles] = useState<FileList | null>(null);
   const [saving, setSaving] = useState(false);
 
-  // Variantes
   const [variants, setVariants] = useState<any[]>([]);
   const [variantName, setVariantName] = useState("");
   const [variantValue, setVariantValue] = useState("");
   const [variantStock, setVariantStock] = useState("");
   const [variantPriceDelta, setVariantPriceDelta] = useState("");
 
-  // Carga masiva CSV
   const [bulkRows, setBulkRows] = useState<BulkProductRow[]>([]);
   const [bulkFileName, setBulkFileName] = useState("");
   const [bulkParsing, setBulkParsing] = useState(false);
@@ -146,7 +157,11 @@ export default function BrandProductsPage() {
 
       setBrand(brandData);
 
-      await Promise.all([loadProducts(brandData.id), loadCategories()]);
+      await Promise.all([
+        loadProducts(brandData.id),
+        loadCategories(),
+        loadProductBrands(brandData.id),
+      ]);
 
       setLoading(false);
     }
@@ -157,7 +172,7 @@ export default function BrandProductsPage() {
   async function loadProducts(brandId: string) {
     const { data } = await supabase
       .from("products")
-      .select("*")
+      .select("*, product_brands(name, logo_url)")
       .eq("brand_id", brandId)
       .order("created_at", { ascending: false });
 
@@ -179,6 +194,23 @@ export default function BrandProductsPage() {
     }
 
     setCategories((data || []) as MarketCategory[]);
+  }
+
+  async function loadProductBrands(brandId: string) {
+    const { data, error } = await supabase
+      .from("product_brands")
+      .select("id,seller_brand_id,name,logo_url,active")
+      .eq("seller_brand_id", brandId)
+      .eq("active", true)
+      .order("name", { ascending: true });
+
+    if (error) {
+      console.error("Error cargando marcas de producto:", error);
+      setProductBrands([]);
+      return;
+    }
+
+    setProductBrands((data || []) as ProductBrand[]);
   }
 
   async function uploadImages(productId: string) {
@@ -214,6 +246,26 @@ export default function BrandProductsPage() {
     return uploadedUrls;
   }
 
+  async function uploadProductBrandLogo(productBrandId: string, file: File) {
+    const ext = file.name.split(".").pop();
+    const fileName = `${Date.now()}-${Math.random().toString(36)}.${ext}`;
+    const filePath = `${brand.id}/${productBrandId}/${fileName}`;
+
+    const { error: uploadError } = await supabase.storage
+      .from(BRAND_LOGO_BUCKET)
+      .upload(filePath, file, {
+        contentType: file.type,
+        cacheControl: "3600",
+        upsert: true,
+      });
+
+    if (uploadError) {
+      throw new Error("No se pudo subir el logo de la marca: " + uploadError.message);
+    }
+
+    return supabase.storage.from(BRAND_LOGO_BUCKET).getPublicUrl(filePath).data.publicUrl;
+  }
+
   async function ensureCategory() {
     const cleanNew = newCategory.trim();
     const cleanSelected = category.trim();
@@ -238,6 +290,54 @@ export default function BrandProductsPage() {
     throw new Error("Debes seleccionar o crear una categoría.");
   }
 
+  async function ensureProductBrand() {
+    const cleanNew = newProductBrandName.trim();
+    const selected = productBrandId.trim();
+
+    if (cleanNew) {
+      const existing = productBrands.find(
+        (b) => b.name.trim().toLowerCase() === cleanNew.toLowerCase()
+      );
+
+      if (existing) return existing.id;
+
+      const { data: createdBrand, error } = await supabase
+        .from("product_brands")
+        .insert({
+          seller_brand_id: brand.id,
+          name: cleanNew,
+          active: true,
+          logo_url: null,
+        })
+        .select()
+        .single();
+
+      if (error || !createdBrand) {
+        throw new Error("No se pudo crear la marca del producto: " + (error?.message || ""));
+      }
+
+      if (newProductBrandLogo) {
+        const logoUrl = await uploadProductBrandLogo(createdBrand.id, newProductBrandLogo);
+
+        const { error: updateLogoError } = await supabase
+          .from("product_brands")
+          .update({ logo_url: logoUrl })
+          .eq("id", createdBrand.id);
+
+        if (updateLogoError) {
+          throw new Error("Marca creada, pero no se pudo guardar el logo: " + updateLogoError.message);
+        }
+      }
+
+      await loadProductBrands(brand.id);
+      return createdBrand.id;
+    }
+
+    if (selected) return selected;
+
+    throw new Error("Debes seleccionar o crear la marca del producto.");
+  }
+
   async function handleCreateProduct() {
     try {
       setSaving(true);
@@ -247,11 +347,13 @@ export default function BrandProductsPage() {
       if (!stock || Number(stock) < 0) throw new Error("El stock es obligatorio.");
 
       const finalCategory = await ensureCategory();
+      const finalProductBrandId = await ensureProductBrand();
 
       const { data: newProduct, error: productError } = await supabase
         .from("products")
         .insert({
           brand_id: brand.id,
+          product_brand_id: finalProductBrandId,
           name: name.trim(),
           description: description.trim(),
           category: finalCategory,
@@ -292,6 +394,9 @@ export default function BrandProductsPage() {
       setDescription("");
       setCategory("");
       setNewCategory("");
+      setProductBrandId("");
+      setNewProductBrandName("");
+      setNewProductBrandLogo(null);
       setPrice("");
       setDiscountPrice("");
       setSku("");
@@ -300,6 +405,7 @@ export default function BrandProductsPage() {
       setVariants([]);
 
       await loadProducts(brand.id);
+      await loadProductBrands(brand.id);
     } catch (e: any) {
       alert(e?.message || "Error creando producto");
       console.error(e);
@@ -339,6 +445,8 @@ export default function BrandProductsPage() {
     const productName = String(clean.name || "").trim();
     const productSku = String(clean.sku || "").trim();
     const productCategory = String(clean.category || "").trim();
+    const productBrand = String(clean.product_brand || "").trim();
+    const productBrandLogoUrl = String(clean.product_brand_logo_url || "").trim();
     const productDescription = String(clean.description || "").trim();
     const productImages = parseImages(clean.images);
 
@@ -354,6 +462,7 @@ export default function BrandProductsPage() {
     if (!productName) errors.push("Falta name");
     if (!productSku) errors.push("Falta sku");
     if (!productCategory) errors.push("Falta category");
+    if (!productBrand) errors.push("Falta product_brand");
     if (!productDescription) errors.push("Falta description");
     if (!Number.isFinite(productPrice) || productPrice <= 0) errors.push("price inválido");
     if (!Number.isFinite(productStock) || productStock < 0) errors.push("stock inválido");
@@ -378,6 +487,8 @@ export default function BrandProductsPage() {
       name: productName,
       sku: productSku,
       category: productCategory,
+      product_brand: productBrand,
+      product_brand_logo_url: productBrandLogoUrl,
       price: productPrice,
       stock: productStock,
       description: productDescription,
@@ -421,6 +532,8 @@ export default function BrandProductsPage() {
               name: "",
               sku: "",
               category: "",
+              product_brand: "",
+              product_brand_logo_url: "",
               price: 0,
               stock: 0,
               description: "",
@@ -443,6 +556,8 @@ export default function BrandProductsPage() {
             name: "",
             sku: "",
             category: "",
+            product_brand: "",
+            product_brand_logo_url: "",
             price: 0,
             stock: 0,
             description: "",
@@ -497,6 +612,77 @@ export default function BrandProductsPage() {
     }
   }
 
+  async function ensureBulkProductBrands(rows: BulkProductRow[]) {
+    const { data: freshBrands, error: freshError } = await supabase
+      .from("product_brands")
+      .select("id,name,logo_url")
+      .eq("seller_brand_id", brand.id);
+
+    if (freshError) throw new Error(freshError.message);
+
+    const map = new Map<string, { id: string; name: string; logo_url: string | null }>();
+
+    for (const b of freshBrands || []) {
+      map.set(String(b.name).trim().toLowerCase(), b as any);
+    }
+
+    const uniqueBrands = Array.from(
+      new Map(
+        rows
+          .filter((r) => r.product_brand.trim())
+          .map((r) => [
+            r.product_brand.trim().toLowerCase(),
+            {
+              name: r.product_brand.trim(),
+              logo_url: r.product_brand_logo_url || null,
+            },
+          ])
+      ).values()
+    );
+
+    for (const b of uniqueBrands) {
+      const existing = map.get(b.name.toLowerCase());
+
+      if (existing) {
+        if (!existing.logo_url && b.logo_url) {
+          await supabase
+            .from("product_brands")
+            .update({ logo_url: b.logo_url })
+            .eq("id", existing.id);
+
+          existing.logo_url = b.logo_url;
+        }
+
+        continue;
+      }
+
+      const { data: created, error } = await supabase
+        .from("product_brands")
+        .insert({
+          seller_brand_id: brand.id,
+          name: b.name,
+          logo_url: b.logo_url,
+          active: true,
+        })
+        .select("id,name,logo_url")
+        .single();
+
+      if (error || !created) {
+        throw new Error(
+          "No se pudo crear la marca del producto " +
+            b.name +
+            ": " +
+            (error?.message || "")
+        );
+      }
+
+      map.set(b.name.toLowerCase(), created as any);
+    }
+
+    await loadProductBrands(brand.id);
+    return map;
+  }
+
   async function confirmBulkUpload() {
     if (bulkInvalidRows.length > 0) {
       alert("Corrige los errores antes de confirmar la carga.");
@@ -518,6 +704,7 @@ export default function BrandProductsPage() {
 
     try {
       await ensureBulkCategories(bulkValidRows);
+      const productBrandMap = await ensureBulkProductBrands(bulkValidRows);
 
       const { data: existingProducts, error: existingErr } = await supabase
         .from("products")
@@ -527,6 +714,7 @@ export default function BrandProductsPage() {
       if (existingErr) throw new Error(existingErr.message);
 
       const existingBySku = new Map<string, string>();
+
       for (const p of existingProducts || []) {
         if (p.sku) existingBySku.set(String(p.sku).trim().toLowerCase(), p.id);
       }
@@ -536,9 +724,11 @@ export default function BrandProductsPage() {
 
       for (const row of bulkValidRows) {
         const existingId = existingBySku.get(row.sku.toLowerCase());
+        const pb = productBrandMap.get(row.product_brand.trim().toLowerCase());
 
         const payload = {
           brand_id: brand.id,
+          product_brand_id: pb?.id || null,
           name: row.name,
           sku: row.sku,
           category: row.category,
@@ -557,18 +747,25 @@ export default function BrandProductsPage() {
             .eq("id", existingId)
             .eq("brand_id", brand.id);
 
-          if (error) throw new Error(`Error actualizando SKU ${row.sku}: ${error.message}`);
+          if (error) {
+            throw new Error(`Error actualizando SKU ${row.sku}: ${error.message}`);
+          }
+
           updated++;
         } else {
           const { error } = await supabase.from("products").insert(payload);
 
-          if (error) throw new Error(`Error creando SKU ${row.sku}: ${error.message}`);
+          if (error) {
+            throw new Error(`Error creando SKU ${row.sku}: ${error.message}`);
+          }
+
           created++;
         }
       }
 
       await loadProducts(brand.id);
       await loadCategories();
+      await loadProductBrands(brand.id);
 
       alert(`Carga completada.\nCreados: ${created}\nActualizados: ${updated}`);
 
@@ -584,8 +781,8 @@ export default function BrandProductsPage() {
 
   function downloadTemplateCSV() {
     const csv =
-      "name,sku,category,price,stock,description,images,discount_price\n" +
-      'Proteína Whey 2lb,WHEY-001,Suplementos,120000,25,"Proteína de alta calidad","https://imagen1.jpg,https://imagen2.jpg",99000\n';
+      "name,sku,category,product_brand,product_brand_logo_url,price,stock,description,images,discount_price\n" +
+      'Proteína Whey 2lb,WHEY-001,Suplementos,Nutrex,https://logo-marca.png,120000,25,"Proteína de alta calidad","https://imagen1.jpg,https://imagen2.jpg",99000\n';
 
     const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
     const url = URL.createObjectURL(blob);
@@ -607,11 +804,10 @@ export default function BrandProductsPage() {
       <div>
         <h1 className="text-3xl font-bold">Productos de {brand.name}</h1>
         <p className="text-slate-400">
-          Administra catálogo, categorías, variantes e inventario.
+          Administra catálogo, marcas comerciales, categorías, variantes e inventario.
         </p>
       </div>
 
-      {/* CARGA MASIVA */}
       <div className="bg-slate-900 p-6 border border-slate-800 rounded-lg space-y-5">
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
           <div>
@@ -643,8 +839,8 @@ export default function BrandProductsPage() {
 
           <div className="text-xs text-slate-500 mt-3">
             Columnas requeridas:{" "}
-            <b>name, sku, category, price, stock, description, images</b>. Columna
-            opcional: <b>discount_price</b>.
+            <b>name, sku, category, product_brand, price, stock, description, images</b>.{" "}
+            Opcionales: <b>discount_price, product_brand_logo_url</b>.
           </div>
         </div>
 
@@ -692,6 +888,7 @@ export default function BrandProductsPage() {
                     <th className="p-3 text-left">Producto</th>
                     <th className="p-3 text-left">SKU</th>
                     <th className="p-3 text-left">Categoría</th>
+                    <th className="p-3 text-left">Marca</th>
                     <th className="p-3 text-left">Precio</th>
                     <th className="p-3 text-left">Stock</th>
                     <th className="p-3 text-left">Imágenes</th>
@@ -706,6 +903,7 @@ export default function BrandProductsPage() {
                       <td className="p-3 text-slate-200">{r.name || "—"}</td>
                       <td className="p-3 text-slate-400">{r.sku || "—"}</td>
                       <td className="p-3 text-slate-300">{r.category || "—"}</td>
+                      <td className="p-3 text-slate-300">{r.product_brand || "—"}</td>
                       <td className="p-3 text-emerald-400">
                         {Number.isFinite(r.price) ? formatCOP(r.price) : "—"}
                       </td>
@@ -715,9 +913,7 @@ export default function BrandProductsPage() {
                       <td className="p-3 text-slate-300">{r.images.length}</td>
                       <td className="p-3">
                         {r.errors.length > 0 ? (
-                          <span className="text-red-300">
-                            {r.errors.join(", ")}
-                          </span>
+                          <span className="text-red-300">{r.errors.join(", ")}</span>
                         ) : (
                           <span className="text-emerald-400">Listo</span>
                         )}
@@ -737,7 +933,6 @@ export default function BrandProductsPage() {
         )}
       </div>
 
-      {/* FORMULARIO MANUAL */}
       <div className="bg-slate-900 p-6 border border-slate-800 rounded-lg">
         <h2 className="text-xl font-semibold mb-4">Crear producto</h2>
 
@@ -755,6 +950,58 @@ export default function BrandProductsPage() {
             value={sku}
             onChange={(e) => setSku(e.target.value)}
           />
+
+          <div>
+            <label className="text-sm text-slate-300 font-semibold mb-1 block">
+              Marca del producto
+            </label>
+
+            <select
+              className="p-3 bg-slate-800 rounded w-full"
+              value={productBrandId}
+              onChange={(e) => {
+                setProductBrandId(e.target.value);
+                if (e.target.value) {
+                  setNewProductBrandName("");
+                  setNewProductBrandLogo(null);
+                }
+              }}
+            >
+              <option value="">Seleccionar marca</option>
+              {productBrands.map((b) => (
+                <option key={b.id} value={b.id}>
+                  {b.name}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div>
+            <label className="text-sm text-slate-300 font-semibold mb-1 block">
+              Crear nueva marca
+            </label>
+
+            <input
+              className="p-3 bg-slate-800 rounded w-full"
+              placeholder="Ej: Nutrex, Apple, Adidas"
+              value={newProductBrandName}
+              onChange={(e) => {
+                setNewProductBrandName(e.target.value);
+                if (e.target.value.trim()) setProductBrandId("");
+              }}
+            />
+
+            <input
+              type="file"
+              accept="image/png,image/jpeg,image/webp"
+              className="mt-2 block w-full text-sm text-slate-300"
+              onChange={(e) => setNewProductBrandLogo(e.target.files?.[0] || null)}
+            />
+
+            <p className="text-xs text-slate-500 mt-1">
+              Ideal: logo PNG sin fondo o con fondo blanco.
+            </p>
+          </div>
 
           <div>
             <label className="text-sm text-slate-300 font-semibold mb-1 block">
@@ -918,7 +1165,6 @@ export default function BrandProductsPage() {
         </button>
       </div>
 
-      {/* LISTA */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         {products.map((p) => (
           <div
@@ -933,6 +1179,14 @@ export default function BrandProductsPage() {
               />
             )}
 
+            {p.product_brands?.logo_url && (
+              <img
+                src={p.product_brands.logo_url}
+                className="h-8 object-contain bg-white rounded px-2 py-1 mb-2"
+                alt={p.product_brands.name}
+              />
+            )}
+
             <a
               href={`/brand/products/${p.id}`}
               className="text-lg font-bold hover:text-emerald-400 transition"
@@ -941,6 +1195,12 @@ export default function BrandProductsPage() {
             </a>
 
             <p className="text-sm text-slate-400">{p.sku}</p>
+
+            {p.product_brands?.name && (
+              <p className="text-xs text-slate-500 mt-1">
+                Marca: {p.product_brands.name}
+              </p>
+            )}
 
             {p.category && (
               <p className="text-xs text-slate-500 mt-1">
