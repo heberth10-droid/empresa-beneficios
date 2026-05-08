@@ -36,6 +36,7 @@ type BulkProductRow = {
   product_brand: string;
   product_brand_logo_url: string;
   price: number;
+  cost_price: number | null;
   stock: number;
   description: string;
   images: string[];
@@ -50,6 +51,7 @@ const REQUIRED_COLUMNS = [
   "subcategory",
   "product_brand",
   "price",
+  "cost_price",
   "stock",
   "description",
   "images",
@@ -84,6 +86,17 @@ function formatCOP(value: number) {
   }).format(Number(value || 0));
 }
 
+function calculateMargin(priceValue: string, costValue: string) {
+  const priceNumber = Number(priceValue || 0);
+  const costNumber = Number(costValue || 0);
+
+  if (!priceNumber || !costNumber || priceNumber <= 0 || costNumber < 0) {
+    return null;
+  }
+
+  return ((priceNumber - costNumber) / priceNumber) * 100;
+}
+
 export default function BrandProductsPage() {
   const router = useRouter();
 
@@ -104,6 +117,7 @@ export default function BrandProductsPage() {
   const [newProductBrandName, setNewProductBrandName] = useState("");
 
   const [price, setPrice] = useState("");
+  const [costPrice, setCostPrice] = useState("");
   const [discountPrice, setDiscountPrice] = useState("");
   const [sku, setSku] = useState("");
   const [stock, setStock] = useState("");
@@ -122,6 +136,10 @@ export default function BrandProductsPage() {
   const [bulkSaving, setBulkSaving] = useState(false);
 
   const selectedCategoryName = newCategory.trim() || category.trim();
+
+  const manualMargin = useMemo(() => {
+    return calculateMargin(price, costPrice);
+  }, [price, costPrice]);
 
   const filteredSubcategories = useMemo(() => {
     if (!selectedCategoryName) return [];
@@ -366,6 +384,8 @@ export default function BrandProductsPage() {
       if (!name.trim()) throw new Error("El nombre del producto es obligatorio.");
       if (!price || Number(price) <= 0)
         throw new Error("El precio debe ser mayor a 0.");
+      if (costPrice && Number(costPrice) < 0)
+        throw new Error("El costo del producto no puede ser negativo.");
       if (!stock || Number(stock) < 0)
         throw new Error("El stock es obligatorio.");
 
@@ -383,6 +403,7 @@ export default function BrandProductsPage() {
           category: finalCategory,
           subcategory: finalSubcategory,
           price: Number(price),
+          cost_price: costPrice ? Number(costPrice) : null,
           discount_price: discountPrice ? Number(discountPrice) : null,
           sku: sku.trim(),
           stock: Number(stock),
@@ -424,6 +445,7 @@ export default function BrandProductsPage() {
       setProductBrandId("");
       setNewProductBrandName("");
       setPrice("");
+      setCostPrice("");
       setDiscountPrice("");
       setSku("");
       setStock("");
@@ -482,6 +504,12 @@ export default function BrandProductsPage() {
     const productImages = parseImages(clean.images);
 
     const productPrice = parseMoney(clean.price);
+
+    const productCostPrice =
+      clean.cost_price === undefined || String(clean.cost_price).trim() === ""
+        ? null
+        : parseMoney(clean.cost_price);
+
     const productStock = Number(String(clean.stock || "").trim());
 
     const discountRaw = clean.discount_price;
@@ -498,6 +526,14 @@ export default function BrandProductsPage() {
     if (!productDescription) errors.push("Falta description");
     if (!Number.isFinite(productPrice) || productPrice <= 0)
       errors.push("price inválido");
+
+    if (
+      productCostPrice !== null &&
+      (!Number.isFinite(productCostPrice) || productCostPrice < 0)
+    ) {
+      errors.push("cost_price inválido");
+    }
+
     if (!Number.isFinite(productStock) || productStock < 0)
       errors.push("stock inválido");
 
@@ -525,6 +561,7 @@ export default function BrandProductsPage() {
       product_brand: productBrand,
       product_brand_logo_url: productBrandLogoUrl,
       price: productPrice,
+      cost_price: productCostPrice,
       stock: productStock,
       description: productDescription,
       images: productImages,
@@ -570,6 +607,7 @@ export default function BrandProductsPage() {
               product_brand: "",
               product_brand_logo_url: "",
               price: 0,
+              cost_price: null,
               stock: 0,
               description: "",
               images: [],
@@ -595,6 +633,7 @@ export default function BrandProductsPage() {
             product_brand: "",
             product_brand_logo_url: "",
             price: 0,
+            cost_price: null,
             stock: 0,
             description: "",
             images: [],
@@ -795,37 +834,37 @@ export default function BrandProductsPage() {
   }
 
   async function importExternalImagesToSupabase(row: BulkProductRow) {
-  const importedUrls: string[] = [];
+    const importedUrls: string[] = [];
 
-  for (const imageUrl of row.images) {
-    try {
-      const res = await fetch("/api/import-product-image", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          imageUrl,
-          brandId: brand.id,
-          sku: row.sku,
-        }),
-      });
+    for (const imageUrl of row.images) {
+      try {
+        const res = await fetch("/api/import-product-image", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            imageUrl,
+            brandId: brand.id,
+            sku: row.sku,
+          }),
+        });
 
-      const json = await res.json();
+        const json = await res.json();
 
-      if (!res.ok || !json.publicUrl) {
-        console.warn("No se pudo importar imagen:", imageUrl, json.error);
-        continue;
+        if (!res.ok || !json.publicUrl) {
+          console.warn("No se pudo importar imagen:", imageUrl, json.error);
+          continue;
+        }
+
+        importedUrls.push(json.publicUrl);
+      } catch (error) {
+        console.warn("Error importando imagen:", imageUrl, error);
       }
-
-      importedUrls.push(json.publicUrl);
-    } catch (error) {
-      console.warn("Error importando imagen:", imageUrl, error);
     }
-  }
 
-  return importedUrls;
-}
+    return importedUrls;
+  }
 
   async function confirmBulkUpload() {
     if (bulkInvalidRows.length > 0) {
@@ -881,10 +920,11 @@ export default function BrandProductsPage() {
           category: row.category,
           subcategory: row.subcategory,
           price: row.price,
+          cost_price: row.cost_price,
           discount_price: row.discount_price,
           stock: row.stock,
           description: row.description,
-          images: importedImages.length > 0 ? importedImages: row.images,
+          images: importedImages.length > 0 ? importedImages : row.images,
           active: true,
         };
 
@@ -932,8 +972,8 @@ export default function BrandProductsPage() {
 
   function downloadTemplateCSV() {
     const csv =
-      "name,sku,category,subcategory,product_brand,product_brand_logo_url,price,stock,description,images,discount_price\n" +
-      'Proteína Whey 2lb,WHEY-001,Suplementos,Proteínas,Nutrex,https://logo-marca.png,120000,25,"Proteína de alta calidad","https://imagen1.jpg,https://imagen2.jpg",99000\n';
+      "name,sku,category,subcategory,product_brand,product_brand_logo_url,price,cost_price,stock,description,images,discount_price\n" +
+      'Proteína Whey 2lb,WHEY-001,Suplementos,Proteínas,Nutrex,https://logo-marca.png,120000,78000,25,"Proteína de alta calidad","https://imagen1.jpg,https://imagen2.jpg",99000\n';
 
     const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
     const url = URL.createObjectURL(blob);
@@ -998,8 +1038,8 @@ export default function BrandProductsPage() {
           <div className="text-xs text-slate-500 mt-3">
             Columnas requeridas:{" "}
             <b>
-              name, sku, category, subcategory, product_brand, price, stock,
-              description, images
+              name, sku, category, subcategory, product_brand, price,
+              cost_price, stock, description, images
             </b>
             . Opcionales: <b>discount_price, product_brand_logo_url</b>.
           </div>
@@ -1053,6 +1093,8 @@ export default function BrandProductsPage() {
                     <th className="p-3 text-left">Subcategoría</th>
                     <th className="p-3 text-left">Marca</th>
                     <th className="p-3 text-left">Precio</th>
+                    <th className="p-3 text-left">Costo</th>
+                    <th className="p-3 text-left">Margen</th>
                     <th className="p-3 text-left">Stock</th>
                     <th className="p-3 text-left">Imágenes</th>
                     <th className="p-3 text-left">Estado</th>
@@ -1060,38 +1102,55 @@ export default function BrandProductsPage() {
                 </thead>
 
                 <tbody>
-                  {bulkRows.slice(0, 50).map((r) => (
-                    <tr key={r.rowNumber} className="border-t border-slate-800">
-                      <td className="p-3 text-slate-400">{r.rowNumber}</td>
-                      <td className="p-3 text-slate-200">{r.name || "—"}</td>
-                      <td className="p-3 text-slate-400">{r.sku || "—"}</td>
-                      <td className="p-3 text-slate-300">
-                        {r.category || "—"}
-                      </td>
-                      <td className="p-3 text-slate-300">
-                        {r.subcategory || "—"}
-                      </td>
-                      <td className="p-3 text-slate-300">
-                        {r.product_brand || "—"}
-                      </td>
-                      <td className="p-3 text-emerald-400">
-                        {Number.isFinite(r.price) ? formatCOP(r.price) : "—"}
-                      </td>
-                      <td className="p-3 text-slate-300">
-                        {Number.isFinite(r.stock) ? r.stock : "—"}
-                      </td>
-                      <td className="p-3 text-slate-300">{r.images.length}</td>
-                      <td className="p-3">
-                        {r.errors.length > 0 ? (
-                          <span className="text-red-300">
-                            {r.errors.join(", ")}
-                          </span>
-                        ) : (
-                          <span className="text-emerald-400">Listo</span>
-                        )}
-                      </td>
-                    </tr>
-                  ))}
+                  {bulkRows.slice(0, 50).map((r) => {
+                    const margin =
+                      r.cost_price !== null && r.price > 0
+                        ? ((r.price - r.cost_price) / r.price) * 100
+                        : null;
+
+                    return (
+                      <tr key={r.rowNumber} className="border-t border-slate-800">
+                        <td className="p-3 text-slate-400">{r.rowNumber}</td>
+                        <td className="p-3 text-slate-200">{r.name || "—"}</td>
+                        <td className="p-3 text-slate-400">{r.sku || "—"}</td>
+                        <td className="p-3 text-slate-300">
+                          {r.category || "—"}
+                        </td>
+                        <td className="p-3 text-slate-300">
+                          {r.subcategory || "—"}
+                        </td>
+                        <td className="p-3 text-slate-300">
+                          {r.product_brand || "—"}
+                        </td>
+                        <td className="p-3 text-emerald-400">
+                          {Number.isFinite(r.price) ? formatCOP(r.price) : "—"}
+                        </td>
+                        <td className="p-3 text-amber-300">
+                          {r.cost_price !== null && Number.isFinite(r.cost_price)
+                            ? formatCOP(r.cost_price)
+                            : "—"}
+                        </td>
+                        <td className="p-3 text-slate-300">
+                          {margin !== null && Number.isFinite(margin)
+                            ? `${margin.toFixed(1)}%`
+                            : "—"}
+                        </td>
+                        <td className="p-3 text-slate-300">
+                          {Number.isFinite(r.stock) ? r.stock : "—"}
+                        </td>
+                        <td className="p-3 text-slate-300">{r.images.length}</td>
+                        <td className="p-3">
+                          {r.errors.length > 0 ? (
+                            <span className="text-red-300">
+                              {r.errors.join(", ")}
+                            </span>
+                          ) : (
+                            <span className="text-emerald-400">Listo</span>
+                          )}
+                        </td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>
@@ -1256,10 +1315,25 @@ export default function BrandProductsPage() {
 
           <input
             className="p-3 bg-slate-800 rounded"
-            placeholder="Precio"
+            placeholder="Precio de venta al público"
             value={price}
             onChange={(e) => setPrice(e.target.value)}
           />
+
+          <div>
+            <input
+              className="p-3 bg-slate-800 rounded w-full"
+              placeholder="Costo del producto interno"
+              value={costPrice}
+              onChange={(e) => setCostPrice(e.target.value)}
+            />
+
+            {manualMargin !== null && Number.isFinite(manualMargin) && (
+              <p className="text-xs text-emerald-400 mt-1">
+                Margen interno aproximado: <b>{manualMargin.toFixed(1)}%</b>
+              </p>
+            )}
+          </div>
 
           <input
             className="p-3 bg-slate-800 rounded"
