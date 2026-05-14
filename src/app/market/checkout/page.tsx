@@ -7,8 +7,11 @@ import { supabase } from "@/lib/supabaseClient";
 import { useCart } from "@/components/cart/CartProvider";
 
 function money(n: any) {
-  const x = Number(n || 0);
-  return `$${x.toFixed(2)}`;
+  return new Intl.NumberFormat("es-CO", {
+    style: "currency",
+    currency: "COP",
+    maximumFractionDigits: 0,
+  }).format(Number(n || 0));
 }
 
 function addDays(d: Date, days: number) {
@@ -172,7 +175,6 @@ function CheckoutPageContent() {
 
   useEffect(() => {
     if (!items || items.length === 0) router.push("/market/cart");
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {
@@ -210,7 +212,6 @@ function CheckoutPageContent() {
     }
 
     loadEmployee();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [documentType, documentNumber]);
 
   async function confirmOrder() {
@@ -268,40 +269,40 @@ function CheckoutPageContent() {
   const canShowLimit = employeeInfo && creditLimit > 0;
   const showMax = employeeInfo && maxInstallments > 0;
 
+  const cardClass = "border border-[#071A3A]/25 bg-white rounded-xl p-5 space-y-4 shadow-sm";
+  const inputClass = "w-full bg-white border border-slate-300 text-slate-900 rounded px-3 py-2 text-sm placeholder-slate-400";
+  const labelClass = "text-xs text-slate-600 font-semibold";
+
   return (
     <div className="max-w-5xl mx-auto space-y-6">
       <div className="flex items-end justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-bold">Checkout</h1>
-          <p className="text-slate-400 text-sm">
+          <h1 className="text-2xl font-bold text-slate-900">Checkout</h1>
+          <p className="text-slate-500 text-sm">
             Completa tu documento y la información de envío para confirmar.
           </p>
         </div>
 
-        <Link href="/market/cart" className="text-emerald-400 font-semibold">
+        <Link href="/market/cart" className="text-emerald-600 font-semibold">
           ← Volver al carrito
         </Link>
       </div>
 
       {errorMsg && (
-        <div className="bg-red-500/15 border border-red-500/30 text-red-200 rounded p-3 text-sm">
+        <div className="bg-red-50 border border-red-200 text-red-700 rounded p-3 text-sm">
           {errorMsg}
         </div>
       )}
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <div className="space-y-6">
-          <div className="border border-slate-800 bg-slate-900 rounded-lg p-5 space-y-4">
-            <h2 className="text-lg font-semibold">Validación del empleado</h2>
+          <div className={cardClass}>
+            <h2 className="text-lg font-bold text-slate-900">Validación del empleado</h2>
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
               <div className="space-y-1">
-                <div className="text-xs text-slate-400">Tipo</div>
-                <select
-                  value={documentType}
-                  onChange={(e) => setDocumentType(e.target.value)}
-                  className="w-full bg-slate-800 rounded px-3 py-2 text-sm"
-                >
+                <div className={labelClass}>Tipo</div>
+                <select value={documentType} onChange={(e) => setDocumentType(e.target.value)} className={inputClass}>
                   <option value="CC">CC</option>
                   <option value="CE">CE</option>
                   <option value="NIT">NIT</option>
@@ -310,23 +311,14 @@ function CheckoutPageContent() {
               </div>
 
               <div className="space-y-1 md:col-span-2">
-                <div className="text-xs text-slate-400">Número de documento</div>
-                <input
-                  value={documentNumber}
-                  onChange={(e) => setDocumentNumber(e.target.value)}
-                  className="w-full bg-slate-800 rounded px-3 py-2 text-sm"
-                  placeholder="Ej: 1020304050"
-                />
+                <div className={labelClass}>Número de documento</div>
+                <input value={documentNumber} onChange={(e) => setDocumentNumber(e.target.value)} className={inputClass} placeholder="Ej: 1020304050" />
               </div>
             </div>
 
             <div className="space-y-1">
-              <div className="text-xs text-slate-400">Cuotas</div>
-              <select
-                value={installments}
-                onChange={(e) => setInstallments(Number(e.target.value))}
-                className="w-full bg-slate-800 rounded px-3 py-2 text-sm"
-              >
+              <div className={labelClass}>Cuotas</div>
+              <select value={installments} onChange={(e) => setInstallments(Number(e.target.value))} className={inputClass}>
                 {Array.from({ length: Math.max(1, Math.min(12, maxInstallments)) }).map((_, i) => {
                   const v = i + 1;
                   return (
@@ -337,27 +329,25 @@ function CheckoutPageContent() {
                 })}
               </select>
 
-              <div className="text-xs text-slate-400 mt-2 space-y-1">
+              <div className="text-xs text-slate-600 mt-2 space-y-1">
                 {showMax && (
                   <div>
-                    Máx. cuotas permitidas:{" "}
-                    <b className="text-slate-200">{maxInstallments}</b>
+                    Máx. cuotas permitidas: <b className="text-slate-900">{maxInstallments}</b>
                   </div>
                 )}
                 {canShowLimit && (
                   <div>
-                    Cupo máximo por cuota:{" "}
-                    <b className="text-emerald-300">{money(creditLimit)}</b>
+                    Cupo máximo por cuota: <b className="text-emerald-600">{money(creditLimit)}</b>
                   </div>
                 )}
                 {canShowLimit && (
                   <div>
                     Valor estimado por cuota:{" "}
-                    <b className={installmentAmount > creditLimit ? "text-red-300" : "text-slate-200"}>
+                    <b className={installmentAmount > creditLimit ? "text-red-600" : "text-slate-900"}>
                       {money(installmentAmount)}
                     </b>
                     {installmentAmount > creditLimit && (
-                      <span className="text-red-300"> (excede el cupo)</span>
+                      <span className="text-red-600"> (excede el cupo)</span>
                     )}
                   </div>
                 )}
@@ -365,27 +355,27 @@ function CheckoutPageContent() {
             </div>
           </div>
 
-          <div className="border border-slate-800 bg-slate-900 rounded-lg p-5 space-y-3">
-            <h2 className="text-lg font-semibold">Resumen de pagos</h2>
+          <div className={cardClass}>
+            <h2 className="text-lg font-bold text-slate-900">Resumen de pagos</h2>
 
-            <div className="text-sm text-slate-300">
-              Total compra: <b className="text-emerald-300">{money(subtotal)}</b>
+            <div className="text-sm text-slate-700">
+              Total compra: <b className="text-emerald-600">{money(subtotal)}</b>
             </div>
 
-            <div className="text-sm text-slate-300">
+            <div className="text-sm text-slate-700">
               {installments} {installments === 1 ? "cuota" : "cuotas"} de{" "}
-              <b className="text-slate-100">{money(installmentAmount)}</b>
+              <b className="text-slate-900">{money(installmentAmount)}</b>
             </div>
 
             <div className="mt-2 space-y-2">
               {scheduleDates.map((d, idx) => (
                 <div
                   key={idx}
-                  className="flex items-center justify-between text-sm border border-slate-800 rounded p-2 bg-slate-950/40"
+                  className="flex items-center justify-between text-sm border border-[#071A3A]/20 rounded p-2 bg-slate-50"
                 >
-                  <div className="text-slate-300">Cuota #{idx + 1}</div>
-                  <div className="text-slate-400">{d}</div>
-                  <div className="text-slate-100 font-semibold">{money(installmentAmount)}</div>
+                  <div className="text-slate-700">Cuota #{idx + 1}</div>
+                  <div className="text-slate-500">{d}</div>
+                  <div className="text-slate-900 font-semibold">{money(installmentAmount)}</div>
                 </div>
               ))}
             </div>
@@ -395,94 +385,65 @@ function CheckoutPageContent() {
             </div>
           </div>
 
-          <div className="border border-slate-800 bg-slate-900 rounded-lg p-5 space-y-4">
-            <h2 className="text-lg font-semibold">Dirección de envío</h2>
+          <div className={cardClass}>
+            <h2 className="text-lg font-bold text-slate-900">Dirección de envío</h2>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
               <div className="space-y-1">
-                <div className="text-xs text-slate-400">Nombre completo</div>
-                <input
-                  value={shippingName}
-                  onChange={(e) => setShippingName(e.target.value)}
-                  className="w-full bg-slate-800 rounded px-3 py-2 text-sm"
-                  placeholder="Nombre y apellido"
-                />
+                <div className={labelClass}>Nombre completo</div>
+                <input value={shippingName} onChange={(e) => setShippingName(e.target.value)} className={inputClass} placeholder="Nombre y apellido" />
               </div>
 
               <div className="space-y-1">
-                <div className="text-xs text-slate-400">Teléfono</div>
-                <input
-                  value={shippingPhone}
-                  onChange={(e) => setShippingPhone(e.target.value)}
-                  className="w-full bg-slate-800 rounded px-3 py-2 text-sm"
-                  placeholder="Ej: 3001234567"
-                />
+                <div className={labelClass}>Teléfono</div>
+                <input value={shippingPhone} onChange={(e) => setShippingPhone(e.target.value)} className={inputClass} placeholder="Ej: 3001234567" />
               </div>
             </div>
 
             <div className="space-y-1">
-              <div className="text-xs text-slate-400">Dirección</div>
-              <input
-                value={shippingAddress}
-                onChange={(e) => setShippingAddress(e.target.value)}
-                className="w-full bg-slate-800 rounded px-3 py-2 text-sm"
-                placeholder="Calle, carrera, #, apto, etc."
-              />
+              <div className={labelClass}>Dirección</div>
+              <input value={shippingAddress} onChange={(e) => setShippingAddress(e.target.value)} className={inputClass} placeholder="Calle, carrera, #, apto, etc." />
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
               <div className="space-y-1">
-                <div className="text-xs text-slate-400">Ciudad</div>
-                <input
-                  value={shippingCity}
-                  onChange={(e) => setShippingCity(e.target.value)}
-                  className="w-full bg-slate-800 rounded px-3 py-2 text-sm"
-                  placeholder="Ej: Bogotá"
-                />
+                <div className={labelClass}>Ciudad</div>
+                <input value={shippingCity} onChange={(e) => setShippingCity(e.target.value)} className={inputClass} placeholder="Ej: Bogotá" />
               </div>
 
               <div className="space-y-1">
-                <div className="text-xs text-slate-400">Departamento</div>
-                <input
-                  value={shippingDepartment}
-                  onChange={(e) => setShippingDepartment(e.target.value)}
-                  className="w-full bg-slate-800 rounded px-3 py-2 text-sm"
-                  placeholder="Ej: Cundinamarca"
-                />
+                <div className={labelClass}>Departamento</div>
+                <input value={shippingDepartment} onChange={(e) => setShippingDepartment(e.target.value)} className={inputClass} placeholder="Ej: Cundinamarca" />
               </div>
             </div>
 
             <div className="space-y-1">
-              <div className="text-xs text-slate-400">Notas (opcional)</div>
-              <textarea
-                value={shippingNotes}
-                onChange={(e) => setShippingNotes(e.target.value)}
-                className="w-full bg-slate-800 rounded px-3 py-2 text-sm"
-                rows={3}
-                placeholder="Indicaciones para el mensajero, horario, etc."
-              />
+              <div className={labelClass}>Notas (opcional)</div>
+              <textarea value={shippingNotes} onChange={(e) => setShippingNotes(e.target.value)} className={inputClass} rows={3} placeholder="Indicaciones para el mensajero, horario, etc." />
             </div>
           </div>
         </div>
 
         <div className="space-y-4">
-          <div className="border border-slate-800 bg-slate-900 rounded-lg p-5 space-y-3">
-            <h2 className="text-lg font-semibold">Resumen</h2>
+          <div className={cardClass}>
+            <h2 className="text-lg font-bold text-slate-900">Resumen</h2>
 
             <div className="space-y-2">
               {(items || []).map((it) => (
-                <div key={it.id} className="flex items-center justify-between text-sm">
-                  <div className="text-slate-200">
+                <div key={it.id} className="flex items-center justify-between gap-3 text-sm">
+                  <div className="text-slate-800">
                     {it.name} <span className="text-slate-500">x{it.qty}</span>
                   </div>
-                  <div className="text-slate-300">{money(Number(it.price) * Number(it.qty))}</div>
+                  <div className="text-slate-700 font-semibold">
+                    {money(Number(it.price) * Number(it.qty))}
+                  </div>
                 </div>
               ))}
             </div>
 
-            <div className="border-t border-slate-800 pt-3 flex items-center justify-between">
-              <div className="text-slate-300">Subtotal</div>
-              <div className="text-emerald-300 font-bold text-xl">{money(subtotal)}</div>
+            <div className="border-t border-slate-200 pt-3 flex items-center justify-between">
+              <div className="text-slate-700">Subtotal</div>
+              <div className="text-emerald-600 font-black text-xl">{money(subtotal)}</div>
             </div>
 
             <button
