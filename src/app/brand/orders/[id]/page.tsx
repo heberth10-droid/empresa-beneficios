@@ -94,8 +94,8 @@ export default function BrandOrderDetailPage() {
       return;
     }
 
-    if (o.status !== "PROCESSED") {
-      setErrorMsg("Esta orden aún no está procesada para despacho.");
+    if (!["CONFIRMED", "PROCESSED"].includes(o.status)) {
+      setErrorMsg("Esta orden aún no está lista para despacho.");
       setLoading(false);
       return;
     }
