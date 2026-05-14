@@ -272,7 +272,7 @@ export default function MarketHeader() {
                                 <div className="flex items-center">
                                   <button
                                     onClick={() =>
-                                      go(`/market?category=${enc(cat.name)}`)
+                                      go(`/market/category=${enc(cat.name)}`)
                                     }
                                     className="flex-1 text-left px-4 py-2 text-sm hover:bg-slate-50 cursor-pointer"
                                   >
@@ -302,9 +302,7 @@ export default function MarketHeader() {
                                         key={sub.id}
                                         onClick={() =>
                                           go(
-                                            `/market?category=${enc(
-                                              cat.name
-                                            )}&subcategory=${enc(sub.name)}`
+                                            `/market/subcategory/${enc(sub.name)}`
                                           )
                                         }
                                         className="block w-full text-left px-4 py-1 text-xs hover:bg-slate-50 cursor-pointer"
@@ -339,7 +337,7 @@ export default function MarketHeader() {
                           {productBrands.map((b) => (
                             <button
                               key={b.id}
-                              onClick={() => go(`/market?brand=${b.id}`)}
+                              onClick={() => go(`/market/brand=${b.id}`)}
                               className="flex items-center gap-2 px-3 py-2 w-full text-left hover:bg-slate-50 rounded-lg cursor-pointer"
                             >
                               {b.logo_url ? (
