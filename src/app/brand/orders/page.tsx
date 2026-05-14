@@ -142,12 +142,12 @@ export default function BrandOrdersPage() {
       return;
     }
 
-    // 5) traer órdenes (SOLO PROCESSED) + filtros
+    // 5) Solo aparecen órdenes <b>CONFIRMED</b> o <b>PROCESSED</b>.
     let q = supabase
       .from("orders")
       .select("id, created_at, status, brand_status, shipping_city, shipping_department")
       .in("id", uniqueOrderIds)
-      .eq("status", "PROCESSED")
+      .in("status", ["CONFIRMED", "PROCESSED"])
       .order("created_at", { ascending: false });
 
     if (statusFilter !== "ALL") q = q.eq("brand_status", statusFilter);

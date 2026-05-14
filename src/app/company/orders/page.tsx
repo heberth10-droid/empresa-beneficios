@@ -321,6 +321,7 @@ export default function CompanyOrdersPage() {
     await loadOrders({ silent: true });
 
     setUpdatingStatus(false);
+    closeModal();
   }
 
   if (loading) return <div className="p-6 text-slate-300">Cargando órdenes...</div>;
