@@ -47,7 +47,7 @@ export default function OrderConfirmationPage() {
           "id, created_at, status, subtotal, installments, installment_amount, shipping_name, shipping_phone, shipping_address, shipping_city, shipping_department, shipping_notes"
         )
         .eq("id", id)
-        .single();
+        .maybeSingle();
 
       if (oErr || !o) {
         setErrorMsg(oErr?.message || "No se pudo cargar la orden.");
