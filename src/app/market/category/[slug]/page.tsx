@@ -1,11 +1,12 @@
 import FilteredCatalogPage from "../../(store)/components/FilteredCatalogPage";
 
-export default function CategoryPage({
+export default async function CategoryPage({
   params,
 }: {
-  params: { slug: string };
+  params: Promise<{ slug: string }>;
 }) {
-  const category = decodeURIComponent(params.slug);
+  const { slug } = await params;
+  const category = decodeURIComponent(slug);
 
   return <FilteredCatalogPage filterType="category" filterValue={category} />;
 }

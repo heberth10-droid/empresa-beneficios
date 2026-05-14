@@ -50,8 +50,8 @@ export default function MarketHeader() {
   const [q, setQ] = useState("");
 
   const [buyOpen, setBuyOpen] = useState(false);
-  const [catsOpen, setCatsOpen] = useState(true);
-  const [brandsOpen, setBrandsOpen] = useState(true);
+  const [catsOpen, setCatsOpen] = useState(false);
+  const [brandsOpen, setBrandsOpen] = useState(false);
   const [openCategory, setOpenCategory] = useState<string | null>(null);
 
   const [categories, setCategories] = useState<MarketCategory[]>([]);
@@ -224,7 +224,12 @@ export default function MarketHeader() {
                 <div className="relative">
                   <button
                     type="button"
-                    onClick={() => setBuyOpen((v) => !v)}
+                    onClick={() => {
+                      setBuyOpen((v) => !v);
+                      setCatsOpen(false);
+                      setBrandsOpen(false);
+                      setOpenCategory(null);
+                    }}
                     className="inline-flex items-center gap-2 rounded-full px-4 py-2 text-xs md:text-sm font-bold transition border cursor-pointer"
                     style={{
                       color: NOVA_BLUE,
@@ -240,7 +245,7 @@ export default function MarketHeader() {
                   {buyOpen && (
                     <div className="absolute left-0 mt-3 w-[330px] max-h-[70vh] overflow-y-auto rounded-2xl border border-slate-200 bg-white shadow-2xl p-3 z-50">
                       <button
-                        onClick={() => go("/market")}
+                        onClick={() => go("/market/catalog")}
                         className="w-full flex items-center justify-between px-3 py-3 rounded-xl text-sm font-bold text-slate-900 hover:bg-slate-50 cursor-pointer"
                       >
                         Ver todos los productos

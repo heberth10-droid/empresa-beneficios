@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
 import ProductCard from "./ProductCard";
 
-type FilterType = "category" | "subcategory" | "brand";
+type FilterType = "all" | "category" | "subcategory" | "brand";
 
 type Props = {
   filterType: FilterType;
@@ -98,6 +98,7 @@ export default function FilteredCatalogPage({ filterType, filterValue }: Props) 
   }, [subcategories, category]);
 
   const pageTitle = useMemo(() => {
+    if (filterType === "all") return "Todos los productos";
     if (filterType === "category") return `Categoría: ${filterValue}`;
     if (filterType === "subcategory") return `Subcategoría: ${filterValue}`;
 

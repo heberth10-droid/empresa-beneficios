@@ -1,9 +1,11 @@
 import FilteredCatalogPage from "../../(store)/components/FilteredCatalogPage";
 
-export default function BrandPage({
+export default async function BrandPage({
   params,
 }: {
-  params: { id: string };
+  params: Promise<{ id: string }>;
 }) {
-  return <FilteredCatalogPage filterType="brand" filterValue={params.id} />;
+  const { id } = await params;
+
+  return <FilteredCatalogPage filterType="brand" filterValue={id} />;
 }

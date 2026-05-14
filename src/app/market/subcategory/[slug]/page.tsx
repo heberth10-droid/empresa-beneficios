@@ -1,11 +1,12 @@
 import FilteredCatalogPage from "../../(store)/components/FilteredCatalogPage";
 
-export default function SubcategoryPage({
+export default async function SubcategoryPage({
   params,
 }: {
-  params: { slug: string };
+  params: Promise<{ slug: string }>;
 }) {
-  const subcategory = decodeURIComponent(params.slug);
+  const { slug } = await params;
+  const subcategory = decodeURIComponent(slug);
 
   return (
     <FilteredCatalogPage filterType="subcategory" filterValue={subcategory} />
