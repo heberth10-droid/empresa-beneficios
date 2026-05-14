@@ -8,9 +8,14 @@ import ProductCard from "./(store)/components/ProductCard";
 import PromosSection from "./(store)/components/PromosSection";
 import MarketValueCards from "./(store)/components/MarketValueCards";
 import CategoriesCarousel from "./(store)/components/CategoriesCarousel";
+import BrandsCarousel from "./(store)/components/BrandsCarousel";
 import BestSellersByCategory from "./(store)/components/BestSellersByCategory";
 
-type Brand = { id: string; name: string | null };
+type Brand = {
+  id: string;
+  name: string | null;
+  logo_url?: string | null;
+};
 
 type MarketCategory = {
   id: string;
@@ -58,19 +63,6 @@ function getMainImage(row: any): string | null {
   return null;
 }
 
-function Chip({ label, onClear }: { label: string; onClear: () => void }) {
-  return (
-    <button
-      onClick={onClear}
-      className="inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs border border-slate-200 bg-white hover:bg-slate-50 transition"
-      title="Quitar filtro"
-    >
-      <span className="text-slate-800">{label}</span>
-      <span className="text-slate-400">✕</span>
-    </button>
-  );
-}
-
 function MarketplaceHomeContent() {
   const sp = useSearchParams();
 
@@ -88,9 +80,7 @@ function MarketplaceHomeContent() {
     subcategoryFromUrl || "ALL"
   );
 
-  const [onlyAvailable, setOnlyAvailable] = useState(false);
-  const [onlyDiscount, setOnlyDiscount] = useState(false);
-  const [sort, setSort] = useState<"NEW" | "PRICE_ASC" | "PRICE_DESC">("NEW");
+  const [sort] = useState<"NEW" | "PRICE_ASC" | "PRICE_DESC">("NEW");
 
   const [page, setPage] = useState(1);
   const pageSize = 12;
@@ -115,15 +105,6 @@ function MarketplaceHomeContent() {
     return t <= 0 ? 1 : t;
   }, [total]);
 
-  const filteredSubcategories = useMemo(() => {
-    if (category === "ALL") return [];
-
-    return subcategories.filter(
-      (s) =>
-        s.category_name.trim().toLowerCase() === category.trim().toLowerCase()
-    );
-  }, [subcategories, category]);
-
   const isHomeMode =
     !qFromUrl &&
     !brandFromUrl &&
@@ -132,15 +113,13 @@ function MarketplaceHomeContent() {
     brandId === "ALL" &&
     category === "ALL" &&
     subcategory === "ALL" &&
-    !onlyAvailable &&
-    !onlyDiscount &&
     sort === "NEW";
 
   useEffect(() => {
     async function loadBrands() {
       const { data, error } = await supabase
         .from("product_brands")
-        .select("id,name")
+        .select("id,name,logo_url")
         .eq("active", true)
         .order("name", { ascending: true });
 
@@ -194,15 +173,7 @@ function MarketplaceHomeContent() {
 
   useEffect(() => {
     setPage(1);
-  }, [
-    brandId,
-    category,
-    subcategory,
-    onlyAvailable,
-    onlyDiscount,
-    sort,
-    qFromUrl,
-  ]);
+  }, [brandId, category, subcategory, sort, qFromUrl]);
 
   useEffect(() => {
     setLoading(true);
@@ -221,21 +192,9 @@ function MarketplaceHomeContent() {
         if (brandId !== "ALL") query = query.eq("product_brand_id", brandId);
         if (category !== "ALL") query = query.eq("category", category);
         if (subcategory !== "ALL") query = query.eq("subcategory", subcategory);
-        if (onlyAvailable) query = query.gt("stock", 0);
-        if (onlyDiscount) query = query.gt("discount_price", 0);
         if (qFromUrl) query = query.ilike("name", `%${qFromUrl}%`);
 
-        if (sort === "NEW") {
-          query = query.order("created_at", { ascending: false });
-        }
-
-        if (sort === "PRICE_ASC") {
-          query = query.order("price", { ascending: true });
-        }
-
-        if (sort === "PRICE_DESC") {
-          query = query.order("price", { ascending: false });
-        }
+        query = query.order("created_at", { ascending: false });
 
         const from = (page - 1) * pageSize;
         const to = from + pageSize - 1;
@@ -280,223 +239,17 @@ function MarketplaceHomeContent() {
     }, 150);
 
     return () => clearTimeout(t);
-  }, [
-    brandId,
-    category,
-    subcategory,
-    onlyAvailable,
-    onlyDiscount,
-    sort,
-    qFromUrl,
-    page,
-  ]);
+  }, [brandId, category, subcategory, sort, qFromUrl, page]);
 
   function resetFilters() {
     setBrandId("ALL");
     setCategory("ALL");
     setSubcategory("ALL");
-    setOnlyAvailable(false);
-    setOnlyDiscount(false);
-    setSort("NEW");
     setPage(1);
   }
 
-  const brandName = useMemo(() => {
-    if (brandId === "ALL") return null;
-    return brands.find((b) => b.id === brandId)?.name || "Marca";
-  }, [brandId, brands]);
-
-  const chips = useMemo(() => {
-    const arr: { label: string; clear: () => void }[] = [];
-
-    if (qFromUrl) {
-      arr.push({
-        label: `Búsqueda: "${qFromUrl}"`,
-        clear: () => {},
-      });
-    }
-
-    if (brandId !== "ALL") {
-      arr.push({
-        label: `Marca: ${brandName || "—"}`,
-        clear: () => setBrandId("ALL"),
-      });
-    }
-
-    if (category !== "ALL") {
-      arr.push({
-        label: `Categoría: ${category}`,
-        clear: () => {
-          setCategory("ALL");
-          setSubcategory("ALL");
-        },
-      });
-    }
-
-    if (subcategory !== "ALL") {
-      arr.push({
-        label: `Subcategoría: ${subcategory}`,
-        clear: () => setSubcategory("ALL"),
-      });
-    }
-
-    if (onlyAvailable) {
-      arr.push({
-        label: "Solo disponibles",
-        clear: () => setOnlyAvailable(false),
-      });
-    }
-
-    if (onlyDiscount) {
-      arr.push({
-        label: "Solo descuento",
-        clear: () => setOnlyDiscount(false),
-      });
-    }
-
-    if (sort === "PRICE_ASC") {
-      arr.push({
-        label: "Orden: Precio ↑",
-        clear: () => setSort("NEW"),
-      });
-    }
-
-    if (sort === "PRICE_DESC") {
-      arr.push({
-        label: "Orden: Precio ↓",
-        clear: () => setSort("NEW"),
-      });
-    }
-
-    return arr;
-  }, [
-    qFromUrl,
-    brandId,
-    brandName,
-    category,
-    subcategory,
-    onlyAvailable,
-    onlyDiscount,
-    sort,
-  ]);
-
   return (
     <div className="max-w-6xl mx-auto px-4 py-6 space-y-5">
-      <div className="border border-slate-200 bg-white rounded-2xl p-4 space-y-4">
-        <div className="grid grid-cols-1 md:grid-cols-12 gap-3">
-          <div className="md:col-span-3">
-            <label className="text-xs text-slate-500">Marca</label>
-            <select
-              value={brandId}
-              onChange={(e) => setBrandId(e.target.value)}
-              className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2 mt-1"
-            >
-              <option value="ALL">Todas</option>
-              {brands.map((b) => (
-                <option key={b.id} value={b.id}>
-                  {b.name || "Marca"}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          <div className="md:col-span-3">
-            <label className="text-xs text-slate-500">Categoría</label>
-            <select
-              value={category}
-              onChange={(e) => {
-                setCategory(e.target.value);
-                setSubcategory("ALL");
-              }}
-              className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2 mt-1"
-            >
-              <option value="ALL">Todas</option>
-              {categories.map((c) => (
-                <option key={c.id} value={c.name}>
-                  {c.name}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          <div className="md:col-span-3">
-            <label className="text-xs text-slate-500">Subcategoría</label>
-            <select
-              value={subcategory}
-              onChange={(e) => setSubcategory(e.target.value)}
-              disabled={category === "ALL"}
-              className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2 mt-1 disabled:bg-slate-100 disabled:text-slate-400"
-            >
-              <option value="ALL">
-                {category === "ALL" ? "Primero categoría" : "Todas"}
-              </option>
-              {filteredSubcategories.map((s) => (
-                <option key={s.id} value={s.name}>
-                  {s.name}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          <div className="md:col-span-3">
-            <label className="text-xs text-slate-500">Orden</label>
-            <select
-              value={sort}
-              onChange={(e) => setSort(e.target.value as any)}
-              className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2 mt-1"
-            >
-              <option value="NEW">Más recientes</option>
-              <option value="PRICE_ASC">Precio: menor → mayor</option>
-              <option value="PRICE_DESC">Precio: mayor → menor</option>
-            </select>
-          </div>
-
-          <div className="md:col-span-12 flex flex-col md:flex-row gap-2">
-            <label className="flex items-center gap-2 text-sm text-slate-700 bg-slate-50 border border-slate-200 rounded-xl px-3 py-2">
-              <input
-                type="checkbox"
-                checked={onlyAvailable}
-                onChange={(e) => setOnlyAvailable(e.target.checked)}
-              />
-              Solo disponibles
-            </label>
-
-            <label className="flex items-center gap-2 text-sm text-slate-700 bg-slate-50 border border-slate-200 rounded-xl px-3 py-2">
-              <input
-                type="checkbox"
-                checked={onlyDiscount}
-                onChange={(e) => setOnlyDiscount(e.target.checked)}
-              />
-              Solo descuento
-            </label>
-
-            <div className="flex-1" />
-
-            <button
-              onClick={resetFilters}
-              className="px-4 py-2 rounded-xl border border-slate-200 text-slate-700 hover:bg-slate-50 transition text-sm"
-            >
-              Limpiar filtros
-            </button>
-          </div>
-        </div>
-
-        {chips.length > 0 && (
-          <div className="flex flex-wrap gap-2 pt-1">
-            {chips.map((c, i) => (
-              <Chip key={i} label={c.label} onClear={c.clear} />
-            ))}
-          </div>
-        )}
-
-        {qFromUrl && (
-          <div className="text-xs text-slate-500">
-            Búsqueda activa: <b>{qFromUrl}</b>. Para quitarla, borra el texto del
-            buscador del header y presiona “Buscar”.
-          </div>
-        )}
-      </div>
-
       <PromosSection />
 
       {isHomeMode && (
@@ -507,6 +260,15 @@ function MarketplaceHomeContent() {
             categories={categories}
             onSelect={(name) => {
               setCategory(name);
+              setSubcategory("ALL");
+            }}
+          />
+
+          <BrandsCarousel
+            brands={brands}
+            onSelect={(id) => {
+              setBrandId(id);
+              setCategory("ALL");
               setSubcategory("ALL");
             }}
           />
@@ -557,11 +319,11 @@ function MarketplaceHomeContent() {
             <div className="border border-slate-200 bg-white rounded-2xl p-6 text-slate-700">
               <div className="font-semibold">No hay productos disponibles</div>
               <div className="text-sm text-slate-500 mt-1">
-                Prueba quitando filtros o usando otra búsqueda.
+                Prueba usando otra búsqueda o seleccionando otra categoría o marca.
               </div>
               <button
                 onClick={resetFilters}
-                className="mt-4 px-4 py-2 rounded-xl bg-emerald-600 text-white font-bold hover:bg-emerald-500 transition text-sm"
+                className="mt-4 px-4 py-2 rounded-xl bg-emerald-600 text-white font-bold hover:bg-emerald-500 transition text-sm cursor-pointer"
               >
                 Ver todo el catálogo
               </button>
@@ -578,7 +340,7 @@ function MarketplaceHomeContent() {
                 <button
                   onClick={() => setPage((p) => Math.max(1, p - 1))}
                   disabled={page <= 1}
-                  className="px-4 py-2 rounded-xl bg-white border border-slate-200 hover:bg-slate-50 transition text-sm disabled:opacity-50"
+                  className="px-4 py-2 rounded-xl bg-white border border-slate-200 hover:bg-slate-50 transition text-sm disabled:opacity-50 cursor-pointer"
                 >
                   ← Anterior
                 </button>
@@ -590,7 +352,7 @@ function MarketplaceHomeContent() {
                 <button
                   onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
                   disabled={page >= totalPages}
-                  className="px-4 py-2 rounded-xl bg-white border border-slate-200 hover:bg-slate-50 transition text-sm disabled:opacity-50"
+                  className="px-4 py-2 rounded-xl bg-white border border-slate-200 hover:bg-slate-50 transition text-sm disabled:opacity-50 cursor-pointer"
                 >
                   Siguiente →
                 </button>

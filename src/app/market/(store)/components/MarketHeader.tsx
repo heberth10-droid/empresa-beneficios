@@ -123,7 +123,6 @@ export default function MarketHeader() {
       }}
     >
       <div className="max-w-6xl mx-auto px-4 py-4 grid grid-cols-12 items-center gap-4">
-        
         {/* LOGO */}
         <div className="col-span-12 md:col-span-3 flex items-center justify-between md:block">
           <div>
@@ -142,7 +141,7 @@ export default function MarketHeader() {
           <div className="md:hidden flex items-center gap-4">
             <button
               onClick={() => router.push("/market/cart")}
-              className="relative inline-flex items-center gap-2 text-sm font-semibold"
+              className="relative inline-flex items-center gap-2 text-sm font-semibold cursor-pointer"
               style={{ color: "rgba(255,255,255,0.9)" }}
             >
               <ShoppingCart className="w-5 h-5" style={{ color: NOVA_AQUA }} />
@@ -181,7 +180,7 @@ export default function MarketHeader() {
 
             <button
               onClick={goSearch}
-              className="absolute right-1 top-1 bottom-1 px-4 rounded-full text-sm font-bold transition"
+              className="absolute right-1 top-1 bottom-1 px-4 rounded-full text-sm font-bold transition cursor-pointer"
               style={{
                 backgroundColor: NOVA_AQUA,
                 color: NOVA_BLUE,
@@ -191,10 +190,9 @@ export default function MarketHeader() {
             </button>
           </div>
 
-          {/* BOTONES (AJUSTADOS) */}
+          {/* BOTONES */}
           <div className="mt-3">
             <nav className="flex flex-wrap items-center justify-between gap-2 relative">
-              
               <div className="flex flex-wrap gap-2">
                 <Link
                   href="/brand"
@@ -227,7 +225,7 @@ export default function MarketHeader() {
                   <button
                     type="button"
                     onClick={() => setBuyOpen((v) => !v)}
-                    className="inline-flex items-center gap-2 rounded-full px-4 py-2 text-xs md:text-sm font-bold transition border"
+                    className="inline-flex items-center gap-2 rounded-full px-4 py-2 text-xs md:text-sm font-bold transition border cursor-pointer"
                     style={{
                       color: NOVA_BLUE,
                       backgroundColor: NOVA_AQUA,
@@ -239,12 +237,11 @@ export default function MarketHeader() {
                     <ChevronDown className="w-4 h-4" />
                   </button>
 
-                  {/* DROPDOWN (SIN CAMBIOS) */}
                   {buyOpen && (
                     <div className="absolute left-0 mt-3 w-[330px] max-h-[70vh] overflow-y-auto rounded-2xl border border-slate-200 bg-white shadow-2xl p-3 z-50">
                       <button
                         onClick={() => go("/market")}
-                        className="w-full flex items-center justify-between px-3 py-3 rounded-xl text-sm font-bold text-slate-900 hover:bg-slate-50"
+                        className="w-full flex items-center justify-between px-3 py-3 rounded-xl text-sm font-bold text-slate-900 hover:bg-slate-50 cursor-pointer"
                       >
                         Ver todos los productos
                         <ChevronRight className="w-4 h-4 text-slate-400" />
@@ -254,7 +251,7 @@ export default function MarketHeader() {
 
                       <button
                         onClick={() => setCatsOpen((v) => !v)}
-                        className="w-full flex items-center justify-between px-3 py-2 rounded-xl text-sm font-bold text-slate-700 hover:bg-slate-50"
+                        className="w-full flex items-center justify-between px-3 py-2 rounded-xl text-sm font-bold text-slate-700 hover:bg-slate-50 cursor-pointer"
                       >
                         Categorías
                         {catsOpen ? (
@@ -277,7 +274,7 @@ export default function MarketHeader() {
                                     onClick={() =>
                                       go(`/market?category=${enc(cat.name)}`)
                                     }
-                                    className="flex-1 text-left px-4 py-2 text-sm hover:bg-slate-50"
+                                    className="flex-1 text-left px-4 py-2 text-sm hover:bg-slate-50 cursor-pointer"
                                   >
                                     {cat.name}
                                   </button>
@@ -287,7 +284,7 @@ export default function MarketHeader() {
                                       onClick={() =>
                                         setOpenCategory(isOpen ? null : cat.name)
                                       }
-                                      className="p-2"
+                                      className="p-2 cursor-pointer"
                                     >
                                       {isOpen ? (
                                         <ChevronDown className="w-4 h-4" />
@@ -310,7 +307,7 @@ export default function MarketHeader() {
                                             )}&subcategory=${enc(sub.name)}`
                                           )
                                         }
-                                        className="block w-full text-left px-4 py-1 text-xs hover:bg-slate-50"
+                                        className="block w-full text-left px-4 py-1 text-xs hover:bg-slate-50 cursor-pointer"
                                       >
                                         {sub.name}
                                       </button>
@@ -327,10 +324,14 @@ export default function MarketHeader() {
 
                       <button
                         onClick={() => setBrandsOpen((v) => !v)}
-                        className="w-full flex justify-between px-3 py-2 text-sm font-bold"
+                        className="w-full flex justify-between px-3 py-2 text-sm font-bold cursor-pointer"
                       >
                         Marcas
-                        {brandsOpen ? <ChevronDown /> : <ChevronRight />}
+                        {brandsOpen ? (
+                          <ChevronDown className="w-4 h-4" />
+                        ) : (
+                          <ChevronRight className="w-4 h-4" />
+                        )}
                       </button>
 
                       {brandsOpen && (
@@ -339,12 +340,20 @@ export default function MarketHeader() {
                             <button
                               key={b.id}
                               onClick={() => go(`/market?brand=${b.id}`)}
-                              className="flex items-center gap-2 px-3 py-2 w-full text-left"
+                              className="flex items-center gap-2 px-3 py-2 w-full text-left hover:bg-slate-50 rounded-lg cursor-pointer"
                             >
-                              {b.logo_url && (
-                                <img src={b.logo_url} className="w-6 h-6" />
+                              {b.logo_url ? (
+                                <img
+                                  src={b.logo_url}
+                                  className="w-6 h-6 object-contain rounded bg-white border border-slate-100"
+                                  alt={b.name}
+                                />
+                              ) : (
+                                <span className="w-6 h-6 rounded bg-slate-100" />
                               )}
-                              {b.name}
+                              <span className="text-sm text-slate-700">
+                                {b.name}
+                              </span>
                             </button>
                           ))}
                         </div>
@@ -361,7 +370,7 @@ export default function MarketHeader() {
         <div className="hidden md:flex col-span-3 items-center justify-end gap-4">
           <button
             onClick={() => router.push("/market/cart")}
-            className="relative inline-flex items-center gap-2 text-sm font-semibold transition"
+            className="relative inline-flex items-center gap-2 text-sm font-semibold transition cursor-pointer"
             style={{ color: "rgba(255,255,255,0.9)" }}
           >
             <ShoppingCart className="w-5 h-5" style={{ color: NOVA_AQUA }} />
