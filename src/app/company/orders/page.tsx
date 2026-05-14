@@ -296,8 +296,12 @@ export default function CompanyOrdersPage() {
     setModalLoading(false);
   }
 
-  async function updateOrderStatus(orderId: string, status: "CONFIRMED" | "PROCESSED" | "CANCELLED") {
+  async function updateOrderStatus(
+    orderId: string,
+    status: "CONFIRMED" | "PROCESSED" | "CANCELLED"
+  ) {
     setUpdatingStatus(true);
+    setModalError(null);
 
     const { error } = await supabase
       .from("orders")
@@ -310,7 +314,10 @@ export default function CompanyOrdersPage() {
       return;
     }
 
-    // refrescar lista y mantener modal abierto
+    setOrders((prev) =>
+      prev.map((o) => (o.id === orderId ? { ...o, status } : o))
+    );
+
     await loadOrders({ silent: true });
 
     setUpdatingStatus(false);
