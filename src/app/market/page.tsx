@@ -8,7 +8,6 @@ import ProductCard from "./(store)/components/ProductCard";
 import PromosSection from "./(store)/components/PromosSection";
 import MarketValueCards from "./(store)/components/MarketValueCards";
 import CategoriesCarousel from "./(store)/components/CategoriesCarousel";
-import BrandsCarousel from "./(store)/components/BrandsCarousel";
 import BestSellersByCategory from "./(store)/components/BestSellersByCategory";
 
 type Brand = {
@@ -56,59 +55,91 @@ function getMainImage(row: any): string | null {
       } catch {}
     }
 
-    const first = s
-      .split(",")
-      .map((x) => x.trim())
-      .filter(Boolean)[0];
-
+    const first = s.split(",").map((x) => x.trim()).filter(Boolean)[0];
     return first || null;
   }
 
   return null;
 }
 
+function BrandsCarousel({
+  brands,
+  onSelect,
+}: {
+  brands: Brand[];
+  onSelect: (id: string) => void;
+}) {
+  if (!brands.length) return null;
+
+  return (
+    <section className="space-y-3">
+      <div className="flex items-end justify-between">
+        <div>
+          <h2 className="text-xl font-black text-slate-900">Marcas</h2>
+          <p className="text-sm text-slate-500">
+            Explora productos por marcas disponibles.
+          </p>
+        </div>
+      </div>
+
+      <div className="flex gap-4 overflow-x-auto pb-2">
+        {brands.map((brand) => (
+          <button
+            key={brand.id}
+            onClick={() => onSelect(brand.id)}
+            className="shrink-0 w-36 rounded-2xl border border-slate-200 bg-white overflow-hidden hover:shadow-md transition text-left cursor-pointer"
+          >
+            <div className="h-24 bg-slate-50 flex items-center justify-center p-4">
+              {brand.logo_url ? (
+                <img
+                  src={brand.logo_url}
+                  alt={brand.name || "Marca"}
+                  className="w-full h-full object-contain"
+                />
+              ) : (
+                <div className="w-14 h-14 rounded-full bg-slate-100 flex items-center justify-center text-slate-400 font-black">
+                  {(brand.name || "M").charAt(0).toUpperCase()}
+                </div>
+              )}
+            </div>
+
+            <div className="p-3">
+              <div className="text-sm font-bold text-slate-900 truncate">
+                {brand.name || "Marca"}
+              </div>
+            </div>
+          </button>
+        ))}
+      </div>
+    </section>
+  );
+}
+
 function MarketplaceHomeContent() {
   const sp = useSearchParams();
 
   const qFromUrl = useMemo(() => (sp.get("q") || "").trim(), [sp]);
-  const categoryFromUrl = useMemo(
-    () => (sp.get("category") || "").trim(),
-    [sp]
-  );
+  const categoryFromUrl = useMemo(() => (sp.get("category") || "").trim(), [sp]);
   const subcategoryFromUrl = useMemo(
     () => (sp.get("subcategory") || "").trim(),
     [sp]
   );
-  const brandFromUrl = useMemo(
-    () => (sp.get("brand") || "").trim(),
-    [sp]
-  );
+  const brandFromUrl = useMemo(() => (sp.get("brand") || "").trim(), [sp]);
 
-  const [brandId, setBrandId] = useState<string>(
-    brandFromUrl || "ALL"
-  );
-
-  const [category, setCategory] = useState<string>(
-    categoryFromUrl || "ALL"
-  );
-
+  const [brandId, setBrandId] = useState<string>(brandFromUrl || "ALL");
+  const [category, setCategory] = useState<string>(categoryFromUrl || "ALL");
   const [subcategory, setSubcategory] = useState<string>(
     subcategoryFromUrl || "ALL"
   );
 
-  const [sort] = useState<"NEW" | "PRICE_ASC" | "PRICE_DESC">(
-    "NEW"
-  );
+  const [sort] = useState<"NEW" | "PRICE_ASC" | "PRICE_DESC">("NEW");
 
   const [page, setPage] = useState(1);
   const pageSize = 12;
 
   const [brands, setBrands] = useState<Brand[]>([]);
   const [categories, setCategories] = useState<MarketCategory[]>([]);
-  const [subcategories, setSubcategories] = useState<
-    MarketSubcategory[]
-  >([]);
-
+  const [subcategories, setSubcategories] = useState<MarketSubcategory[]>([]);
   const [products, setProducts] = useState<any[]>([]);
   const [total, setTotal] = useState<number>(0);
 
@@ -144,9 +175,7 @@ function MarketplaceHomeContent() {
         .eq("active", true)
         .order("name", { ascending: true });
 
-      if (!error) {
-        setBrands((data || []) as Brand[]);
-      }
+      if (!error) setBrands((data || []) as any);
     }
 
     loadBrands();
@@ -167,7 +196,7 @@ function MarketplaceHomeContent() {
         return;
       }
 
-      setCategories((data || []) as MarketCategory[]);
+      setCategories((data || []) as any);
     }
 
     loadCats();
@@ -188,7 +217,7 @@ function MarketplaceHomeContent() {
         return;
       }
 
-      setSubcategories((data || []) as MarketSubcategory[]);
+      setSubcategories((data || []) as any);
     }
 
     loadSubcats();
@@ -212,33 +241,17 @@ function MarketplaceHomeContent() {
           )
           .eq("active", true);
 
-        if (brandId !== "ALL") {
-          query = query.eq("product_brand_id", brandId);
-        }
+        if (brandId !== "ALL") query = query.eq("product_brand_id", brandId);
+        if (category !== "ALL") query = query.eq("category", category);
+        if (subcategory !== "ALL") query = query.eq("subcategory", subcategory);
+        if (qFromUrl) query = query.ilike("name", `%${qFromUrl}%`);
 
-        if (category !== "ALL") {
-          query = query.eq("category", category);
-        }
-
-        if (subcategory !== "ALL") {
-          query = query.eq("subcategory", subcategory);
-        }
-
-        if (qFromUrl) {
-          query = query.ilike("name", `%${qFromUrl}%`);
-        }
-
-        query = query.order("created_at", {
-          ascending: false,
-        });
+        query = query.order("created_at", { ascending: false });
 
         const from = (page - 1) * pageSize;
         const to = from + pageSize - 1;
 
-        const { data, error, count } = await query.range(
-          from,
-          to
-        );
+        const { data, error, count } = await query.range(from, to);
 
         if (error) {
           setErr(error.message);
@@ -278,14 +291,7 @@ function MarketplaceHomeContent() {
     }, 150);
 
     return () => clearTimeout(t);
-  }, [
-    brandId,
-    category,
-    subcategory,
-    sort,
-    qFromUrl,
-    page,
-  ]);
+  }, [brandId, category, subcategory, sort, qFromUrl, page]);
 
   function resetFilters() {
     setBrandId("ALL");
@@ -330,7 +336,6 @@ function MarketplaceHomeContent() {
               <h1 className="text-xl md:text-2xl font-extrabold text-slate-900">
                 Catálogo
               </h1>
-
               <p className="text-slate-500 text-sm">
                 {loading
                   ? "Cargando..."
@@ -353,7 +358,6 @@ function MarketplaceHomeContent() {
                   className="border border-slate-200 rounded-2xl bg-white overflow-hidden animate-pulse"
                 >
                   <div className="aspect-square bg-slate-100" />
-
                   <div className="p-4 space-y-3">
                     <div className="h-4 bg-slate-100 rounded w-3/4" />
                     <div className="h-3 bg-slate-100 rounded w-full" />
@@ -365,15 +369,10 @@ function MarketplaceHomeContent() {
             </div>
           ) : products.length === 0 ? (
             <div className="border border-slate-200 bg-white rounded-2xl p-6 text-slate-700">
-              <div className="font-semibold">
-                No hay productos disponibles
-              </div>
-
+              <div className="font-semibold">No hay productos disponibles</div>
               <div className="text-sm text-slate-500 mt-1">
-                Prueba usando otra búsqueda o seleccionando otra
-                categoría o marca.
+                Prueba usando otra búsqueda o seleccionando otra categoría o marca.
               </div>
-
               <button
                 onClick={resetFilters}
                 className="mt-4 px-4 py-2 rounded-xl bg-emerald-600 text-white font-bold hover:bg-emerald-500 transition text-sm cursor-pointer"
@@ -391,9 +390,7 @@ function MarketplaceHomeContent() {
 
               <div className="flex items-center justify-center gap-3 pt-2">
                 <button
-                  onClick={() =>
-                    setPage((p) => Math.max(1, p - 1))
-                  }
+                  onClick={() => setPage((p) => Math.max(1, p - 1))}
                   disabled={page <= 1}
                   className="px-4 py-2 rounded-xl bg-white border border-slate-200 hover:bg-slate-50 transition text-sm disabled:opacity-50 cursor-pointer"
                 >
@@ -405,11 +402,7 @@ function MarketplaceHomeContent() {
                 </div>
 
                 <button
-                  onClick={() =>
-                    setPage((p) =>
-                      Math.min(totalPages, p + 1)
-                    )
-                  }
+                  onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
                   disabled={page >= totalPages}
                   className="px-4 py-2 rounded-xl bg-white border border-slate-200 hover:bg-slate-50 transition text-sm disabled:opacity-50 cursor-pointer"
                 >
