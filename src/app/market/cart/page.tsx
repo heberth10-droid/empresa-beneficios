@@ -4,6 +4,14 @@ import { Suspense } from "react";
 import Link from "next/link";
 import { useCart } from "@/components/cart/CartProvider";
 
+function formatCOP(value: number) {
+  return new Intl.NumberFormat("es-CO", {
+    style: "currency",
+    currency: "COP",
+    maximumFractionDigits: 0,
+  }).format(Number(value || 0));
+}
+
 function CartPageContent() {
   const { items, subtotal, setQty, removeItem, clear } = useCart();
 
@@ -49,7 +57,7 @@ function CartPageContent() {
 
                 <div className="flex-1">
                   <p className="font-semibold">{it.name}</p>
-                  <p className="text-slate-400 text-sm">${it.price}</p>
+                  <p className="text-slate-400 text-sm">{formatCOP(it.price)}</p>
                 </div>
 
                 <div className="flex items-center gap-2">
@@ -79,7 +87,7 @@ function CartPageContent() {
                 </div>
 
                 <div className="w-28 text-right font-bold text-emerald-400">
-                  ${(it.price * it.qty).toFixed(2)}
+                  {formatCOP(it.price * it.qty)}
                 </div>
 
                 <button
@@ -95,7 +103,7 @@ function CartPageContent() {
           <div className="border border-slate-800 bg-slate-900 rounded-lg p-4 flex items-center justify-between">
             <div className="text-slate-300">Subtotal</div>
             <div className="text-emerald-400 text-xl font-bold">
-              ${subtotal.toFixed(2)}
+              {formatCOP(subtotal)}
             </div>
           </div>
 
