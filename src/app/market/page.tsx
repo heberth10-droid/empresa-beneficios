@@ -259,18 +259,19 @@ function MarketplaceHomeContent() {
           <CategoriesCarousel
             categories={categories}
             onSelect={(name) => {
-              window.location.href = `/market?category=${encodeURIComponent(name)}`;
+              setCategory(name);
+              setSubcategory("ALL");
             }}
           />
 
-          <div className="mt-6">
-            <BrandsCarousel
-              brands={brands}
-              onSelect={(id) => {
-                window.location.href = `/market?brand=${encodeURIComponent(id)}`;
-              }}
-            />
-          </div>
+          <BrandsCarousel
+            brands={brands}
+            onSelect={(id) => {
+              setBrandId(id);
+              setCategory("ALL");
+              setSubcategory("ALL");
+            }}
+          />
 
           <BestSellersByCategory />
         </>
