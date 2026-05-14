@@ -59,7 +59,6 @@ export default function ProductView() {
   const [product, setProduct] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [adding, setAdding] = useState(false);
-  const [toast, setToast] = useState(false);
   const [cartPreviewOpen, setCartPreviewOpen] = useState(false);
 
   useEffect(() => {
@@ -112,10 +111,8 @@ export default function ProductView() {
     );
 
     setAdding(false);
-    setToast(true);
     setCartPreviewOpen(true);
 
-    setTimeout(() => setToast(false), 2500);
     setTimeout(() => setCartPreviewOpen(false), 4500);
   }
 
@@ -129,11 +126,6 @@ export default function ProductView() {
 
   return (
     <>
-      {toast && (
-        <div className="fixed top-5 right-5 z-[80] bg-emerald-500 text-slate-950 px-5 py-3 rounded-xl shadow-2xl font-bold">
-          Producto agregado al carrito
-        </div>
-      )}
 
       {cartPreviewOpen && (
         <div className="fixed top-0 right-0 h-full w-[360px] max-w-[90vw] bg-white text-slate-900 z-[70] shadow-2xl border-l border-slate-200 p-5 animate-[slideIn_.25s_ease-out]">

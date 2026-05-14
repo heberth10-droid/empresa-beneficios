@@ -18,12 +18,12 @@ function CartPageContent() {
   return (
     <div className="max-w-4xl mx-auto space-y-6">
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold">Carrito</h1>
+        <h1 className="text-2xl font-bold text-slate-900">Carrito</h1>
 
         {items.length > 0 && (
           <button
             onClick={clear}
-            className="text-sm text-slate-300 hover:text-white underline"
+            className="text-sm font-semibold text-red-600 hover:text-red-700 underline"
           >
             Vaciar carrito
           </button>
@@ -31,9 +31,9 @@ function CartPageContent() {
       </div>
 
       {items.length === 0 ? (
-        <div className="border border-slate-800 bg-slate-900 rounded-lg p-6">
-          <p className="text-slate-300">Tu carrito está vacío.</p>
-          <Link href="/market" className="text-emerald-400 font-semibold">
+        <div className="border border-slate-200 bg-white rounded-lg p-6">
+          <p className="text-slate-700">Tu carrito está vacío.</p>
+          <Link href="/market" className="text-emerald-600 font-semibold">
             Volver al catálogo
           </Link>
         </div>
@@ -43,12 +43,12 @@ function CartPageContent() {
             {items.map((it) => (
               <div
                 key={it.id}
-                className="flex gap-4 border border-slate-800 bg-slate-900 rounded-lg p-4 items-center"
+                className="flex gap-4 border border-[#071A3A]/25 bg-white rounded-xl p-4 items-center shadow-sm"
               >
                 <img
                   src={it.image || "/no-image.png"}
                   alt={it.name}
-                  className="w-20 h-20 rounded border border-slate-800 object-cover"
+                  className="w-20 h-20 rounded border border-slate-200 object-cover bg-slate-50"
                   onError={(e) => {
                     (e.currentTarget as HTMLImageElement).src =
                       "/no-image.png";
@@ -56,14 +56,16 @@ function CartPageContent() {
                 />
 
                 <div className="flex-1">
-                  <p className="font-semibold">{it.name}</p>
-                  <p className="text-slate-400 text-sm">{formatCOP(it.price)}</p>
+                  <p className="font-bold text-slate-900">{it.name}</p>
+                  <p className="text-slate-600 text-sm">
+                    {formatCOP(it.price)}
+                  </p>
                 </div>
 
                 <div className="flex items-center gap-2">
                   <button
                     onClick={() => setQty(it.id, Math.max(1, it.qty - 1))}
-                    className="px-3 py-1 rounded bg-slate-800 hover:bg-slate-700"
+                    className="px-3 py-1 rounded bg-slate-100 hover:bg-slate-200 text-slate-900 font-bold border border-slate-200"
                   >
                     -
                   </button>
@@ -73,26 +75,26 @@ function CartPageContent() {
                     onChange={(e) =>
                       setQty(it.id, Number(e.target.value || 1))
                     }
-                    className="w-14 text-center bg-slate-800 rounded py-1"
+                    className="w-14 text-center bg-white text-slate-900 rounded py-1 border border-slate-300 font-semibold"
                     type="number"
                     min={1}
                   />
 
                   <button
                     onClick={() => setQty(it.id, it.qty + 1)}
-                    className="px-3 py-1 rounded bg-slate-800 hover:bg-slate-700"
+                    className="px-3 py-1 rounded bg-slate-100 hover:bg-slate-200 text-slate-900 font-bold border border-slate-200"
                   >
                     +
                   </button>
                 </div>
 
-                <div className="w-28 text-right font-bold text-emerald-400">
+                <div className="w-32 text-right font-black text-emerald-600">
                   {formatCOP(it.price * it.qty)}
                 </div>
 
                 <button
                   onClick={() => removeItem(it.id)}
-                  className="text-sm text-red-300 hover:text-red-200 underline"
+                  className="text-sm text-red-600 hover:text-red-700 font-semibold underline"
                 >
                   Quitar
                 </button>
@@ -100,9 +102,9 @@ function CartPageContent() {
             ))}
           </div>
 
-          <div className="border border-slate-800 bg-slate-900 rounded-lg p-4 flex items-center justify-between">
-            <div className="text-slate-300">Subtotal</div>
-            <div className="text-emerald-400 text-xl font-bold">
+          <div className="border border-[#071A3A]/25 bg-white rounded-xl p-4 flex items-center justify-between shadow-sm">
+            <div className="text-slate-700 font-semibold">Subtotal</div>
+            <div className="text-emerald-600 text-xl font-black">
               {formatCOP(subtotal)}
             </div>
           </div>
@@ -110,7 +112,7 @@ function CartPageContent() {
           <div className="flex justify-end gap-3">
             <Link
               href="/market"
-              className="px-6 py-3 rounded border border-slate-700 text-slate-200 hover:bg-slate-900 transition"
+              className="px-6 py-3 rounded bg-[#071A3A] text-white font-bold hover:bg-[#0B2552] transition"
             >
               Seguir comprando
             </Link>
