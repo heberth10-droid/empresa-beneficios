@@ -18,6 +18,14 @@ export default function ProductBrandsPage() {
   const [previewLogo, setPreviewLogo] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editingName, setEditingName] = useState("");
+  const [editingLogoFile, setEditingLogoFile] = useState<File | null>(null);
+  const [editingPreviewLogo, setEditingPreviewLogo] = useState<string | null>(
+    null
+  );
+  const [updating, setUpdating] = useState(false);
+
   useEffect(() => {
     async function init() {
       const { data: authData } = await supabase.auth.getUser();
@@ -163,6 +171,73 @@ export default function ProductBrandsPage() {
     }
   }
 
+  function startEdit(b: any) {
+    setEditingId(b.id);
+    setEditingName(b.name || "");
+    setEditingLogoFile(null);
+    setEditingPreviewLogo(b.logo_url || null);
+  }
+
+  function cancelEdit() {
+    setEditingId(null);
+    setEditingName("");
+    setEditingLogoFile(null);
+    setEditingPreviewLogo(null);
+  }
+
+  async function handleUpdateBrand() {
+    try {
+      if (!editingId) return;
+
+      setUpdating(true);
+
+      const cleanName = editingName.trim();
+
+      if (!cleanName) {
+        throw new Error("Debes escribir el nombre de la marca.");
+      }
+
+      const duplicated = productBrands.find(
+        (b) =>
+          b.id !== editingId &&
+          b.name.trim().toLowerCase() === cleanName.toLowerCase()
+      );
+
+      if (duplicated) {
+        throw new Error("Ya existe otra marca con ese nombre.");
+      }
+
+      let logoUrl = editingPreviewLogo;
+
+      if (editingLogoFile) {
+        logoUrl = await uploadLogo(editingId, editingLogoFile);
+      }
+
+      const { error } = await supabase
+        .from("product_brands")
+        .update({
+          name: cleanName,
+          logo_url: logoUrl || null,
+        })
+        .eq("id", editingId)
+        .eq("seller_brand_id", brand.id);
+
+      if (error) {
+        throw new Error("No se pudo actualizar la marca: " + error.message);
+      }
+
+      cancelEdit();
+      await loadProductBrands(brand.id);
+
+      alert("Marca actualizada correctamente.");
+    } catch (e: any) {
+      alert(e?.message || "Error actualizando la marca.");
+      console.error(e);
+    } finally {
+      setUpdating(false);
+    }
+  }
+
   if (loading || !brand) {
     return <div className="p-10 text-slate-300">Cargando marcas…</div>;
   }
@@ -172,7 +247,8 @@ export default function ProductBrandsPage() {
       <div>
         <h1 className="text-3xl font-bold">Crear marca</h1>
         <p className="text-slate-400">
-          Crea las marcas comerciales que luego podrás seleccionar al crear productos.
+          Crea las marcas comerciales que luego podrás seleccionar al crear
+          productos.
         </p>
       </div>
 
@@ -200,7 +276,9 @@ export default function ProductBrandsPage() {
 
             <button
               type="button"
-              onClick={() => document.getElementById("brandLogoUpload")?.click()}
+              onClick={() =>
+                document.getElementById("brandLogoUpload")?.click()
+              }
               className="px-4 py-2 bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded text-sm"
             >
               Subir logo
@@ -262,26 +340,108 @@ export default function ProductBrandsPage() {
           </div>
         ) : (
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            {productBrands.map((b) => (
-              <div
-                key={b.id}
-                className="border border-slate-800 rounded-lg p-4 bg-slate-950/40"
-              >
-                <div className="h-20 bg-white rounded flex items-center justify-center p-3 mb-3">
-                  {b.logo_url ? (
-                    <img
-                      src={b.logo_url}
-                      alt={b.name}
-                      className="max-h-14 object-contain"
-                    />
+            {productBrands.map((b) => {
+              const isEditing = editingId === b.id;
+
+              return (
+                <div
+                  key={b.id}
+                  className="border border-slate-800 rounded-lg p-4 bg-slate-950/40"
+                >
+                  <div className="h-20 bg-white rounded flex items-center justify-center p-3 mb-3">
+                    {isEditing ? (
+                      editingPreviewLogo ? (
+                        <img
+                          src={editingPreviewLogo}
+                          alt={editingName}
+                          className="max-h-14 object-contain"
+                        />
+                      ) : (
+                        <span className="text-slate-400 text-xs">Sin logo</span>
+                      )
+                    ) : b.logo_url ? (
+                      <img
+                        src={b.logo_url}
+                        alt={b.name}
+                        className="max-h-14 object-contain"
+                      />
+                    ) : (
+                      <span className="text-slate-400 text-xs">Sin logo</span>
+                    )}
+                  </div>
+
+                  {isEditing ? (
+                    <div className="space-y-3">
+                      <input
+                        className="p-2 bg-slate-800 rounded w-full text-sm"
+                        value={editingName}
+                        onChange={(e) => setEditingName(e.target.value)}
+                        placeholder="Nombre de la marca"
+                      />
+
+                      <button
+                        type="button"
+                        onClick={() =>
+                          document
+                            .getElementById(`editLogoUpload-${b.id}`)
+                            ?.click()
+                        }
+                        className="w-full px-3 py-2 bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded text-xs"
+                      >
+                        Cambiar logo
+                      </button>
+
+                      <input
+                        id={`editLogoUpload-${b.id}`}
+                        type="file"
+                        accept="image/png,image/jpeg,image/webp"
+                        className="hidden"
+                        onChange={(e) => {
+                          const file = e.target.files?.[0] || null;
+                          setEditingLogoFile(file);
+
+                          if (file) {
+                            setEditingPreviewLogo(URL.createObjectURL(file));
+                          }
+                        }}
+                      />
+
+                      <div className="flex gap-2">
+                        <button
+                          onClick={handleUpdateBrand}
+                          disabled={updating}
+                          className="flex-1 px-3 py-2 bg-emerald-500 hover:bg-emerald-400 text-black font-bold rounded text-xs disabled:opacity-50"
+                        >
+                          {updating ? "Guardando..." : "Guardar"}
+                        </button>
+
+                        <button
+                          onClick={cancelEdit}
+                          disabled={updating}
+                          className="flex-1 px-3 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded text-xs disabled:opacity-50"
+                        >
+                          Cancelar
+                        </button>
+                      </div>
+                    </div>
                   ) : (
-                    <span className="text-slate-400 text-xs">Sin logo</span>
+                    <>
+                      <div className="font-semibold text-white mb-3">
+                        {b.name}
+                      </div>
+
+                      <button
+                        type="button"
+                        onClick={() => startEdit(b)}
+                        className="w-full px-3 py-2 bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded text-sm font-semibold"
+                      >
+                        Editar
+                      </button>
+                    </>
                   )}
                 </div>
-
-                <div className="font-semibold text-white">{b.name}</div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         )}
       </div>
