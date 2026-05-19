@@ -5,8 +5,11 @@ import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
 
 function money(n: any) {
-  const x = Number(n || 0);
-  return `$${x.toFixed(2)}`;
+  return new Intl.NumberFormat("es-CO", {
+    style: "currency",
+    currency: "COP",
+    maximumFractionDigits: 0,
+  }).format(Number(n || 0));
 }
 
 function fmtDateTime(iso?: string | null) {

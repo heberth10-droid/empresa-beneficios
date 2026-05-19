@@ -1,36 +1,32 @@
 "use client";
 
+import { useRouter } from "next/navigation";
+
 type Brand = {
   id: string;
   name: string | null;
   logo_url?: string | null;
 };
 
-export default function BrandsCarousel({
-  brands,
-  onSelect,
-}: {
-  brands: Brand[];
-  onSelect: (id: string) => void;
-}) {
+export default function BrandsCarousel({ brands }: { brands: Brand[] }) {
+  const router = useRouter();
+
   if (!brands.length) return null;
 
   return (
     <section className="space-y-3">
-      <div className="flex items-end justify-between">
-        <div>
-          <h2 className="text-xl font-black text-slate-900">Marcas</h2>
-          <p className="text-sm text-slate-500">
-            Explora productos por marcas disponibles en NOVA.
-          </p>
-        </div>
+      <div>
+        <h2 className="text-xl font-black text-slate-900">Marcas</h2>
+        <p className="text-sm text-slate-500">
+          Explora productos por marcas disponibles en NOVA.
+        </p>
       </div>
 
       <div className="flex gap-4 overflow-x-auto pb-2">
         {brands.map((brand) => (
           <button
             key={brand.id}
-            onClick={() => onSelect(brand.id)}
+            onClick={() => router.push(`/market/brand/${brand.id}`)}
             className="shrink-0 w-36 rounded-2xl border border-slate-200 bg-white overflow-hidden hover:shadow-md transition text-left cursor-pointer"
           >
             <div className="h-24 bg-slate-50 flex items-center justify-center p-4">
