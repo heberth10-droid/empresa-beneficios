@@ -14,33 +14,53 @@ function formatCOP(n: number) {
 
 function getMainImage(row: any): string | null {
   if (row?.main_image) return String(row.main_image);
+
   if (row?.image_url) return String(row.image_url);
 
   const images = row?.images;
 
+  // array real
   if (Array.isArray(images) && images.length > 0) {
-    const first = images.find((x) => typeof x === "string" && x.trim());
-    return first ? String(first).trim() : null;
+    const first = images.find(
+      (x) => typeof x === "string" && x.trim()
+    );
+
+    if (first) return String(first).trim();
   }
 
+  // string
   if (typeof images === "string") {
     const s = images.trim();
+
     if (!s) return null;
 
-    try {
-      const parsed = JSON.parse(s);
-      if (Array.isArray(parsed) && parsed.length > 0) {
-        const first = parsed.find((x) => typeof x === "string" && x.trim());
-        if (first) return String(first).trim();
-      }
-    } catch {}
+    // url directa
+    if (s.startsWith("http")) return s;
 
-    if (s.includes(",")) {
-      const first = s.split(",").map((x) => x.trim()).filter(Boolean)[0];
-      return first || null;
+    // json string
+    if (s.startsWith("[") && s.endsWith("]")) {
+      try {
+        const parsed = JSON.parse(s);
+
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          const first = parsed.find(
+            (x) => typeof x === "string" && x.trim()
+          );
+
+          if (first) return String(first).trim();
+        }
+      } catch {}
     }
 
-    if (s.startsWith("http")) return s;
+    // csv
+    if (s.includes(",")) {
+      const first = s
+        .split(",")
+        .map((x) => x.trim())
+        .filter(Boolean)[0];
+
+      if (first) return first;
+    }
   }
 
   return null;
@@ -78,18 +98,29 @@ export default function BestSellersByCategory() {
 
     for (const row of rows) {
       const category = row.category || "General";
-      if (!map.has(category)) map.set(category, []);
+
+      if (!map.has(category)) {
+        map.set(category, []);
+      }
 
       const base = Number(row.price || 0);
       const disc = Number(row.discount_price || 0);
 
+      const mainImage = getMainImage(row);
+
       map.get(category)?.push({
         ...row,
-        main_image: getMainImage(row),
+        id: row.id || row.product_id,
+
+        // 👇 importante para ProductCard
+        main_image: mainImage || "/no-image.png",
+
         price_fmt: formatCOP(base),
         discount_fmt: formatCOP(disc),
+
         price: base,
         discount_price: disc,
+
         stock: Number(row.stock || 0),
       });
     }
@@ -101,6 +132,7 @@ export default function BestSellersByCategory() {
     return (
       <div className="space-y-6">
         <div className="h-6 w-64 bg-slate-100 rounded animate-pulse" />
+
         <div className="grid grid-cols-2 md:grid-cols-4 gap-5">
           {Array.from({ length: 4 }).map((_, i) => (
             <div
@@ -118,12 +150,13 @@ export default function BestSellersByCategory() {
   return (
     <section className="space-y-8">
       {grouped.map(([category, products]) => (
-        <div key={category} className="space-y-3">
+        <div key={String(category)} className="space-y-3">
           <div className="flex items-end justify-between">
             <div>
               <h2 className="text-xl font-black text-slate-900">
-                Más vendidos en {category}
+                Más vendidos en {String(category)}
               </h2>
+
               <p className="text-sm text-slate-500">
                 Productos destacados según compras y actividad reciente.
               </p>
@@ -131,7 +164,7 @@ export default function BestSellersByCategory() {
           </div>
 
           <div className="flex gap-5 overflow-x-auto pb-2">
-            {products.map((p) => (
+            {(products as any[]).map((p) => (
               <div key={p.id} className="shrink-0 w-[220px]">
                 <ProductCard product={p} />
               </div>
