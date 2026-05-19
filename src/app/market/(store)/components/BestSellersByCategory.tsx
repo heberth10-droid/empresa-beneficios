@@ -12,58 +12,56 @@ function formatCOP(n: number) {
   }).format(Number.isFinite(n) ? n : 0);
 }
 
-function getMainImage(row: any): string | null {
-  if (row?.main_image) return String(row.main_image);
+function extractFirstUrl(value: any): string | null {
+  if (!value) return null;
 
-  if (row?.image_url) return String(row.image_url);
+  if (typeof value === "string") {
+    const trimmed = value.trim();
+    if (!trimmed) return null;
 
-  const images = row?.images;
+    if (trimmed.startsWith("http")) return trimmed;
 
-  // array real
-  if (Array.isArray(images) && images.length > 0) {
-    const first = images.find(
-      (x) => typeof x === "string" && x.trim()
-    );
+    try {
+      const parsed = JSON.parse(trimmed);
+      const found = extractFirstUrl(parsed);
+      if (found) return found;
+    } catch {}
 
-    if (first) return String(first).trim();
+    const match = trimmed.match(/https?:\/\/[^"',\]\}\s]+/);
+    return match?.[0] || null;
   }
 
-  // string
-  if (typeof images === "string") {
-    const s = images.trim();
+  if (Array.isArray(value)) {
+    for (const item of value) {
+      const found = extractFirstUrl(item);
+      if (found) return found;
+    }
+  }
 
-    if (!s) return null;
-
-    // url directa
-    if (s.startsWith("http")) return s;
-
-    // json string
-    if (s.startsWith("[") && s.endsWith("]")) {
-      try {
-        const parsed = JSON.parse(s);
-
-        if (Array.isArray(parsed) && parsed.length > 0) {
-          const first = parsed.find(
-            (x) => typeof x === "string" && x.trim()
-          );
-
-          if (first) return String(first).trim();
-        }
-      } catch {}
+  if (typeof value === "object") {
+    for (const key of ["url", "src", "image", "image_url", "publicUrl"]) {
+      const found = extractFirstUrl(value[key]);
+      if (found) return found;
     }
 
-    // csv
-    if (s.includes(",")) {
-      const first = s
-        .split(",")
-        .map((x) => x.trim())
-        .filter(Boolean)[0];
-
-      if (first) return first;
+    for (const v of Object.values(value)) {
+      const found = extractFirstUrl(v);
+      if (found) return found;
     }
   }
 
   return null;
+}
+
+function getMainImage(row: any): string {
+  return (
+    extractFirstUrl(row?.main_image) ||
+    extractFirstUrl(row?.image_url) ||
+    extractFirstUrl(row?.images) ||
+    extractFirstUrl(row?.product_images) ||
+    extractFirstUrl(row?.image) ||
+    "/no-image.png"
+  );
 }
 
 export default function BestSellersByCategory() {
@@ -98,29 +96,23 @@ export default function BestSellersByCategory() {
 
     for (const row of rows) {
       const category = row.category || "General";
-
-      if (!map.has(category)) {
-        map.set(category, []);
-      }
+      if (!map.has(category)) map.set(category, []);
 
       const base = Number(row.price || 0);
       const disc = Number(row.discount_price || 0);
-
       const mainImage = getMainImage(row);
 
       map.get(category)?.push({
         ...row,
         id: row.id || row.product_id,
-
-        // 👇 importante para ProductCard
-        main_image: mainImage || "/no-image.png",
-
+        name: row.name || row.product_name || "Producto",
+        description: row.description || "",
+        main_image: mainImage,
+        image_url: mainImage,
         price_fmt: formatCOP(base),
         discount_fmt: formatCOP(disc),
-
         price: base,
         discount_price: disc,
-
         stock: Number(row.stock || 0),
       });
     }
@@ -132,13 +124,9 @@ export default function BestSellersByCategory() {
     return (
       <div className="space-y-6">
         <div className="h-6 w-64 bg-slate-100 rounded animate-pulse" />
-
         <div className="grid grid-cols-2 md:grid-cols-4 gap-5">
           {Array.from({ length: 4 }).map((_, i) => (
-            <div
-              key={i}
-              className="h-72 bg-slate-100 rounded-2xl animate-pulse"
-            />
+            <div key={i} className="h-72 bg-slate-100 rounded-2xl animate-pulse" />
           ))}
         </div>
       </div>
@@ -151,20 +139,17 @@ export default function BestSellersByCategory() {
     <section className="space-y-8">
       {grouped.map(([category, products]) => (
         <div key={String(category)} className="space-y-3">
-          <div className="flex items-end justify-between">
-            <div>
-              <h2 className="text-xl font-black text-slate-900">
-                Más vendidos en {String(category)}
-              </h2>
-
-              <p className="text-sm text-slate-500">
-                Productos destacados según compras y actividad reciente.
-              </p>
-            </div>
+          <div>
+            <h2 className="text-xl font-black text-slate-900">
+              Más vendidos en {String(category)}
+            </h2>
+            <p className="text-sm text-slate-500">
+              Productos destacados según compras y actividad reciente.
+            </p>
           </div>
 
           <div className="flex gap-5 overflow-x-auto pb-2">
-            {(products as any[]).map((p) => (
+            {products.map((p) => (
               <div key={p.id} className="shrink-0 w-[220px]">
                 <ProductCard product={p} />
               </div>
