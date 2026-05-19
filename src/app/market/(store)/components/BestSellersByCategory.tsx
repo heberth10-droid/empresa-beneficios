@@ -13,25 +13,34 @@ function formatCOP(n: number) {
 }
 
 function getMainImage(row: any): string | null {
+  if (row?.main_image) return String(row.main_image);
   if (row?.image_url) return String(row.image_url);
 
   const images = row?.images;
 
-  if (Array.isArray(images) && images.length > 0) return String(images[0]);
+  if (Array.isArray(images) && images.length > 0) {
+    const first = images.find((x) => typeof x === "string" && x.trim());
+    return first ? String(first).trim() : null;
+  }
 
   if (typeof images === "string") {
     const s = images.trim();
     if (!s) return null;
 
-    if (s.startsWith("[") && s.endsWith("]")) {
-      try {
-        const arr = JSON.parse(s);
-        if (Array.isArray(arr) && arr.length > 0) return String(arr[0]);
-      } catch {}
+    try {
+      const parsed = JSON.parse(s);
+      if (Array.isArray(parsed) && parsed.length > 0) {
+        const first = parsed.find((x) => typeof x === "string" && x.trim());
+        if (first) return String(first).trim();
+      }
+    } catch {}
+
+    if (s.includes(",")) {
+      const first = s.split(",").map((x) => x.trim()).filter(Boolean)[0];
+      return first || null;
     }
 
-    const first = s.split(",").map((x) => x.trim()).filter(Boolean)[0];
-    return first || null;
+    if (s.startsWith("http")) return s;
   }
 
   return null;
