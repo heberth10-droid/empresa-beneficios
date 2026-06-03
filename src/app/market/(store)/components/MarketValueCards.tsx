@@ -188,7 +188,7 @@ export default function MarketValueCards() {
                 className="inline-block w-full py-3 rounded-xl text-sm font-black transition"
                 style={{ backgroundColor: "var(--nomi-orange)", color: "#fff" }}
               >
-                ¡Quiero esta cuota! →
+                ¡Quiero esta cuota! &rarr;
               </a>
             </div>
           </div>
