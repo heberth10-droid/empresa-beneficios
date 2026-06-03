@@ -1,5 +1,6 @@
 "use client";
 
+import { useRef } from "react";
 import { useRouter } from "next/navigation";
 
 type Brand = {
@@ -10,6 +11,7 @@ type Brand = {
 
 export default function BrandsCarousel({ brands }: { brands: Brand[] }) {
   const router = useRouter();
+  const scrollRef = useRef<HTMLDivElement>(null);
 
   if (!brands.length) return null;
 
@@ -24,7 +26,8 @@ export default function BrandsCarousel({ brands }: { brands: Brand[] }) {
             Marcas aliadas
           </p>
           <h2 className="text-xl font-black" style={{ color: "var(--nomi-navy)" }}>
-            Las mejores marcas, <span style={{ color: "var(--nomi-orange)" }}>tus cuotas</span>
+            Las mejores marcas,{" "}
+            <span style={{ color: "var(--nomi-orange)" }}>tus cuotas</span>
           </h2>
         </div>
         <button
@@ -35,32 +38,61 @@ export default function BrandsCarousel({ brands }: { brands: Brand[] }) {
         </button>
       </div>
 
-      {/* CARRUSEL INFINITO */}
-      <div className="overflow-hidden">
-        <div className="brands-track">
+      {/* CARRUSEL: animación CSS lenta + scroll táctil/mouse encima */}
+      <div
+        ref={scrollRef}
+        className="overflow-x-auto scroll-hide"
+        style={{ cursor: "grab" }}
+        onMouseDown={(e) => {
+          const el = scrollRef.current;
+          if (!el) return;
+          el.style.cursor = "grabbing";
+          el.style.userSelect = "none";
+          const startX = e.pageX - el.offsetLeft;
+          const scrollLeft = el.scrollLeft;
+          const onMove = (ev: MouseEvent) => {
+            const x = ev.pageX - el.offsetLeft;
+            el.scrollLeft = scrollLeft - (x - startX);
+          };
+          const onUp = () => {
+            el.style.cursor = "grab";
+            el.style.userSelect = "";
+            window.removeEventListener("mousemove", onMove);
+            window.removeEventListener("mouseup", onUp);
+          };
+          window.addEventListener("mousemove", onMove);
+          window.addEventListener("mouseup", onUp);
+        }}
+      >
+        <div
+          className="brands-track"
+          style={{ animationDuration: "40s" }}
+        >
           {doubled.map((brand, idx) => (
             <button
               key={`${brand.id}-${idx}`}
               onClick={() => router.push(`/market/brand/${brand.id}`)}
-              className="shrink-0 flex flex-col items-center justify-center gap-2 rounded-2xl transition cursor-pointer"
+              className="shrink-0 flex flex-col items-center justify-center gap-1.5 rounded-2xl transition-all cursor-pointer hover:shadow-md hover:-translate-y-0.5"
               style={{
                 width: "110px",
-                height: "80px",
+                height: "76px",
                 backgroundColor: "#fff",
                 border: "1.5px solid var(--nomi-border)",
-                padding: "12px 8px",
+                padding: "10px 8px",
               }}
             >
               {brand.logo_url ? (
                 <img
                   src={brand.logo_url}
                   alt={brand.name || "Marca"}
-                  className="w-full h-full object-contain"
-                  style={{ maxHeight: "44px" }}
+                  className="object-contain"
+                  style={{ maxWidth: "80px", maxHeight: "40px" }}
+                  draggable={false}
                 />
               ) : (
                 <>
-                  <div className="w-10 h-10 rounded-full flex items-center justify-center text-sm font-black text-white"
+                  <div
+                    className="w-9 h-9 rounded-full flex items-center justify-center text-sm font-black text-white"
                     style={{ backgroundColor: "var(--nomi-navy)" }}>
                     {(brand.name || "M").charAt(0).toUpperCase()}
                   </div>

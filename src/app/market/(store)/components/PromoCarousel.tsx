@@ -11,7 +11,7 @@ type Promo = {
 
 export default function PromoCarousel({
   items,
-  autoplayMs = 6000,
+  autoplayMs = 5000,
 }: {
   items: Promo[];
   autoplayMs?: number;
@@ -19,7 +19,6 @@ export default function PromoCarousel({
   const [index, setIndex] = useState(0);
   const [paused, setPaused] = useState(false);
   const timerRef = useRef<number | null>(null);
-
   const total = items?.length || 0;
 
   const safeIndex = useMemo(() => {
@@ -46,81 +45,87 @@ export default function PromoCarousel({
 
   const current = items[safeIndex];
 
-  function prev() { setIndex((i) => (i === 0 ? total - 1 : i - 1)); }
-  function next() { setIndex((i) => (i === total - 1 ? 0 : i + 1)); }
+  function prev() {
+    setIndex((i) => (i === 0 ? total - 1 : i - 1));
+    setPaused(true);
+    setTimeout(() => setPaused(false), 6000);
+  }
+  function next() {
+    setIndex((i) => (i === total - 1 ? 0 : i + 1));
+    setPaused(true);
+    setTimeout(() => setPaused(false), 6000);
+  }
 
-  const Slide = (
-    <div className="w-full rounded-2xl overflow-hidden"
+  const slideContent = (
+    <div className="relative w-full rounded-2xl overflow-hidden"
       style={{ border: "1.5px solid var(--nomi-border)" }}>
-      <div className="w-full h-[160px] sm:h-[220px] md:h-[300px] lg:h-[360px]">
+
+      {/* IMAGEN */}
+      <div className="w-full h-[160px] sm:h-[220px] md:h-[300px] lg:h-[380px]">
         <img
           src={current.image}
           alt={current.alt || "Promoción NOMI"}
-          className="w-full h-full object-cover"
+          className="w-full h-full object-cover transition-opacity duration-500"
         />
       </div>
+
+      {/* FLECHA IZQUIERDA */}
+      {total > 1 && (
+        <button
+          onClick={(e) => { e.preventDefault(); prev(); }}
+          className="absolute left-3 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full flex items-center justify-center cursor-pointer transition"
+          style={{ backgroundColor: "rgba(255,255,255,0.85)", color: "var(--nomi-navy)" }}
+          aria-label="Anterior"
+        >
+          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M15 19l-7-7 7-7" />
+          </svg>
+        </button>
+      )}
+
+      {/* FLECHA DERECHA */}
+      {total > 1 && (
+        <button
+          onClick={(e) => { e.preventDefault(); next(); }}
+          className="absolute right-3 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full flex items-center justify-center cursor-pointer transition"
+          style={{ backgroundColor: "rgba(255,255,255,0.85)", color: "var(--nomi-navy)" }}
+          aria-label="Siguiente"
+        >
+          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M9 5l7 7-7 7" />
+          </svg>
+        </button>
+      )}
+
+      {/* DOTS SOBRE LA IMAGEN */}
+      {total > 1 && (
+        <div className="absolute bottom-3 left-1/2 -translate-x-1/2 flex gap-2">
+          {items.map((_, i) => (
+            <button
+              key={i}
+              onClick={(e) => { e.preventDefault(); setIndex(i); }}
+              className="h-2 rounded-full transition-all duration-300 cursor-pointer"
+              style={{
+                width: i === safeIndex ? "24px" : "8px",
+                backgroundColor: i === safeIndex ? "var(--nomi-orange)" : "rgba(255,255,255,0.6)",
+              }}
+              aria-label={`Slide ${i + 1}`}
+            />
+          ))}
+        </div>
+      )}
     </div>
   );
 
   return (
     <div
-      className="w-full space-y-3"
       onMouseEnter={() => setPaused(true)}
       onMouseLeave={() => setPaused(false)}
     >
-      {/* HEADER */}
-      <div className="flex items-center justify-between px-1">
-        <div className="flex items-center gap-2">
-          <span className="text-xs font-bold uppercase tracking-widest"
-            style={{ color: "var(--nomi-teal)" }}>
-            Promociones
-          </span>
-          {total > 1 && (
-            <span className="text-xs px-2 py-0.5 rounded-full font-semibold"
-              style={{ backgroundColor: "var(--nomi-orange-bg)", color: "var(--nomi-orange)" }}>
-              {total} ofertas
-            </span>
-          )}
-        </div>
-        {total > 1 && (
-          <div className="flex gap-1.5">
-            <button onClick={prev}
-              className="w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold transition cursor-pointer"
-              style={{ border: "1.5px solid var(--nomi-border)", color: "var(--nomi-navy)", backgroundColor: "#fff" }}>
-              ←
-            </button>
-            <button onClick={next}
-              className="w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold transition cursor-pointer"
-              style={{ border: "1.5px solid var(--nomi-border)", color: "var(--nomi-navy)", backgroundColor: "#fff" }}>
-              →
-            </button>
-          </div>
-        )}
-      </div>
-
-      {/* SLIDE */}
       {current.href ? (
-        <a href={current.href} className="block">{Slide}</a>
+        <a href={current.href} className="block">{slideContent}</a>
       ) : (
-        Slide
-      )}
-
-      {/* DOTS */}
-      {total > 1 && (
-        <div className="flex justify-center gap-2">
-          {items.map((_, i) => (
-            <button
-              key={i}
-              onClick={() => setIndex(i)}
-              className="h-2 rounded-full transition-all duration-300 cursor-pointer"
-              style={{
-                width: i === safeIndex ? "24px" : "8px",
-                backgroundColor: i === safeIndex ? "var(--nomi-orange)" : "var(--nomi-border)",
-              }}
-              aria-label={`Promo ${i + 1}`}
-            />
-          ))}
-        </div>
+        slideContent
       )}
     </div>
   );
