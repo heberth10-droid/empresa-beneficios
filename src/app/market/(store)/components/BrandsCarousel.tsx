@@ -13,43 +13,66 @@ export default function BrandsCarousel({ brands }: { brands: Brand[] }) {
 
   if (!brands.length) return null;
 
+  const doubled = [...brands, ...brands];
+
   return (
     <section className="space-y-3">
-      <div>
-        <h2 className="text-xl font-black text-slate-900">Marcas</h2>
-        <p className="text-sm text-slate-500">
-          Explora productos por marcas disponibles en NOVA.
-        </p>
+      <div className="flex items-center justify-between">
+        <div>
+          <p className="text-xs font-bold uppercase tracking-widest mb-1"
+            style={{ color: "var(--nomi-teal)" }}>
+            Marcas aliadas
+          </p>
+          <h2 className="text-xl font-black" style={{ color: "var(--nomi-navy)" }}>
+            Las mejores marcas, <span style={{ color: "var(--nomi-orange)" }}>tus cuotas</span>
+          </h2>
+        </div>
+        <button
+          onClick={() => router.push("/market/catalog")}
+          className="text-xs font-bold hidden md:block"
+          style={{ color: "var(--nomi-teal)" }}>
+          Ver catálogo →
+        </button>
       </div>
 
-      <div className="flex gap-4 overflow-x-auto pb-2">
-        {brands.map((brand) => (
-          <button
-            key={brand.id}
-            onClick={() => router.push(`/market/brand/${brand.id}`)}
-            className="shrink-0 w-36 rounded-2xl border border-slate-200 bg-white overflow-hidden hover:shadow-md transition text-left cursor-pointer"
-          >
-            <div className="h-24 bg-slate-50 flex items-center justify-center p-4">
+      {/* CARRUSEL INFINITO */}
+      <div className="overflow-hidden">
+        <div className="brands-track">
+          {doubled.map((brand, idx) => (
+            <button
+              key={`${brand.id}-${idx}`}
+              onClick={() => router.push(`/market/brand/${brand.id}`)}
+              className="shrink-0 flex flex-col items-center justify-center gap-2 rounded-2xl transition cursor-pointer"
+              style={{
+                width: "110px",
+                height: "80px",
+                backgroundColor: "#fff",
+                border: "1.5px solid var(--nomi-border)",
+                padding: "12px 8px",
+              }}
+            >
               {brand.logo_url ? (
                 <img
                   src={brand.logo_url}
                   alt={brand.name || "Marca"}
                   className="w-full h-full object-contain"
+                  style={{ maxHeight: "44px" }}
                 />
               ) : (
-                <div className="w-14 h-14 rounded-full bg-slate-100 flex items-center justify-center text-slate-400 font-black">
-                  {(brand.name || "M").charAt(0).toUpperCase()}
-                </div>
+                <>
+                  <div className="w-10 h-10 rounded-full flex items-center justify-center text-sm font-black text-white"
+                    style={{ backgroundColor: "var(--nomi-navy)" }}>
+                    {(brand.name || "M").charAt(0).toUpperCase()}
+                  </div>
+                  <div className="text-xs font-bold truncate w-full text-center"
+                    style={{ color: "var(--nomi-navy)" }}>
+                    {brand.name || "Marca"}
+                  </div>
+                </>
               )}
-            </div>
-
-            <div className="p-3">
-              <div className="text-sm font-bold text-slate-900 truncate">
-                {brand.name || "Marca"}
-              </div>
-            </div>
-          </button>
-        ))}
+            </button>
+          ))}
+        </div>
       </div>
     </section>
   );

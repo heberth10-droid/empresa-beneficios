@@ -3,6 +3,18 @@
 :root {
   --background: #ffffff;
   --foreground: #171717;
+  --nomi-navy:        #1B2A5E;
+  --nomi-navy-dark:   #0F1A3E;
+  --nomi-navy-light:  #253570;
+  --nomi-orange:      #F5A623;
+  --nomi-orange-dark: #E09510;
+  --nomi-orange-bg:   #FEF6E8;
+  --nomi-teal:        #29B8D4;
+  --nomi-teal-dark:   #1F9AB3;
+  --nomi-teal-bg:     #E8F9FC;
+  --nomi-gray:        #F7F8FC;
+  --nomi-border:      #EEF0F7;
+  --nomi-muted:       #6B7AA1;
 }
 
 @theme inline {
@@ -12,15 +24,32 @@
   --font-mono: var(--font-geist-mono);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
-}
-
 body {
   background: var(--background);
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
+}
+
+@keyframes scrollBrands {
+  0%   { transform: translateX(0); }
+  100% { transform: translateX(-50%); }
+}
+
+.brands-track {
+  display: flex;
+  gap: 14px;
+  animation: scrollBrands 22s linear infinite;
+  width: max-content;
+}
+
+.brands-track:hover {
+  animation-play-state: paused;
+}
+
+.scroll-hide {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+.scroll-hide::-webkit-scrollbar {
+  display: none;
 }
