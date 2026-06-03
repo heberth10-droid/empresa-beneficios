@@ -34,6 +34,10 @@ export default function MarketHeader() {
   const [brandsOpen, setBrandsOpen] = useState(false);
   const [openCategory, setOpenCategory] = useState<string | null>(null);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [mobileBuyOpen, setMobileBuyOpen] = useState(false);
+  const [mobileCatsOpen, setMobileCatsOpen] = useState(false);
+  const [mobileBrandsOpen, setMobileBrandsOpen] = useState(false);
+  const [mobileOpenCategory, setMobileOpenCategory] = useState<string | null>(null);
 
   const [categories, setCategories] = useState<MarketCategory[]>([]);
   const [subcategories, setSubcategories] = useState<MarketSubcategory[]>([]);
@@ -74,18 +78,28 @@ export default function MarketHeader() {
   function go(url: string) {
     setBuyOpen(false);
     setMobileMenuOpen(false);
+    setMobileBuyOpen(false);
     router.push(url);
   }
+
+  const trustItems = [
+    "0% intereses",
+    "Sin estudio de credito",
+    "Descuento automatico por nomina",
+    "Aprobacion inmediata",
+  ];
 
   return (
     <header className="w-full sticky top-0 z-40 shadow-sm"
       style={{ backgroundColor: "var(--nomi-navy)", borderBottom: "1px solid rgba(255,255,255,0.08)" }}>
 
-      {/* TRUST BAR */}
+      {/* TRUST BAR — desktop */}
       <div className="hidden md:flex items-center justify-center gap-6 py-1.5 text-xs font-semibold"
         style={{ backgroundColor: "var(--nomi-navy-dark)" }}>
-        {["✓ 0% intereses", "✓ Sin estudio de crédito", "✓ Descuento automático por nómina", "✓ Aprobación inmediata"].map((txt, i) => (
-          <span key={i} style={{ color: "var(--nomi-teal)" }}>{txt}</span>
+        {trustItems.map((txt) => (
+          <span key={txt} style={{ color: "var(--nomi-teal)" }}>
+            {String.fromCharCode(10003)} {txt}
+          </span>
         ))}
       </div>
 
@@ -106,7 +120,7 @@ export default function MarketHeader() {
             value={q}
             onChange={(e) => setQ(e.target.value)}
             onKeyDown={(e) => { if (e.key === "Enter") goSearch(); }}
-            placeholder="Buscar productos, marcas o categorías…"
+            placeholder="Buscar productos, marcas o categorias..."
             className="w-full rounded-full px-5 py-2.5 pr-24 text-sm bg-white text-slate-900 placeholder-slate-400 border-0 focus:outline-none focus:ring-2 focus:ring-orange-400"
           />
           <button onClick={goSearch}
@@ -131,7 +145,7 @@ export default function MarketHeader() {
             <Building2 className="w-3.5 h-3.5" /> Empleador
           </Link>
 
-          {/* COMPRAR dropdown */}
+          {/* COMPRAR dropdown desktop */}
           <div className="relative">
             <button type="button"
               onClick={() => { setBuyOpen((v) => !v); setCatsOpen(false); setBrandsOpen(false); setOpenCategory(null); }}
@@ -153,7 +167,7 @@ export default function MarketHeader() {
 
                 <button onClick={() => setCatsOpen((v) => !v)}
                   className="w-full flex items-center justify-between px-3 py-2 rounded-xl text-sm font-bold hover:bg-slate-50 cursor-pointer text-slate-700">
-                  Categorías
+                  Categorias
                   {catsOpen ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
                 </button>
 
@@ -239,7 +253,7 @@ export default function MarketHeader() {
           <Link href="/login"
             className="text-sm font-bold rounded-full px-4 py-1.5 transition"
             style={{ color: "#fff", backgroundColor: "var(--nomi-orange)" }}>
-            Iniciar sesión
+            Iniciar sesion
           </Link>
         </div>
 
@@ -254,7 +268,7 @@ export default function MarketHeader() {
               </span>
             )}
           </button>
-          <button onClick={() => setMobileMenuOpen((v) => !v)} className="text-white p-1 cursor-pointer" aria-label="Menú">
+          <button onClick={() => setMobileMenuOpen((v) => !v)} className="text-white p-1 cursor-pointer" aria-label="Menu">
             <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               {mobileMenuOpen
                 ? <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -269,7 +283,7 @@ export default function MarketHeader() {
         <div className="relative">
           <input value={q} onChange={(e) => setQ(e.target.value)}
             onKeyDown={(e) => { if (e.key === "Enter") goSearch(); }}
-            placeholder="Buscar productos…"
+            placeholder="Buscar productos..."
             className="w-full rounded-full px-4 py-2.5 pr-20 text-sm bg-white text-slate-900 placeholder-slate-400 border-0 focus:outline-none" />
           <button onClick={goSearch}
             className="absolute right-1 top-1 bottom-1 px-4 rounded-full text-xs font-bold cursor-pointer"
@@ -279,27 +293,133 @@ export default function MarketHeader() {
         </div>
       </div>
 
+      {/* TRUST BAR — mobile, siempre visible debajo del header */}
+      <div className="md:hidden overflow-x-auto scroll-hide"
+        style={{ backgroundColor: "var(--nomi-navy-dark)", borderTop: "1px solid rgba(255,255,255,0.08)" }}>
+        <div className="flex items-center gap-4 px-4 py-2" style={{ width: "max-content" }}>
+          {trustItems.map((txt) => (
+            <span key={txt} className="text-xs font-semibold whitespace-nowrap flex items-center gap-1"
+              style={{ color: "var(--nomi-teal)" }}>
+              <span style={{ color: "var(--nomi-orange)" }}>&#10003;</span> {txt}
+            </span>
+          ))}
+        </div>
+      </div>
+
       {/* MOBILE MENU */}
       {mobileMenuOpen && (
-        <div className="md:hidden border-t px-4 py-4 space-y-2"
+        <div className="md:hidden border-t px-4 py-3 space-y-1"
           style={{ backgroundColor: "var(--nomi-navy-dark)", borderColor: "rgba(255,255,255,0.08)" }}>
-          <button onClick={() => go("/market/catalog")}
-            className="w-full text-left text-sm font-bold py-2.5 px-3 rounded-xl hover:bg-white/10 text-white cursor-pointer">
-            Ver catálogo completo
+
+          {/* BOTON CATALOGO CON DROPDOWN */}
+          <button
+            type="button"
+            onClick={() => { setMobileBuyOpen((v) => !v); setMobileCatsOpen(false); setMobileBrandsOpen(false); setMobileOpenCategory(null); }}
+            className="w-full flex items-center justify-between text-sm font-bold py-2.5 px-3 rounded-xl cursor-pointer"
+            style={{ backgroundColor: mobileBuyOpen ? "rgba(255,255,255,0.1)" : "transparent", color: "#fff" }}>
+            <span style={{ color: "var(--nomi-orange)" }}>Ver catalogo</span>
+            {mobileBuyOpen ? <ChevronDown className="w-4 h-4 text-white" /> : <ChevronRight className="w-4 h-4 text-white" />}
           </button>
+
+          {/* DROPDOWN MOBILE */}
+          {mobileBuyOpen && (
+            <div className="ml-2 rounded-2xl overflow-hidden"
+              style={{ border: "1px solid rgba(255,255,255,0.12)" }}>
+
+              <button onClick={() => go("/market/catalog")}
+                className="w-full flex items-center justify-between px-4 py-3 text-sm font-bold cursor-pointer"
+                style={{ backgroundColor: "rgba(255,255,255,0.06)", color: "#fff", borderBottom: "1px solid rgba(255,255,255,0.08)" }}>
+                Ver todos los productos <ChevronRight className="w-4 h-4" />
+              </button>
+
+              {/* CATEGORIAS MOBILE */}
+              <button onClick={() => setMobileCatsOpen((v) => !v)}
+                className="w-full flex items-center justify-between px-4 py-3 text-sm font-semibold cursor-pointer"
+                style={{ backgroundColor: "rgba(255,255,255,0.04)", color: "rgba(255,255,255,0.8)", borderBottom: "1px solid rgba(255,255,255,0.08)" }}>
+                Categorias
+                {mobileCatsOpen ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
+              </button>
+
+              {mobileCatsOpen && (
+                <div style={{ backgroundColor: "rgba(0,0,0,0.2)" }}>
+                  {categories.map((cat) => {
+                    const subs = subcatsFor(cat.name);
+                    const isOpen = mobileOpenCategory === cat.name;
+                    return (
+                      <div key={cat.id}>
+                        <div className="flex items-center"
+                          style={{ borderBottom: "1px solid rgba(255,255,255,0.05)" }}>
+                          <button onClick={() => go(`/market/category=${enc(cat.name)}`)}
+                            className="flex-1 text-left px-6 py-2.5 text-sm cursor-pointer"
+                            style={{ color: "rgba(255,255,255,0.7)" }}>
+                            {cat.name}
+                          </button>
+                          {subs.length > 0 && (
+                            <button onClick={() => setMobileOpenCategory(isOpen ? null : cat.name)}
+                              className="px-3 cursor-pointer" style={{ color: "rgba(255,255,255,0.5)" }}>
+                              {isOpen ? <ChevronDown className="w-3.5 h-3.5" /> : <ChevronRight className="w-3.5 h-3.5" />}
+                            </button>
+                          )}
+                        </div>
+                        {isOpen && subs.map((sub) => (
+                          <button key={sub.id} onClick={() => go(`/market/subcategory/${enc(sub.name)}`)}
+                            className="block w-full text-left px-10 py-2 text-xs cursor-pointer"
+                            style={{ color: "rgba(255,255,255,0.5)", borderBottom: "1px solid rgba(255,255,255,0.04)" }}>
+                            {sub.name}
+                          </button>
+                        ))}
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+
+              {/* MARCAS MOBILE */}
+              <button onClick={() => setMobileBrandsOpen((v) => !v)}
+                className="w-full flex items-center justify-between px-4 py-3 text-sm font-semibold cursor-pointer"
+                style={{ backgroundColor: "rgba(255,255,255,0.04)", color: "rgba(255,255,255,0.8)" }}>
+                Marcas
+                {mobileBrandsOpen ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
+              </button>
+
+              {mobileBrandsOpen && (
+                <div style={{ backgroundColor: "rgba(0,0,0,0.2)" }}>
+                  {productBrands.map((b) => (
+                    <button key={b.id} onClick={() => go(`/market/brand=${b.id}`)}
+                      className="flex items-center gap-3 w-full text-left px-6 py-2.5 cursor-pointer"
+                      style={{ borderBottom: "1px solid rgba(255,255,255,0.05)" }}>
+                      {b.logo_url ? (
+                        <img src={b.logo_url} className="w-5 h-5 object-contain rounded bg-white" alt={b.name} />
+                      ) : (
+                        <span className="w-5 h-5 rounded-full flex items-center justify-center text-xs font-black text-white"
+                          style={{ backgroundColor: "var(--nomi-navy)" }}>
+                          {(b.name || "M").charAt(0).toUpperCase()}
+                        </span>
+                      )}
+                      <span className="text-sm" style={{ color: "rgba(255,255,255,0.7)" }}>{b.name}</span>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* OTROS LINKS */}
           <Link href="/brand" onClick={() => setMobileMenuOpen(false)}
-            className="block text-sm font-semibold py-2.5 px-3 rounded-xl hover:bg-white/10"
+            className="flex items-center gap-2 text-sm font-semibold py-2.5 px-3 rounded-xl"
             style={{ color: "var(--nomi-teal)" }}>
-            Quiero vender en NOMI
+            <Rocket className="w-4 h-4" /> Quiero vender en NOMI
           </Link>
+
           <Link href="/company" onClick={() => setMobileMenuOpen(false)}
-            className="block text-sm font-semibold py-2.5 px-3 rounded-xl hover:bg-white/10 text-white/80">
-            Soy empleador
+            className="flex items-center gap-2 text-sm font-semibold py-2.5 px-3 rounded-xl text-white/80">
+            <Building2 className="w-4 h-4" /> Soy empleador
           </Link>
+
           <Link href="/login" onClick={() => setMobileMenuOpen(false)}
-            className="block text-sm font-bold py-2.5 px-3 rounded-xl text-center"
+            className="block text-sm font-black py-3 px-3 rounded-xl text-center mt-1"
             style={{ backgroundColor: "var(--nomi-orange)", color: "#fff" }}>
-            Iniciar sesión
+            Iniciar sesion
           </Link>
         </div>
       )}
