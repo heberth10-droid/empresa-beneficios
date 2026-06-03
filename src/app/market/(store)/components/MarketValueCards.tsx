@@ -184,12 +184,11 @@ export default function MarketValueCards() {
                 <span className="font-bold" style={{ color: "#4ade80" }}>$0 intereses</span>
               </div>
               
-                href="/market"
                 className="inline-block w-full py-3 rounded-xl text-sm font-black transition"
                 style={{ backgroundColor: "var(--nomi-orange)", color: "#fff" }}
               >
                 ¡Quiero esta cuota! &rarr;
-              </a>
+              </button>
             </div>
           </div>
         </div>
