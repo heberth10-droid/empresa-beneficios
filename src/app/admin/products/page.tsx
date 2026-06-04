@@ -14,6 +14,7 @@ const IMAGE_BUCKET = "product-images";
 
 export default function AdminProductsPage() {
   const [rows, setRows] = useState<any[]>([]);
+  const [brandMap, setBrandMap] = useState<Record<string, string>>({});
   const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(true);
   const [editing, setEditing] = useState<any | null>(null);
@@ -28,11 +29,23 @@ export default function AdminProductsPage() {
   const [newImageUrl, setNewImageUrl] = useState("");
 
   async function load() {
-    const { data } = await supabase
+    const { data: products } = await supabase
       .from("products")
-      .select("id, name, description, price, discount_price, stock, active, category, subcategory, images, image_url, created_at, product_brand_id, product_brands(name)")
+      .select("id, name, description, price, discount_price, stock, active, category, subcategory, images, image_url, created_at, product_brand_id")
       .order("created_at", { ascending: false });
-    setRows(data || []);
+
+    const brandIds = [...new Set((products || []).map((p: any) => p.product_brand_id).filter(Boolean))];
+    let bmap: Record<string, string> = {};
+    if (brandIds.length > 0) {
+      const { data: brands } = await supabase
+        .from("product_brands")
+        .select("id, name")
+        .in("id", brandIds);
+      for (const b of brands || []) bmap[b.id] = b.name || b.id;
+    }
+
+    setRows(products || []);
+    setBrandMap(bmap);
     setLoading(false);
   }
 
@@ -41,20 +54,20 @@ export default function AdminProductsPage() {
   const filtered = useMemo(() => {
     if (!search.trim()) return rows;
     const q = search.toLowerCase();
-    return rows.filter((p) =>
+    return rows.filter((p: any) =>
       (p.name || "").toLowerCase().includes(q) ||
       (p.category || "").toLowerCase().includes(q) ||
-      ((p.product_brands as any)?.name || "").toLowerCase().includes(q)
+      (brandMap[p.product_brand_id] || "").toLowerCase().includes(q)
     );
-  }, [rows, search]);
+  }, [rows, search, brandMap]);
 
   function parseImages(p: any): string[] {
-    if (Array.isArray(p.images)) return p.images.filter((x: any) => typeof x === "string");
-    if (typeof p.images === "string") {
-      try { const a = JSON.parse(p.images); if (Array.isArray(a)) return a; } catch {}
+    if (Array.isArray(p.images)) return p.images.filter((x: any) => typeof x === "string" && x.startsWith("http"));
+    if (typeof p.images === "string" && p.images.trim()) {
+      try { const a = JSON.parse(p.images); if (Array.isArray(a)) return a.filter((x: any) => typeof x === "string"); } catch {}
       if (p.images.startsWith("http")) return [p.images];
     }
-    if (p.image_url) return [p.image_url];
+    if (p.image_url && typeof p.image_url === "string") return [p.image_url];
     return [];
   }
 
@@ -127,15 +140,10 @@ export default function AdminProductsPage() {
     if (error) {
       setSaveMsg({ ok: false, text: "Error: " + error.message });
     } else {
-      setSaveMsg({ ok: true, text: "Producto actualizado" });
+      setSaveMsg({ ok: true, text: "Producto actualizado correctamente" });
       load();
       setTimeout(() => { setEditing(null); setSaveMsg(null); }, 1500);
     }
-  }
-
-  function getFirstImg(p: any) {
-    const imgs = parseImages(p);
-    return imgs[0] || null;
   }
 
   const inputClass = "w-full px-3 py-2.5 rounded-xl text-sm outline-none";
@@ -182,10 +190,11 @@ export default function AdminProductsPage() {
             <Package className="w-10 h-10 mx-auto mb-3" style={{ color: "var(--nomi-border)" }} />
             <p className="text-sm font-semibold" style={{ color: "var(--nomi-muted)" }}>No se encontraron productos</p>
           </div>
-        ) : filtered.map((p) => {
+        ) : filtered.map((p: any) => {
           const price = Number(p.price || 0);
           const disc = Number(p.discount_price || 0);
-          const img = getFirstImg(p);
+          const imgs = parseImages(p);
+          const img = imgs[0] || null;
           return (
             <div key={p.id}
               className="grid grid-cols-6 px-5 py-3.5 items-center transition hover:bg-slate-50 cursor-pointer"
@@ -209,7 +218,7 @@ export default function AdminProductsPage() {
                 </div>
               </div>
               <div className="text-sm truncate" style={{ color: "var(--nomi-muted)" }}>
-                {(p.product_brands as any)?.name || "—"}
+                {brandMap[p.product_brand_id] || "—"}
               </div>
               <div className="font-bold text-sm" style={{ color: "var(--nomi-navy)" }}>
                 {money(price)}
@@ -254,18 +263,16 @@ export default function AdminProductsPage() {
               {/* IMAGENES */}
               <div>
                 <p className="text-xs font-bold uppercase tracking-wide mb-3"
-                  style={{ color: "var(--nomi-teal)" }}>Imagenes del producto</p>
+                  style={{ color: "var(--nomi-teal)" }}>Imagenes</p>
 
-                {/* GRID DE IMAGENES ACTUALES */}
                 {currentImages.length > 0 && (
                   <div className="grid grid-cols-3 gap-2 mb-3">
                     {currentImages.map((url, i) => (
-                      <div key={i} className="relative group rounded-xl overflow-hidden aspect-square"
-                        style={{ backgroundColor: "var(--nomi-gray)", border: "1px solid var(--nomi-border)" }}>
+                      <div key={i} className="relative group rounded-xl overflow-hidden"
+                        style={{ aspectRatio: "1", backgroundColor: "var(--nomi-gray)", border: "1px solid var(--nomi-border)" }}>
                         <img src={url} className="w-full h-full object-cover"
                           onError={(e) => { (e.currentTarget as HTMLImageElement).src = "/no-image.png"; }} />
-                        <button
-                          onClick={() => removeImage(url)}
+                        <button onClick={() => removeImage(url)}
                           className="absolute top-1 right-1 w-6 h-6 flex items-center justify-center rounded-full opacity-0 group-hover:opacity-100 transition cursor-pointer"
                           style={{ backgroundColor: "#DC2626" }}>
                           <Trash2 className="w-3 h-3 text-white" />
@@ -281,8 +288,7 @@ export default function AdminProductsPage() {
                   </div>
                 )}
 
-                {/* SUBIR ARCHIVO */}
-                <label className="flex items-center gap-3 px-4 py-3 rounded-xl cursor-pointer transition hover:opacity-80 mb-2"
+                <label className="flex items-center gap-3 px-4 py-3 rounded-xl cursor-pointer mb-2"
                   style={{ backgroundColor: "var(--nomi-teal-bg)", border: "1.5px dashed var(--nomi-teal)" }}>
                   <Upload className="w-4 h-4 shrink-0" style={{ color: "var(--nomi-teal)" }} />
                   <span className="text-sm font-semibold" style={{ color: "var(--nomi-teal)" }}>
@@ -292,15 +298,11 @@ export default function AdminProductsPage() {
                     onChange={handleFileChange} disabled={uploading} />
                 </label>
 
-                {/* URL MANUAL */}
                 <div className="flex gap-2">
-                  <input
-                    value={newImageUrl}
-                    onChange={(e) => setNewImageUrl(e.target.value)}
+                  <input value={newImageUrl} onChange={(e) => setNewImageUrl(e.target.value)}
                     onKeyDown={(e) => { if (e.key === "Enter") addImageByUrl(); }}
-                    placeholder="O pega una URL de imagen https://..."
-                    className={inputClass} style={inputStyle}
-                  />
+                    placeholder="O pega una URL https://..."
+                    className={inputClass} style={inputStyle} />
                   <button onClick={addImageByUrl}
                     className="px-4 rounded-xl text-xs font-bold cursor-pointer whitespace-nowrap"
                     style={{ backgroundColor: "var(--nomi-navy)", color: "#fff" }}>
@@ -312,7 +314,7 @@ export default function AdminProductsPage() {
               {/* CAMPOS */}
               <div>
                 <p className="text-xs font-bold uppercase tracking-wide mb-3"
-                  style={{ color: "var(--nomi-teal)" }}>Informacion del producto</p>
+                  style={{ color: "var(--nomi-teal)" }}>Informacion</p>
                 <div className="space-y-3">
                   {[
                     { label: "Nombre", key: "name", type: "text" },
@@ -326,7 +328,7 @@ export default function AdminProductsPage() {
                       <label className="block text-xs font-bold mb-1 uppercase tracking-wide"
                         style={{ color: "var(--nomi-navy)" }}>{label}</label>
                       <input type={type} value={(form as any)[key]}
-                        onChange={(e) => setForm(f => ({ ...f, [key]: e.target.value }))}
+                        onChange={(e) => setForm((f: any) => ({ ...f, [key]: e.target.value }))}
                         className={inputClass} style={inputStyle} />
                     </div>
                   ))}
@@ -335,17 +337,17 @@ export default function AdminProductsPage() {
                     <label className="block text-xs font-bold mb-1 uppercase tracking-wide"
                       style={{ color: "var(--nomi-navy)" }}>Descripcion</label>
                     <textarea rows={3} value={form.description}
-                      onChange={(e) => setForm(f => ({ ...f, description: e.target.value }))}
+                      onChange={(e) => setForm((f: any) => ({ ...f, description: e.target.value }))}
                       className={inputClass} style={{ ...inputStyle, resize: "vertical" as const }} />
                   </div>
 
                   <div className="flex items-center gap-3 pt-1">
                     <input type="checkbox" id="pactive" checked={form.active}
-                      onChange={(e) => setForm(f => ({ ...f, active: e.target.checked }))}
+                      onChange={(e) => setForm((f: any) => ({ ...f, active: e.target.checked }))}
                       className="w-4 h-4 cursor-pointer" />
                     <label htmlFor="pactive" className="text-sm font-semibold cursor-pointer"
                       style={{ color: "var(--nomi-navy)" }}>
-                      Producto activo (visible en tienda)
+                      Activo (visible en tienda)
                     </label>
                   </div>
                 </div>
