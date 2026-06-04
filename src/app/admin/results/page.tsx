@@ -36,7 +36,7 @@ export default function AdminResultsPage() {
       // Top marcas por revenue
       const brandMap = new Map<string, number>();
       for (const it of items || []) {
-        const name = it.products?.product_brands?.name || "Sin marca";
+        const name = (it.products as any)?.product_brands?.name || "Sin marca";
         const rev = Number(it.unit_price || 0) * Number(it.qty || 0);
         brandMap.set(name, (brandMap.get(name) || 0) + rev);
       }
