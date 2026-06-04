@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
-import { X, Save, Upload, Trash2 } from "lucide-react";
+import { X, Save, Upload, Trash2, ChevronLeft, ChevronRight } from "lucide-react";
 
 function money(n: any) {
   return new Intl.NumberFormat("es-CO", {
@@ -10,11 +10,15 @@ function money(n: any) {
   }).format(Number(n || 0));
 }
 
+const PAGE_SIZE = 100;
 const IMAGE_BUCKET = "product-images";
 
 export default function AdminProductsPage() {
   const [rows, setRows] = useState<any[]>([]);
+  const [total, setTotal] = useState(0);
+  const [page, setPage] = useState(1);
   const [search, setSearch] = useState("");
+  const [searchInput, setSearchInput] = useState("");
   const [loading, setLoading] = useState(true);
   const [editing, setEditing] = useState<any | null>(null);
   const [saving, setSaving] = useState(false);
@@ -27,26 +31,31 @@ export default function AdminProductsPage() {
   const [currentImages, setCurrentImages] = useState<string[]>([]);
   const [newImageUrl, setNewImageUrl] = useState("");
 
-  async function load() {
-    const { data } = await supabase
-      .from("products")
-      .select("*, product_brands(name)")
-      .order("created_at", { ascending: false });
-    setRows(data || []);
-    setLoading(false);
+  useEffect(() => {
+    async function load() {
+      setLoading(true);
+      let query = supabase
+        .from("products")
+        .select("*, product_brands(name)", { count: "exact" })
+        .order("created_at", { ascending: false })
+        .range((page - 1) * PAGE_SIZE, page * PAGE_SIZE - 1);
+
+      if (search.trim()) query = query.ilike("name", `%${search.trim()}%`);
+
+      const { data, count } = await query;
+      setRows(data || []);
+      setTotal(count || 0);
+      setLoading(false);
+    }
+    load();
+  }, [page, search]);
+
+  const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
+
+  function doSearch() {
+    setSearch(searchInput);
+    setPage(1);
   }
-
-  useEffect(() => { load(); }, []);
-
-  const filtered = useMemo(() => {
-    if (!search.trim()) return rows;
-    const q = search.toLowerCase();
-    return rows.filter((p) =>
-      (p.name || "").toLowerCase().includes(q) ||
-      (p.category || "").toLowerCase().includes(q) ||
-      (p.product_brands?.name || "").toLowerCase().includes(q)
-    );
-  }, [rows, search]);
 
   function parseImages(p: any): string[] {
     if (Array.isArray(p.images)) return p.images.filter((x: any) => typeof x === "string" && x.startsWith("http"));
@@ -129,7 +138,13 @@ export default function AdminProductsPage() {
       setSaveMsg({ ok: false, text: "Error: " + error.message });
     } else {
       setSaveMsg({ ok: true, text: "Producto actualizado correctamente" });
-      load();
+      // Recargar página actual
+      const { data } = await supabase
+        .from("products")
+        .select("*, product_brands(name)")
+        .order("created_at", { ascending: false })
+        .range((page - 1) * PAGE_SIZE, page * PAGE_SIZE - 1);
+      setRows(data || []);
       setTimeout(() => { setEditing(null); setSaveMsg(null); }, 1500);
     }
   }
@@ -148,17 +163,36 @@ export default function AdminProductsPage() {
           style={{ color: "var(--nomi-teal)" }}>Gestion</p>
         <h1 className="text-3xl font-black" style={{ color: "var(--nomi-navy)" }}>Productos</h1>
         <p className="text-sm mt-1" style={{ color: "var(--nomi-muted)" }}>
-          {filtered.length} de {rows.length} productos · clic para editar
+          {loading ? "Cargando..." : `${total.toLocaleString("es-CO")} productos en total · página ${page} de ${totalPages}`}
         </p>
       </div>
 
-      <input
-        type="text" placeholder="Buscar por nombre, categoria o marca..."
-        value={search} onChange={(e) => setSearch(e.target.value)}
-        className="w-full max-w-md px-4 py-2.5 rounded-xl text-sm outline-none"
-        style={{ border: "1.5px solid var(--nomi-border)", color: "var(--nomi-navy)", backgroundColor: "#fff" }}
-      />
+      {/* BUSCADOR */}
+      <div className="flex gap-2">
+        <input
+          type="text"
+          placeholder="Buscar por nombre..."
+          value={searchInput}
+          onChange={(e) => setSearchInput(e.target.value)}
+          onKeyDown={(e) => { if (e.key === "Enter") doSearch(); }}
+          className="flex-1 max-w-md px-4 py-2.5 rounded-xl text-sm outline-none"
+          style={{ border: "1.5px solid var(--nomi-border)", color: "var(--nomi-navy)", backgroundColor: "#fff" }}
+        />
+        <button onClick={doSearch}
+          className="px-5 py-2.5 rounded-xl text-sm font-bold cursor-pointer"
+          style={{ backgroundColor: "var(--nomi-orange)", color: "#fff" }}>
+          Buscar
+        </button>
+        {search && (
+          <button onClick={() => { setSearch(""); setSearchInput(""); setPage(1); }}
+            className="px-4 py-2.5 rounded-xl text-sm font-semibold cursor-pointer"
+            style={{ backgroundColor: "var(--nomi-gray)", color: "var(--nomi-muted)", border: "1.5px solid var(--nomi-border)" }}>
+            Limpiar
+          </button>
+        )}
+      </div>
 
+      {/* TABLA */}
       <div className="bg-white rounded-2xl overflow-hidden"
         style={{ border: "1.5px solid var(--nomi-border)" }}>
 
@@ -173,13 +207,15 @@ export default function AdminProductsPage() {
 
         {loading ? (
           <div className="p-5 space-y-3">
-            {[1,2,3,4].map(i => <div key={i} className="h-14 rounded-xl animate-pulse" style={{ backgroundColor: "var(--nomi-gray)" }} />)}
+            {Array.from({ length: 8 }).map((_, i) => (
+              <div key={i} className="h-14 rounded-xl animate-pulse" style={{ backgroundColor: "var(--nomi-gray)" }} />
+            ))}
           </div>
-        ) : filtered.length === 0 ? (
+        ) : rows.length === 0 ? (
           <div className="px-5 py-10 text-center text-sm" style={{ color: "var(--nomi-muted)" }}>
             No se encontraron productos
           </div>
-        ) : filtered.map((p) => {
+        ) : rows.map((p) => {
           const price = Number(p.price || 0);
           const cost = Number(p.cost || 0);
           const margin = price > 0 && cost > 0 ? ((price - cost) / price) * 100 : 0;
@@ -196,8 +232,7 @@ export default function AdminProductsPage() {
                   style={{ backgroundColor: "var(--nomi-gray)", border: "1px solid var(--nomi-border)" }}>
                   {img
                     ? <img src={img} className="w-full h-full object-cover" onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = "none"; }} />
-                    : <div className="w-full h-full flex items-center justify-center text-lg">📦</div>
-                  }
+                    : <div className="w-full h-full flex items-center justify-center text-lg">📦</div>}
                 </div>
                 <div>
                   <div className="font-bold text-sm truncate max-w-[160px]" style={{ color: "var(--nomi-navy)" }}>
@@ -235,6 +270,65 @@ export default function AdminProductsPage() {
         })}
       </div>
 
+      {/* PAGINACION */}
+      {totalPages > 1 && (
+        <div className="flex items-center justify-between gap-3">
+          <p className="text-xs font-semibold" style={{ color: "var(--nomi-muted)" }}>
+            Mostrando {((page - 1) * PAGE_SIZE) + 1}–{Math.min(page * PAGE_SIZE, total)} de {total.toLocaleString("es-CO")}
+          </p>
+          <div className="flex items-center gap-1">
+            <button
+              onClick={() => setPage(1)} disabled={page <= 1}
+              className="px-2.5 py-1.5 rounded-lg text-xs font-bold cursor-pointer disabled:opacity-40"
+              style={{ backgroundColor: "var(--nomi-gray)", color: "var(--nomi-navy)", border: "1.5px solid var(--nomi-border)" }}>
+              «
+            </button>
+            <button
+              onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page <= 1}
+              className="px-2.5 py-1.5 rounded-lg cursor-pointer disabled:opacity-40"
+              style={{ backgroundColor: "var(--nomi-gray)", color: "var(--nomi-navy)", border: "1.5px solid var(--nomi-border)" }}>
+              <ChevronLeft className="w-4 h-4" />
+            </button>
+
+            {/* NÚMEROS DE PÁGINA */}
+            {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+              let p: number;
+              if (totalPages <= 5) {
+                p = i + 1;
+              } else if (page <= 3) {
+                p = i + 1;
+              } else if (page >= totalPages - 2) {
+                p = totalPages - 4 + i;
+              } else {
+                p = page - 2 + i;
+              }
+              return (
+                <button key={p} onClick={() => setPage(p)}
+                  className="w-8 h-8 rounded-lg text-xs font-bold cursor-pointer"
+                  style={p === page
+                    ? { backgroundColor: "var(--nomi-navy)", color: "#fff" }
+                    : { backgroundColor: "var(--nomi-gray)", color: "var(--nomi-navy)", border: "1.5px solid var(--nomi-border)" }}>
+                  {p}
+                </button>
+              );
+            })}
+
+            <button
+              onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={page >= totalPages}
+              className="px-2.5 py-1.5 rounded-lg cursor-pointer disabled:opacity-40"
+              style={{ backgroundColor: "var(--nomi-gray)", color: "var(--nomi-navy)", border: "1.5px solid var(--nomi-border)" }}>
+              <ChevronRight className="w-4 h-4" />
+            </button>
+            <button
+              onClick={() => setPage(totalPages)} disabled={page >= totalPages}
+              className="px-2.5 py-1.5 rounded-lg text-xs font-bold cursor-pointer disabled:opacity-40"
+              style={{ backgroundColor: "var(--nomi-gray)", color: "var(--nomi-navy)", border: "1.5px solid var(--nomi-border)" }}>
+              »
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* MODAL EDICION */}
       {editing && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4"
@@ -244,7 +338,6 @@ export default function AdminProductsPage() {
             style={{ border: "1.5px solid var(--nomi-border)" }}
             onClick={(e) => e.stopPropagation()}>
 
-            {/* HEADER */}
             <div className="flex items-center justify-between px-6 py-4 sticky top-0 bg-white z-10"
               style={{ borderBottom: "1px solid var(--nomi-border)" }}>
               <h2 className="font-black text-base" style={{ color: "var(--nomi-navy)" }}>
@@ -258,12 +351,9 @@ export default function AdminProductsPage() {
             </div>
 
             <div className="px-6 py-5 space-y-5">
-
-              {/* IMAGENES */}
               <div>
                 <p className="text-xs font-bold uppercase tracking-wide mb-3"
                   style={{ color: "var(--nomi-teal)" }}>Imagenes</p>
-
                 {currentImages.length > 0 && (
                   <div className="grid grid-cols-3 gap-2 mb-3">
                     {currentImages.map((url, i) => (
@@ -286,7 +376,6 @@ export default function AdminProductsPage() {
                     ))}
                   </div>
                 )}
-
                 <label className="flex items-center gap-3 px-4 py-3 rounded-xl cursor-pointer mb-2"
                   style={{ backgroundColor: "var(--nomi-teal-bg)", border: "1.5px dashed var(--nomi-teal)" }}>
                   <Upload className="w-4 h-4 shrink-0" style={{ color: "var(--nomi-teal)" }} />
@@ -296,7 +385,6 @@ export default function AdminProductsPage() {
                   <input type="file" accept="image/*" className="hidden"
                     onChange={handleFileChange} disabled={uploading} />
                 </label>
-
                 <div className="flex gap-2">
                   <input value={newImageUrl} onChange={(e) => setNewImageUrl(e.target.value)}
                     onKeyDown={(e) => { if (e.key === "Enter") addImageByUrl(); }}
@@ -310,7 +398,6 @@ export default function AdminProductsPage() {
                 </div>
               </div>
 
-              {/* CAMPOS */}
               <div>
                 <p className="text-xs font-bold uppercase tracking-wide mb-3"
                   style={{ color: "var(--nomi-teal)" }}>Informacion</p>
@@ -331,7 +418,6 @@ export default function AdminProductsPage() {
                         className={inputClass} style={inputStyle} />
                     </div>
                   ))}
-
                   <div>
                     <label className="block text-xs font-bold mb-1 uppercase tracking-wide"
                       style={{ color: "var(--nomi-navy)" }}>Descripcion</label>
@@ -339,7 +425,6 @@ export default function AdminProductsPage() {
                       onChange={(e) => setForm(f => ({ ...f, description: e.target.value }))}
                       className={inputClass} style={{ ...inputStyle, resize: "vertical" as const }} />
                   </div>
-
                   <div className="flex items-center gap-3 pt-1">
                     <input type="checkbox" id="pactive" checked={form.active}
                       onChange={(e) => setForm(f => ({ ...f, active: e.target.checked }))}

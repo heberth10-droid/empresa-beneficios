@@ -21,7 +21,7 @@ const items = [
   { href: "/admin/payments",    label: "Pagos",         icon: CreditCard },
 ];
 
-export default function AdminSidebar() {
+export default function AdminSidebar({ onNavigate }: { onNavigate?: () => void }) {
   const pathname = usePathname();
   const router = useRouter();
 
@@ -31,7 +31,7 @@ export default function AdminSidebar() {
   }
 
   return (
-    <aside className="w-64 min-h-screen flex flex-col sticky top-0 h-screen"
+    <aside className="w-64 min-h-screen flex flex-col"
       style={{ backgroundColor: "var(--nomi-navy)", borderRight: "1px solid rgba(255,255,255,0.08)" }}>
 
       {/* LOGO */}
@@ -55,6 +55,7 @@ export default function AdminSidebar() {
             (item.href !== "/admin" && pathname.startsWith(item.href + "/"));
           return (
             <Link key={item.href} href={item.href}
+              onClick={onNavigate}
               className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-semibold transition"
               style={active ? {
                 backgroundColor: "rgba(245,166,35,0.15)",
@@ -73,7 +74,7 @@ export default function AdminSidebar() {
 
       {/* FOOTER */}
       <div className="px-3 py-4" style={{ borderTop: "1px solid rgba(255,255,255,0.08)" }}>
-        <Link href="/market" target="_blank"
+        <Link href="/market" target="_blank" onClick={onNavigate}
           className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-semibold mb-1 transition"
           style={{ color: "rgba(255,255,255,0.4)", border: "1px solid transparent" }}>
           <Globe className="w-4 h-4" />
