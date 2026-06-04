@@ -17,21 +17,26 @@ export default function AdminEmployeesPage() {
   const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(true);
   const [selected, setSelected] = useState<any | null>(null);
+  const [dbError, setDbError] = useState<string | null>(null);
 
   useEffect(() => {
     async function load() {
+      setDbError(null);
+
       const { data: employees, error } = await supabase
         .from("employees")
         .select("id, company_id, name, document_type, document_number, email, phone, active, credit_limit, credit_used, max_installments, salary, address, city, created_at")
         .order("created_at", { ascending: false });
 
       if (error) {
-        console.error("employees error:", error.message);
+        setDbError("Error al cargar empleados: " + error.message + " (code: " + error.code + ")");
         setLoading(false);
         return;
       }
 
-      const companyIds = [...new Set((employees || []).map((e: any) => e.company_id).filter(Boolean))];
+      const list = employees || [];
+
+      const companyIds = [...new Set(list.map((e: any) => e.company_id).filter(Boolean))];
       let cmap: Record<string, string> = {};
       if (companyIds.length > 0) {
         const { data: companies } = await supabase
@@ -41,7 +46,7 @@ export default function AdminEmployeesPage() {
         for (const c of companies || []) cmap[c.id] = c.name || c.id;
       }
 
-      setRows(employees || []);
+      setRows(list);
       setCompanyMap(cmap);
       setLoading(false);
     }
@@ -70,9 +75,21 @@ export default function AdminEmployeesPage() {
           style={{ color: "var(--nomi-teal)" }}>Gestion</p>
         <h1 className="text-3xl font-black" style={{ color: "var(--nomi-navy)" }}>Empleados</h1>
         <p className="text-sm mt-1" style={{ color: "var(--nomi-muted)" }}>
-          {filtered.length} de {rows.length} empleados
+          {loading ? "Cargando..." : `${filtered.length} de ${rows.length} empleados`}
         </p>
       </div>
+
+      {dbError && (
+        <div className="px-4 py-3 rounded-xl text-sm font-semibold"
+          style={{ backgroundColor: "#FEE2E2", color: "#DC2626", border: "1px solid #FECACA" }}>
+          <p className="font-bold mb-1">Error de base de datos:</p>
+          <p>{dbError}</p>
+          <p className="mt-2 text-xs opacity-75">
+            Posible causa: la RLS policy de Supabase no permite al SUPER_ADMIN leer esta tabla.
+            Verifica en Supabase Dashboard que la tabla employees tiene una policy que permite SELECT al rol autenticado con role=SUPER_ADMIN.
+          </p>
+        </div>
+      )}
 
       <div className="flex gap-3 flex-wrap">
         <input type="text" placeholder="Buscar por nombre, email o documento..."
@@ -106,7 +123,7 @@ export default function AdminEmployeesPage() {
                 style={{ backgroundColor: "var(--nomi-gray)" }} />
             ))}
           </div>
-        ) : filtered.length === 0 ? (
+        ) : filtered.length === 0 && !dbError ? (
           <div className="px-5 py-12 text-center">
             <Users className="w-10 h-10 mx-auto mb-3" style={{ color: "var(--nomi-border)" }} />
             <p className="text-sm font-semibold" style={{ color: "var(--nomi-muted)" }}>
@@ -150,7 +167,6 @@ export default function AdminEmployeesPage() {
         ))}
       </div>
 
-      {/* MODAL DETALLE */}
       {selected && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4"
           style={{ backgroundColor: "rgba(0,0,0,0.5)" }}
@@ -181,7 +197,7 @@ export default function AdminEmployeesPage() {
               </button>
             </div>
             <div className="px-6 py-5 space-y-3">
-              {[
+              {([
                 ["Empresa", companyMap[selected.company_id] || "—"],
                 ["Email", selected.email || "—"],
                 ["Celular", selected.phone || "—"],
@@ -191,9 +207,9 @@ export default function AdminEmployeesPage() {
                 ["Cupo total", selected.credit_limit ? money(selected.credit_limit) : "—"],
                 ["Cupo usado", selected.credit_used ? money(selected.credit_used) : "—"],
                 ["Disponible", money(Math.max(0, Number(selected.credit_limit || 0) - Number(selected.credit_used || 0)))],
-                ["Cuotas maximas", selected.max_installments ?? "—"],
-              ].map(([label, value]) => (
-                <div key={String(label)} className="flex justify-between items-start gap-3">
+                ["Cuotas maximas", String(selected.max_installments ?? "—")],
+              ] as [string, string][]).map(([label, value]) => (
+                <div key={label} className="flex justify-between items-start gap-3">
                   <span className="text-xs font-semibold shrink-0" style={{ color: "var(--nomi-muted)" }}>
                     {label}
                   </span>

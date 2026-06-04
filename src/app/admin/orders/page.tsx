@@ -27,16 +27,25 @@ export default function AdminOrdersPage() {
   const [compMap, setCompMap] = useState<Record<string, string>>({});
   const [filter, setFilter] = useState("ALL");
   const [loading, setLoading] = useState(true);
+  const [dbError, setDbError] = useState<string | null>(null);
   const [selected, setSelected] = useState<any | null>(null);
   const [orderItems, setOrderItems] = useState<any[]>([]);
-  const [loadingDetail, setLoadingDetail] = useState(false);
+  const [loadingItems, setLoadingItems] = useState(false);
+  const [itemsError, setItemsError] = useState<string | null>(null);
 
   useEffect(() => {
     async function load() {
-      const { data: orders } = await supabase
+      setDbError(null);
+      const { data: orders, error } = await supabase
         .from("orders")
         .select("id, created_at, status, subtotal, installments, installment_amount, employee_id, company_id, shipping_name, shipping_phone, shipping_address, shipping_city, shipping_department, document_type, document_number")
         .order("created_at", { ascending: false });
+
+      if (error) {
+        setDbError("Error al cargar ordenes: " + error.message);
+        setLoading(false);
+        return;
+      }
 
       const empIds = [...new Set((orders || []).map((o: any) => o.employee_id).filter(Boolean))];
       const compIds = [...new Set((orders || []).map((o: any) => o.company_id).filter(Boolean))];
@@ -66,13 +75,18 @@ export default function AdminOrdersPage() {
   async function openOrder(o: any) {
     setSelected(o);
     setOrderItems([]);
-    setLoadingDetail(true);
-    const { data } = await supabase
+    setItemsError(null);
+    setLoadingItems(true);
+    const { data, error } = await supabase
       .from("order_items")
-      .select("id, name_snapshot, qty, unit_price, price_snapshot")
+      .select("id, name_snapshot, qty, unit_price, price_snapshot, product_id")
       .eq("order_id", o.id);
-    setOrderItems(data || []);
-    setLoadingDetail(false);
+    setLoadingItems(false);
+    if (error) {
+      setItemsError("Error cargando items: " + error.message);
+    } else {
+      setOrderItems(data || []);
+    }
   }
 
   const filtered = useMemo(() =>
@@ -89,9 +103,16 @@ export default function AdminOrdersPage() {
           style={{ color: "var(--nomi-teal)" }}>Gestion</p>
         <h1 className="text-3xl font-black" style={{ color: "var(--nomi-navy)" }}>Ordenes</h1>
         <p className="text-sm mt-1" style={{ color: "var(--nomi-muted)" }}>
-          {filtered.length} orden{filtered.length !== 1 ? "es" : ""} · clic para ver detalle
+          {loading ? "Cargando..." : `${filtered.length} orden${filtered.length !== 1 ? "es" : ""} · clic para ver detalle`}
         </p>
       </div>
+
+      {dbError && (
+        <div className="px-4 py-3 rounded-xl text-sm font-semibold"
+          style={{ backgroundColor: "#FEE2E2", color: "#DC2626", border: "1px solid #FECACA" }}>
+          {dbError}
+        </div>
+      )}
 
       <div className="flex gap-2 flex-wrap">
         {statuses.map((s) => {
@@ -124,7 +145,7 @@ export default function AdminOrdersPage() {
           <div className="p-5 space-y-3">
             {[1,2,3,4,5].map(i => <div key={i} className="h-12 rounded-xl animate-pulse" style={{ backgroundColor: "var(--nomi-gray)" }} />)}
           </div>
-        ) : filtered.length === 0 ? (
+        ) : filtered.length === 0 && !dbError ? (
           <div className="px-5 py-12 text-center">
             <ShoppingCart className="w-10 h-10 mx-auto mb-3" style={{ color: "var(--nomi-border)" }} />
             <p className="text-sm font-semibold" style={{ color: "var(--nomi-muted)" }}>No hay ordenes</p>
@@ -165,7 +186,7 @@ export default function AdminOrdersPage() {
         })}
       </div>
 
-      {/* MODAL DETALLE ORDEN */}
+      {/* MODAL DETALLE */}
       {selected && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4"
           style={{ backgroundColor: "rgba(0,0,0,0.5)" }}
@@ -174,7 +195,8 @@ export default function AdminOrdersPage() {
             style={{ border: "1.5px solid var(--nomi-border)" }}
             onClick={(e) => e.stopPropagation()}>
 
-            <div className="flex items-center justify-between px-6 py-4 sticky top-0 bg-white"
+            {/* HEADER */}
+            <div className="flex items-center justify-between px-6 py-4 sticky top-0 bg-white z-10"
               style={{ borderBottom: "1px solid var(--nomi-border)" }}>
               <div>
                 <div className="font-black text-base" style={{ color: "var(--nomi-navy)" }}>
@@ -202,19 +224,20 @@ export default function AdminOrdersPage() {
               </div>
             </div>
 
-            <div className="px-6 py-5 space-y-5">
-              {/* EMPLEADO + EMPRESA */}
+            <div className="px-6 py-5 space-y-6">
+
+              {/* COMPRADOR */}
               <div>
                 <p className="text-xs font-bold uppercase tracking-wide mb-2"
                   style={{ color: "var(--nomi-teal)" }}>Comprador</p>
-                <div className="space-y-1.5">
-                  {[
+                <div className="space-y-2">
+                  {([
                     ["Empleado", empMap[selected.employee_id]?.name || selected.shipping_name || "—"],
                     ["Email", empMap[selected.employee_id]?.email || "—"],
                     ["Documento", `${selected.document_type || ""} ${selected.document_number || ""}`.trim() || "—"],
                     ["Empresa", compMap[selected.company_id] || "—"],
-                  ].map(([l, v]) => (
-                    <div key={String(l)} className="flex justify-between text-sm">
+                  ] as [string,string][]).map(([l, v]) => (
+                    <div key={l} className="flex justify-between text-sm">
                       <span style={{ color: "var(--nomi-muted)" }}>{l}</span>
                       <span className="font-semibold" style={{ color: "var(--nomi-navy)" }}>{v}</span>
                     </div>
@@ -227,14 +250,14 @@ export default function AdminOrdersPage() {
                 <div>
                   <p className="text-xs font-bold uppercase tracking-wide mb-2"
                     style={{ color: "var(--nomi-teal)" }}>Envio</p>
-                  <div className="space-y-1.5">
-                    {[
+                  <div className="space-y-2">
+                    {([
                       ["Direccion", selected.shipping_address || "—"],
                       ["Ciudad", selected.shipping_city || "—"],
                       ["Departamento", selected.shipping_department || "—"],
                       ["Telefono", selected.shipping_phone || "—"],
-                    ].map(([l, v]) => (
-                      <div key={String(l)} className="flex justify-between text-sm">
+                    ] as [string,string][]).map(([l, v]) => (
+                      <div key={l} className="flex justify-between text-sm">
                         <span style={{ color: "var(--nomi-muted)" }}>{l}</span>
                         <span className="font-semibold" style={{ color: "var(--nomi-navy)" }}>{v}</span>
                       </div>
@@ -243,17 +266,17 @@ export default function AdminOrdersPage() {
                 </div>
               )}
 
-              {/* CUOTAS */}
+              {/* PAGO */}
               <div>
                 <p className="text-xs font-bold uppercase tracking-wide mb-2"
                   style={{ color: "var(--nomi-teal)" }}>Pago</p>
-                <div className="space-y-1.5">
-                  {[
+                <div className="space-y-2">
+                  {([
                     ["Total", money(selected.subtotal)],
-                    ["Cuotas", selected.installments || "—"],
+                    ["Cuotas", String(selected.installments || "—")],
                     ["Valor cuota", selected.installment_amount ? money(selected.installment_amount) : "—"],
-                  ].map(([l, v]) => (
-                    <div key={String(l)} className="flex justify-between text-sm">
+                  ] as [string,string][]).map(([l, v]) => (
+                    <div key={l} className="flex justify-between text-sm">
                       <span style={{ color: "var(--nomi-muted)" }}>{l}</span>
                       <span className="font-black" style={{ color: "var(--nomi-navy)" }}>{v}</span>
                     </div>
@@ -261,34 +284,65 @@ export default function AdminOrdersPage() {
                 </div>
               </div>
 
-              {/* PRODUCTOS */}
+              {/* PRODUCTOS COMPRADOS */}
               <div>
-                <p className="text-xs font-bold uppercase tracking-wide mb-2"
-                  style={{ color: "var(--nomi-teal)" }}>Productos</p>
-                {loadingDetail ? (
+                <p className="text-xs font-bold uppercase tracking-wide mb-3"
+                  style={{ color: "var(--nomi-teal)" }}>Productos comprados</p>
+
+                {itemsError && (
+                  <p className="text-xs font-semibold px-3 py-2 rounded-xl mb-2"
+                    style={{ backgroundColor: "#FEE2E2", color: "#DC2626" }}>
+                    {itemsError}
+                  </p>
+                )}
+
+                {loadingItems ? (
                   <div className="space-y-2">
-                    {[1,2].map(i => <div key={i} className="h-10 rounded-xl animate-pulse" style={{ backgroundColor: "var(--nomi-gray)" }} />)}
+                    {[1,2].map(i => (
+                      <div key={i} className="h-14 rounded-xl animate-pulse"
+                        style={{ backgroundColor: "var(--nomi-gray)" }} />
+                    ))}
                   </div>
-                ) : orderItems.length === 0 ? (
-                  <p className="text-sm" style={{ color: "var(--nomi-muted)" }}>Sin items</p>
+                ) : orderItems.length === 0 && !itemsError ? (
+                  <div className="px-4 py-4 rounded-xl text-center text-sm"
+                    style={{ backgroundColor: "var(--nomi-gray)", color: "var(--nomi-muted)" }}>
+                    No se encontraron items en esta orden
+                  </div>
                 ) : (
                   <div className="space-y-2">
-                    {orderItems.map((it) => (
-                      <div key={it.id} className="flex justify-between items-center py-2 px-3 rounded-xl"
-                        style={{ backgroundColor: "var(--nomi-gray)" }}>
-                        <div>
-                          <div className="font-semibold text-sm" style={{ color: "var(--nomi-navy)" }}>
-                            {it.name_snapshot || "Producto"}
+                    {orderItems.map((it) => {
+                      const unitPrice = Number(it.unit_price || it.price_snapshot || 0);
+                      const qty = Number(it.qty || 1);
+                      return (
+                        <div key={it.id}
+                          className="flex items-center gap-3 px-4 py-3 rounded-xl"
+                          style={{ backgroundColor: "var(--nomi-gray)", border: "1px solid var(--nomi-border)" }}>
+                          <div className="flex-1 min-w-0">
+                            <div className="font-semibold text-sm truncate" style={{ color: "var(--nomi-navy)" }}>
+                              {it.name_snapshot || "Producto"}
+                            </div>
+                            <div className="text-xs mt-0.5 flex items-center gap-2"
+                              style={{ color: "var(--nomi-muted)" }}>
+                              <span>Cantidad: {qty}</span>
+                              <span>·</span>
+                              <span>Precio unit: {money(unitPrice)}</span>
+                            </div>
                           </div>
-                          <div className="text-xs" style={{ color: "var(--nomi-muted)" }}>
-                            Cant: {it.qty}
+                          <div className="font-black text-sm shrink-0" style={{ color: "var(--nomi-navy)" }}>
+                            {money(unitPrice * qty)}
                           </div>
                         </div>
-                        <div className="font-black text-sm" style={{ color: "var(--nomi-navy)" }}>
-                          {money(Number(it.unit_price || it.price_snapshot || 0) * Number(it.qty || 1))}
-                        </div>
-                      </div>
-                    ))}
+                      );
+                    })}
+
+                    {/* TOTAL ITEMS */}
+                    <div className="flex justify-between items-center px-4 py-2 rounded-xl"
+                      style={{ backgroundColor: "var(--nomi-navy)" }}>
+                      <span className="text-xs font-bold text-white">Total orden</span>
+                      <span className="font-black text-sm" style={{ color: "var(--nomi-orange)" }}>
+                        {money(selected.subtotal)}
+                      </span>
+                    </div>
                   </div>
                 )}
               </div>

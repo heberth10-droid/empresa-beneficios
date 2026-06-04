@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
-import { Package, X, Save } from "lucide-react";
+import { Package, X, Save, Upload, Trash2 } from "lucide-react";
 
 function money(n: any) {
   return new Intl.NumberFormat("es-CO", {
@@ -10,17 +10,22 @@ function money(n: any) {
   }).format(Number(n || 0));
 }
 
+const IMAGE_BUCKET = "product-images";
+
 export default function AdminProductsPage() {
   const [rows, setRows] = useState<any[]>([]);
   const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(true);
   const [editing, setEditing] = useState<any | null>(null);
   const [saving, setSaving] = useState(false);
+  const [uploading, setUploading] = useState(false);
   const [saveMsg, setSaveMsg] = useState<{ ok: boolean; text: string } | null>(null);
   const [form, setForm] = useState({
     name: "", description: "", price: "", discount_price: "",
     stock: "", category: "", subcategory: "", active: true,
   });
+  const [currentImages, setCurrentImages] = useState<string[]>([]);
+  const [newImageUrl, setNewImageUrl] = useState("");
 
   async function load() {
     const { data } = await supabase
@@ -43,8 +48,20 @@ export default function AdminProductsPage() {
     );
   }, [rows, search]);
 
+  function parseImages(p: any): string[] {
+    if (Array.isArray(p.images)) return p.images.filter((x: any) => typeof x === "string");
+    if (typeof p.images === "string") {
+      try { const a = JSON.parse(p.images); if (Array.isArray(a)) return a; } catch {}
+      if (p.images.startsWith("http")) return [p.images];
+    }
+    if (p.image_url) return [p.image_url];
+    return [];
+  }
+
   function openEdit(p: any) {
     setEditing(p);
+    setCurrentImages(parseImages(p));
+    setNewImageUrl("");
     setForm({
       name: p.name || "",
       description: p.description || "",
@@ -56,6 +73,36 @@ export default function AdminProductsPage() {
       active: p.active !== false,
     });
     setSaveMsg(null);
+  }
+
+  async function uploadImageFile(file: File): Promise<string | null> {
+    setUploading(true);
+    const ext = file.name.split(".").pop();
+    const path = `admin/${editing.id}/${Date.now()}.${ext}`;
+    const { error } = await supabase.storage
+      .from(IMAGE_BUCKET)
+      .upload(path, file, { contentType: file.type, cacheControl: "3600", upsert: true });
+    setUploading(false);
+    if (error) { setSaveMsg({ ok: false, text: "Error subiendo imagen: " + error.message }); return null; }
+    return supabase.storage.from(IMAGE_BUCKET).getPublicUrl(path).data.publicUrl;
+  }
+
+  async function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const url = await uploadImageFile(file);
+    if (url) setCurrentImages(prev => [...prev, url]);
+  }
+
+  function addImageByUrl() {
+    const url = newImageUrl.trim();
+    if (!url || !url.startsWith("http")) return;
+    setCurrentImages(prev => [...prev, url]);
+    setNewImageUrl("");
+  }
+
+  function removeImage(url: string) {
+    setCurrentImages(prev => prev.filter(u => u !== url));
   }
 
   async function saveProduct() {
@@ -72,6 +119,8 @@ export default function AdminProductsPage() {
         category: form.category.trim(),
         subcategory: form.subcategory.trim(),
         active: form.active,
+        images: currentImages,
+        image_url: currentImages[0] || null,
       })
       .eq("id", editing.id);
     setSaving(false);
@@ -84,13 +133,9 @@ export default function AdminProductsPage() {
     }
   }
 
-  function getImg(p: any) {
-    if (p.image_url) return p.image_url;
-    if (Array.isArray(p.images) && p.images[0]) return p.images[0];
-    if (typeof p.images === "string") {
-      try { const a = JSON.parse(p.images); if (a[0]) return a[0]; } catch {}
-    }
-    return null;
+  function getFirstImg(p: any) {
+    const imgs = parseImages(p);
+    return imgs[0] || null;
   }
 
   const inputClass = "w-full px-3 py-2.5 rounded-xl text-sm outline-none";
@@ -124,7 +169,7 @@ export default function AdminProductsPage() {
           <span className="col-span-2">Producto</span>
           <span>Marca</span>
           <span>Precio</span>
-          <span>Margen</span>
+          <span>Descuento</span>
           <span className="text-right">Stock</span>
         </div>
 
@@ -140,9 +185,7 @@ export default function AdminProductsPage() {
         ) : filtered.map((p) => {
           const price = Number(p.price || 0);
           const disc = Number(p.discount_price || 0);
-          const img = getImg(p);
-          const margin = price > 0 && disc > 0 ? ((price - disc) / price) * 100 : 0;
-
+          const img = getFirstImg(p);
           return (
             <div key={p.id}
               className="grid grid-cols-6 px-5 py-3.5 items-center transition hover:bg-slate-50 cursor-pointer"
@@ -171,13 +214,8 @@ export default function AdminProductsPage() {
               <div className="font-bold text-sm" style={{ color: "var(--nomi-navy)" }}>
                 {money(price)}
               </div>
-              <div>
-                {disc > 0 && disc < price ? (
-                  <span className="text-xs font-bold px-2 py-0.5 rounded-full"
-                    style={{ backgroundColor: "#DCFCE7", color: "#16A34A" }}>
-                    {margin.toFixed(1)}%
-                  </span>
-                ) : <span style={{ color: "var(--nomi-muted)" }}>—</span>}
+              <div className="text-sm" style={{ color: disc > 0 ? "#16A34A" : "var(--nomi-muted)" }}>
+                {disc > 0 ? money(disc) : "—"}
               </div>
               <div className="text-right">
                 <span className="text-sm font-bold"
@@ -195,11 +233,11 @@ export default function AdminProductsPage() {
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4"
           style={{ backgroundColor: "rgba(0,0,0,0.5)" }}
           onClick={() => setEditing(null)}>
-          <div className="bg-white rounded-2xl w-full max-w-lg shadow-2xl max-h-[90vh] overflow-y-auto"
+          <div className="bg-white rounded-2xl w-full max-w-lg shadow-2xl max-h-[92vh] overflow-y-auto"
             style={{ border: "1.5px solid var(--nomi-border)" }}
             onClick={(e) => e.stopPropagation()}>
 
-            <div className="flex items-center justify-between px-6 py-4 sticky top-0 bg-white"
+            <div className="flex items-center justify-between px-6 py-4 sticky top-0 bg-white z-10"
               style={{ borderBottom: "1px solid var(--nomi-border)" }}>
               <h2 className="font-black text-base" style={{ color: "var(--nomi-navy)" }}>
                 Editar producto
@@ -211,46 +249,106 @@ export default function AdminProductsPage() {
               </button>
             </div>
 
-            <div className="px-6 py-5 space-y-4">
-              {[
-                { label: "Nombre", key: "name", type: "text" },
-                { label: "Precio", key: "price", type: "number" },
-                { label: "Precio con descuento", key: "discount_price", type: "number" },
-                { label: "Stock", key: "stock", type: "number" },
-                { label: "Categoria", key: "category", type: "text" },
-                { label: "Subcategoria", key: "subcategory", type: "text" },
-              ].map(({ label, key, type }) => (
-                <div key={key}>
-                  <label className="block text-xs font-bold mb-1.5 uppercase tracking-wide"
-                    style={{ color: "var(--nomi-navy)" }}>{label}</label>
+            <div className="px-6 py-5 space-y-5">
+
+              {/* IMAGENES */}
+              <div>
+                <p className="text-xs font-bold uppercase tracking-wide mb-3"
+                  style={{ color: "var(--nomi-teal)" }}>Imagenes del producto</p>
+
+                {/* GRID DE IMAGENES ACTUALES */}
+                {currentImages.length > 0 && (
+                  <div className="grid grid-cols-3 gap-2 mb-3">
+                    {currentImages.map((url, i) => (
+                      <div key={i} className="relative group rounded-xl overflow-hidden aspect-square"
+                        style={{ backgroundColor: "var(--nomi-gray)", border: "1px solid var(--nomi-border)" }}>
+                        <img src={url} className="w-full h-full object-cover"
+                          onError={(e) => { (e.currentTarget as HTMLImageElement).src = "/no-image.png"; }} />
+                        <button
+                          onClick={() => removeImage(url)}
+                          className="absolute top-1 right-1 w-6 h-6 flex items-center justify-center rounded-full opacity-0 group-hover:opacity-100 transition cursor-pointer"
+                          style={{ backgroundColor: "#DC2626" }}>
+                          <Trash2 className="w-3 h-3 text-white" />
+                        </button>
+                        {i === 0 && (
+                          <div className="absolute bottom-1 left-1 text-xs px-1.5 py-0.5 rounded-md font-bold"
+                            style={{ backgroundColor: "var(--nomi-orange)", color: "#fff" }}>
+                            Principal
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {/* SUBIR ARCHIVO */}
+                <label className="flex items-center gap-3 px-4 py-3 rounded-xl cursor-pointer transition hover:opacity-80 mb-2"
+                  style={{ backgroundColor: "var(--nomi-teal-bg)", border: "1.5px dashed var(--nomi-teal)" }}>
+                  <Upload className="w-4 h-4 shrink-0" style={{ color: "var(--nomi-teal)" }} />
+                  <span className="text-sm font-semibold" style={{ color: "var(--nomi-teal)" }}>
+                    {uploading ? "Subiendo..." : "Subir imagen desde tu dispositivo"}
+                  </span>
+                  <input type="file" accept="image/*" className="hidden"
+                    onChange={handleFileChange} disabled={uploading} />
+                </label>
+
+                {/* URL MANUAL */}
+                <div className="flex gap-2">
                   <input
-                    type={type}
-                    value={(form as any)[key]}
-                    onChange={(e) => setForm(f => ({ ...f, [key]: e.target.value }))}
+                    value={newImageUrl}
+                    onChange={(e) => setNewImageUrl(e.target.value)}
+                    onKeyDown={(e) => { if (e.key === "Enter") addImageByUrl(); }}
+                    placeholder="O pega una URL de imagen https://..."
                     className={inputClass} style={inputStyle}
                   />
+                  <button onClick={addImageByUrl}
+                    className="px-4 rounded-xl text-xs font-bold cursor-pointer whitespace-nowrap"
+                    style={{ backgroundColor: "var(--nomi-navy)", color: "#fff" }}>
+                    Agregar
+                  </button>
                 </div>
-              ))}
-
-              <div>
-                <label className="block text-xs font-bold mb-1.5 uppercase tracking-wide"
-                  style={{ color: "var(--nomi-navy)" }}>Descripcion</label>
-                <textarea
-                  rows={3}
-                  value={form.description}
-                  onChange={(e) => setForm(f => ({ ...f, description: e.target.value }))}
-                  className={inputClass} style={{ ...inputStyle, resize: "vertical" as const }}
-                />
               </div>
 
-              <div className="flex items-center gap-3">
-                <input type="checkbox" id="active-check" checked={form.active}
-                  onChange={(e) => setForm(f => ({ ...f, active: e.target.checked }))}
-                  className="w-4 h-4 cursor-pointer" />
-                <label htmlFor="active-check" className="text-sm font-semibold cursor-pointer"
-                  style={{ color: "var(--nomi-navy)" }}>
-                  Producto activo (visible en tienda)
-                </label>
+              {/* CAMPOS */}
+              <div>
+                <p className="text-xs font-bold uppercase tracking-wide mb-3"
+                  style={{ color: "var(--nomi-teal)" }}>Informacion del producto</p>
+                <div className="space-y-3">
+                  {[
+                    { label: "Nombre", key: "name", type: "text" },
+                    { label: "Precio", key: "price", type: "number" },
+                    { label: "Precio con descuento", key: "discount_price", type: "number" },
+                    { label: "Stock", key: "stock", type: "number" },
+                    { label: "Categoria", key: "category", type: "text" },
+                    { label: "Subcategoria", key: "subcategory", type: "text" },
+                  ].map(({ label, key, type }) => (
+                    <div key={key}>
+                      <label className="block text-xs font-bold mb-1 uppercase tracking-wide"
+                        style={{ color: "var(--nomi-navy)" }}>{label}</label>
+                      <input type={type} value={(form as any)[key]}
+                        onChange={(e) => setForm(f => ({ ...f, [key]: e.target.value }))}
+                        className={inputClass} style={inputStyle} />
+                    </div>
+                  ))}
+
+                  <div>
+                    <label className="block text-xs font-bold mb-1 uppercase tracking-wide"
+                      style={{ color: "var(--nomi-navy)" }}>Descripcion</label>
+                    <textarea rows={3} value={form.description}
+                      onChange={(e) => setForm(f => ({ ...f, description: e.target.value }))}
+                      className={inputClass} style={{ ...inputStyle, resize: "vertical" as const }} />
+                  </div>
+
+                  <div className="flex items-center gap-3 pt-1">
+                    <input type="checkbox" id="pactive" checked={form.active}
+                      onChange={(e) => setForm(f => ({ ...f, active: e.target.checked }))}
+                      className="w-4 h-4 cursor-pointer" />
+                    <label htmlFor="pactive" className="text-sm font-semibold cursor-pointer"
+                      style={{ color: "var(--nomi-navy)" }}>
+                      Producto activo (visible en tienda)
+                    </label>
+                  </div>
+                </div>
               </div>
 
               {saveMsg && (
@@ -264,7 +362,7 @@ export default function AdminProductsPage() {
             </div>
 
             <div className="px-6 pb-6 flex gap-3">
-              <button onClick={saveProduct} disabled={saving}
+              <button onClick={saveProduct} disabled={saving || uploading}
                 className="flex-1 flex items-center justify-center gap-2 py-3 rounded-xl text-sm font-black cursor-pointer disabled:opacity-60"
                 style={{ backgroundColor: "var(--nomi-orange)", color: "#fff" }}>
                 <Save className="w-4 h-4" />
