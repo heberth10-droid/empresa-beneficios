@@ -144,7 +144,7 @@ export default function AdminBrandsPage() {
                   </div>
                   {msg?.id === b.id && (
                     <p className="text-xs font-semibold"
-                      style={{ color: msg.ok ? "#16A34A" : "#DC2626" }}>{msg.text}</p>
+                      style={{ color: msg?.ok ? "#16A34A" : "#DC2626" }}>{msg?.text}</p>
                   )}
                   <div className="flex gap-2">
                     <button onClick={() => saveEdit(b.id)} disabled={saving}
