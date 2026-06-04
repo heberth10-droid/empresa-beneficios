@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
 import { useRouter } from "next/navigation";
-import { Package, ShoppingCart, TrendingUp, Tag } from "lucide-react";
+import { Package, ShoppingCart, TrendingUp, Tag, List } from "lucide-react";
 import Link from "next/link";
 
 function money(n: any) {
@@ -53,17 +53,15 @@ export default function BrandDashboard() {
 
       setBrand(brandData);
 
-      // Stats en paralelo
       const [{ count: prodCount }, { data: orderItems }, { count: brandCount }] = await Promise.all([
         supabase.from("products").select("id", { count: "exact", head: true }).eq("brand_id", brandData.id),
         supabase.from("order_items").select("price_snapshot, qty, order_id").eq("brand_id", brandData.id),
         supabase.from("product_brands").select("id", { count: "exact", head: true }).eq("seller_brand_id", brandData.id),
       ]);
 
-      const revenue = (orderItems || []).reduce((a, it) =>
+      const revenue = (orderItems || []).reduce((a: number, it: any) =>
         a + Number(it.price_snapshot || 0) * Number(it.qty || 0), 0);
 
-      // Últimas órdenes con items de esta marca
       const orderIds = [...new Set((orderItems || []).map((i: any) => i.order_id).filter(Boolean))].slice(0, 8);
       let recentOrdsData: any[] = [];
       if (orderIds.length > 0) {
@@ -84,26 +82,29 @@ export default function BrandDashboard() {
 
   if (loading) return (
     <div className="flex items-center justify-center py-20">
-      <div className="text-center">
-        <div className="w-10 h-10 rounded-full border-2 border-t-transparent animate-spin mx-auto mb-3"
-          style={{ borderColor: "var(--nomi-orange)" }} />
-        <p className="text-sm font-semibold" style={{ color: "var(--nomi-muted)" }}>Cargando panel...</p>
-      </div>
+      <div className="w-10 h-10 rounded-full border-2 border-t-transparent animate-spin mx-auto"
+        style={{ borderColor: "var(--nomi-orange)" }} />
     </div>
   );
 
-  const cards = [
-    { label: "Productos activos", value: stats.products, icon: Package,      accent: "var(--nomi-teal)",   bg: "var(--nomi-teal-bg)",   href: "/brand/products/list" },
-    { label: "Sub-marcas",        value: stats.brands,   icon: Tag,          accent: "var(--nomi-orange)", bg: "var(--nomi-orange-bg)", href: "/brand/product-brands" },
-    { label: "Ordenes",           value: stats.orders,   icon: ShoppingCart, accent: "var(--nomi-navy)",   bg: "var(--nomi-gray)",      href: "/brand/orders" },
-    { label: "Revenue total",     value: money(stats.revenue), icon: TrendingUp, accent: "var(--nomi-teal)", bg: "var(--nomi-teal-bg)", href: "/brand/orders" },
+  const statCards = [
+    { label: "Productos activos", value: stats.products,       icon: Package,     accent: "var(--nomi-teal)",   bg: "var(--nomi-teal-bg)",   href: "/brand/products/list" },
+    { label: "Marcas",            value: stats.brands,         icon: Tag,         accent: "var(--nomi-orange)", bg: "var(--nomi-orange-bg)", href: "/brand/product-brands" },
+    { label: "Ordenes",           value: stats.orders,         icon: ShoppingCart,accent: "var(--nomi-navy)",   bg: "var(--nomi-gray)",      href: "/brand/orders" },
+    { label: "Revenue total",     value: money(stats.revenue), icon: TrendingUp,  accent: "var(--nomi-teal)",   bg: "var(--nomi-teal-bg)",   href: "/brand/orders" },
+  ];
+
+  const quickActions = [
+    { href: "/brand/product-brands", label: "Crear marca",       desc: "Agrega una nueva marca a tu catalogo",    icon: Tag,     color: "var(--nomi-teal)" },
+    { href: "/brand/products",       label: "Crear producto",    desc: "Agrega un nuevo producto al marketplace", icon: Package, color: "var(--nomi-orange)" },
+    { href: "/brand/products/list",  label: "Ver mis productos", desc: "Revisa y edita tus productos activos",    icon: List,    color: "var(--nomi-navy)" },
   ];
 
   return (
     <div className="space-y-8">
       <div>
         <p className="text-xs font-bold uppercase tracking-widest mb-1"
-          style={{ color: "var(--nomi-teal)" }}>Panel de marca</p>
+          style={{ color: "var(--nomi-teal)" }}>Panel de proveedor</p>
         <h1 className="text-3xl font-black" style={{ color: "var(--nomi-navy)" }}>
           {brand?.name}
         </h1>
@@ -112,9 +113,8 @@ export default function BrandDashboard() {
         </p>
       </div>
 
-      {/* STATS */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        {cards.map((c) => {
+        {statCards.map((c) => {
           const Icon = c.icon;
           return (
             <Link key={c.label} href={c.href}
@@ -133,7 +133,6 @@ export default function BrandDashboard() {
         })}
       </div>
 
-      {/* ULTIMAS ORDENES */}
       {recentOrders.length > 0 && (
         <div>
           <div className="flex items-center justify-between mb-4">
@@ -160,9 +159,7 @@ export default function BrandDashboard() {
                   </div>
                   <div className="flex items-center gap-3">
                     <span className="text-xs font-bold px-2.5 py-1 rounded-full"
-                      style={{ backgroundColor: st.bg, color: st.color }}>
-                      {st.label}
-                    </span>
+                      style={{ backgroundColor: st.bg, color: st.color }}>{st.label}</span>
                     <span className="font-black text-sm" style={{ color: "var(--nomi-navy)" }}>
                       {money(o.subtotal)}
                     </span>
@@ -174,15 +171,10 @@ export default function BrandDashboard() {
         </div>
       )}
 
-      {/* ACCIONES RAPIDAS */}
       <div>
         <h2 className="text-lg font-black mb-4" style={{ color: "var(--nomi-navy)" }}>Acciones rapidas</h2>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-          {[
-            { href: "/brand/product-brands", label: "Crear sub-marca", desc: "Agrega una nueva marca a tu catalogo", icon: Tag, color: "var(--nomi-teal)" },
-            { href: "/brand/products",       label: "Crear producto",  desc: "Agrega un nuevo producto al marketplace", icon: Package, color: "var(--nomi-orange)" },
-            { href: "/brand/products/list",  label: "Ver productos",   desc: "Revisa y edita tus productos activos", icon: List, color: "var(--nomi-navy)" },
-          ].map((a) => {
+          {quickActions.map((a) => {
             const Icon = a.icon;
             return (
               <Link key={a.href} href={a.href}
@@ -204,6 +196,3 @@ export default function BrandDashboard() {
     </div>
   );
 }
-
-// Necesitamos importar List
-import { List } from "lucide-react";

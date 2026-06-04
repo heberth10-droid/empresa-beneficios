@@ -9,12 +9,12 @@ import {
 } from "lucide-react";
 
 const items = [
-  { href: "/brand",                  label: "Dashboard",        icon: LayoutDashboard },
-  { href: "/brand/product-brands",   label: "Mis marcas",       icon: Tag },
-  { href: "/brand/products",         label: "Crear producto",   icon: Package },
-  { href: "/brand/products/list",    label: "Mis productos",    icon: List },
-  { href: "/brand/orders",           label: "Ordenes",          icon: ShoppingCart },
-  { href: "/brand/profile",          label: "Mi perfil",        icon: User },
+  { href: "/brand",                  label: "Dashboard",      icon: LayoutDashboard },
+  { href: "/brand/product-brands",   label: "Marcas",         icon: Tag },
+  { href: "/brand/products",         label: "Crear producto", icon: Package },
+  { href: "/brand/products/list",    label: "Mis productos",  icon: List },
+  { href: "/brand/orders",           label: "Ordenes",        icon: ShoppingCart },
+  { href: "/brand/profile",          label: "Mi perfil",      icon: User },
 ];
 
 export default function BrandSidebar({ onNavigate }: { onNavigate?: () => void }) {
@@ -30,7 +30,6 @@ export default function BrandSidebar({ onNavigate }: { onNavigate?: () => void }
     <aside className="w-64 min-h-screen flex flex-col"
       style={{ backgroundColor: "var(--nomi-navy)", borderRight: "1px solid rgba(255,255,255,0.08)" }}>
 
-      {/* LOGO */}
       <div className="px-5 py-5" style={{ borderBottom: "1px solid rgba(255,255,255,0.08)" }}>
         <div className="flex items-center gap-1 mb-0.5">
           <span className="text-xl font-black text-white">N</span>
@@ -39,11 +38,10 @@ export default function BrandSidebar({ onNavigate }: { onNavigate?: () => void }
           <span className="text-xl font-black text-white">MI</span>
         </div>
         <div className="text-xs font-semibold mt-0.5" style={{ color: "rgba(255,255,255,0.4)" }}>
-          Panel de Marca
+          Panel de Proveedor
         </div>
       </div>
 
-      {/* NAV */}
       <nav className="flex-1 px-3 py-4 space-y-0.5 overflow-y-auto">
         {items.map((item) => {
           const Icon = item.icon;
@@ -68,7 +66,6 @@ export default function BrandSidebar({ onNavigate }: { onNavigate?: () => void }
         })}
       </nav>
 
-      {/* FOOTER */}
       <div className="px-3 py-4" style={{ borderTop: "1px solid rgba(255,255,255,0.08)" }}>
         <Link href="/market" target="_blank" onClick={onNavigate}
           className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-semibold mb-1 transition"

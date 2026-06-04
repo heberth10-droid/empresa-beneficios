@@ -3,442 +3,276 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
 import { useRouter } from "next/navigation";
+import { Upload, Save, X, Tag } from "lucide-react";
 
 const BRAND_LOGO_BUCKET = "product-brand-logos";
 
 export default function ProductBrandsPage() {
   const router = useRouter();
-
   const [loading, setLoading] = useState(true);
   const [brand, setBrand] = useState<any>(null);
   const [productBrands, setProductBrands] = useState<any[]>([]);
-
   const [name, setName] = useState("");
   const [logoFile, setLogoFile] = useState<File | null>(null);
   const [previewLogo, setPreviewLogo] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
-
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editingName, setEditingName] = useState("");
   const [editingLogoFile, setEditingLogoFile] = useState<File | null>(null);
-  const [editingPreviewLogo, setEditingPreviewLogo] = useState<string | null>(
-    null
-  );
+  const [editingPreviewLogo, setEditingPreviewLogo] = useState<string | null>(null);
   const [updating, setUpdating] = useState(false);
 
   useEffect(() => {
     async function init() {
       const { data: authData } = await supabase.auth.getUser();
       const user = authData?.user;
+      if (!user) { router.push("/login"); return; }
 
-      if (!user) {
-        router.push("/login");
-        return;
-      }
+      const { data: userData } = await supabase.from("users").select("*").eq("auth_id", user.id).single();
+      if (!userData || userData.role !== "BRAND_ADMIN") { router.push("/login"); return; }
 
-      const { data: userData } = await supabase
-        .from("users")
-        .select("*")
-        .eq("auth_id", user.id)
-        .single();
-
-      if (!userData || userData.role !== "BRAND_ADMIN") {
-        router.push("/login");
-        return;
-      }
-
-      const { data: brandData } = await supabase
-        .from("brands")
-        .select("*")
-        .eq("id", userData.brand_id)
-        .single();
-
-      if (!brandData) {
-        router.push("/login");
-        return;
-      }
+      const { data: brandData } = await supabase.from("brands").select("*").eq("id", userData.brand_id).single();
+      if (!brandData) { router.push("/login"); return; }
 
       setBrand(brandData);
       await loadProductBrands(brandData.id);
       setLoading(false);
     }
-
     init();
   }, [router]);
 
   async function loadProductBrands(brandId: string) {
-    const { data, error } = await supabase
-      .from("product_brands")
-      .select("*")
-      .eq("seller_brand_id", brandId)
-      .eq("active", true)
-      .order("name", { ascending: true });
-
-    if (error) {
-      console.error(error);
-      setProductBrands([]);
-      return;
-    }
-
+    const { data } = await supabase.from("product_brands").select("*")
+      .eq("seller_brand_id", brandId).eq("active", true).order("name", { ascending: true });
     setProductBrands(data || []);
   }
 
   async function uploadLogo(productBrandId: string, file: File) {
     const ext = file.name.split(".").pop();
-    const fileName = `${Date.now()}-${Math.random().toString(36)}.${ext}`;
-    const filePath = `${brand.id}/${productBrandId}/${fileName}`;
-
-    const { error } = await supabase.storage
-      .from(BRAND_LOGO_BUCKET)
-      .upload(filePath, file, {
-        contentType: file.type,
-        cacheControl: "3600",
-        upsert: true,
-      });
-
-    if (error) {
-      throw new Error("No se pudo subir el logo: " + error.message);
-    }
-
-    return supabase.storage
-      .from(BRAND_LOGO_BUCKET)
-      .getPublicUrl(filePath).data.publicUrl;
+    const filePath = `${brand.id}/${productBrandId}/${Date.now()}-${Math.random().toString(36)}.${ext}`;
+    const { error } = await supabase.storage.from(BRAND_LOGO_BUCKET)
+      .upload(filePath, file, { contentType: file.type, cacheControl: "3600", upsert: true });
+    if (error) throw new Error("No se pudo subir el logo: " + error.message);
+    return supabase.storage.from(BRAND_LOGO_BUCKET).getPublicUrl(filePath).data.publicUrl;
   }
 
   async function handleCreateBrand() {
     try {
       setSaving(true);
-
       const cleanName = name.trim();
-
-      if (!cleanName) {
-        throw new Error("Debes escribir el nombre de la marca.");
-      }
-
-      const existing = productBrands.find(
-        (b) => b.name.trim().toLowerCase() === cleanName.toLowerCase()
-      );
-
-      if (existing) {
+      if (!cleanName) throw new Error("Debes escribir el nombre de la marca.");
+      if (productBrands.find(b => b.name.trim().toLowerCase() === cleanName.toLowerCase()))
         throw new Error("Esta marca ya existe.");
-      }
 
-      const { data: createdBrand, error } = await supabase
-        .from("product_brands")
-        .insert({
-          seller_brand_id: brand.id,
-          name: cleanName,
-          logo_url: null,
-          active: true,
-        })
-        .select()
-        .single();
-
-      if (error || !createdBrand) {
-        throw new Error(
-          "No se pudo crear la marca: " + (error?.message || "")
-        );
-      }
+      const { data: created, error } = await supabase.from("product_brands")
+        .insert({ seller_brand_id: brand.id, name: cleanName, logo_url: null, active: true })
+        .select().single();
+      if (error || !created) throw new Error("No se pudo crear la marca: " + (error?.message || ""));
 
       if (logoFile) {
-        const logoUrl = await uploadLogo(createdBrand.id, logoFile);
-
-        const { error: updateError } = await supabase
-          .from("product_brands")
-          .update({ logo_url: logoUrl })
-          .eq("id", createdBrand.id);
-
-        if (updateError) {
-          throw new Error(
-            "La marca fue creada, pero no se pudo guardar el logo: " +
-              updateError.message
-          );
-        }
+        const logoUrl = await uploadLogo(created.id, logoFile);
+        await supabase.from("product_brands").update({ logo_url: logoUrl }).eq("id", created.id);
       }
 
-      setName("");
-      setLogoFile(null);
-      setPreviewLogo(null);
-
+      setName(""); setLogoFile(null); setPreviewLogo(null);
       await loadProductBrands(brand.id);
-
-      alert("Marca creada correctamente.");
     } catch (e: any) {
       alert(e?.message || "Error creando la marca.");
-      console.error(e);
-    } finally {
-      setSaving(false);
-    }
+    } finally { setSaving(false); }
   }
 
   function startEdit(b: any) {
-    setEditingId(b.id);
-    setEditingName(b.name || "");
-    setEditingLogoFile(null);
-    setEditingPreviewLogo(b.logo_url || null);
+    setEditingId(b.id); setEditingName(b.name || "");
+    setEditingLogoFile(null); setEditingPreviewLogo(b.logo_url || null);
   }
 
   function cancelEdit() {
-    setEditingId(null);
-    setEditingName("");
-    setEditingLogoFile(null);
-    setEditingPreviewLogo(null);
+    setEditingId(null); setEditingName(""); setEditingLogoFile(null); setEditingPreviewLogo(null);
   }
 
   async function handleUpdateBrand() {
     try {
       if (!editingId) return;
-
       setUpdating(true);
-
       const cleanName = editingName.trim();
-
-      if (!cleanName) {
-        throw new Error("Debes escribir el nombre de la marca.");
-      }
-
-      const duplicated = productBrands.find(
-        (b) =>
-          b.id !== editingId &&
-          b.name.trim().toLowerCase() === cleanName.toLowerCase()
-      );
-
-      if (duplicated) {
+      if (!cleanName) throw new Error("Debes escribir el nombre.");
+      if (productBrands.find(b => b.id !== editingId && b.name.trim().toLowerCase() === cleanName.toLowerCase()))
         throw new Error("Ya existe otra marca con ese nombre.");
-      }
 
       let logoUrl = editingPreviewLogo;
+      if (editingLogoFile) logoUrl = await uploadLogo(editingId, editingLogoFile);
 
-      if (editingLogoFile) {
-        logoUrl = await uploadLogo(editingId, editingLogoFile);
-      }
-
-      const { error } = await supabase
-        .from("product_brands")
-        .update({
-          name: cleanName,
-          logo_url: logoUrl || null,
-        })
-        .eq("id", editingId)
-        .eq("seller_brand_id", brand.id);
-
-      if (error) {
-        throw new Error("No se pudo actualizar la marca: " + error.message);
-      }
+      const { error } = await supabase.from("product_brands")
+        .update({ name: cleanName, logo_url: logoUrl || null })
+        .eq("id", editingId).eq("seller_brand_id", brand.id);
+      if (error) throw new Error("No se pudo actualizar: " + error.message);
 
       cancelEdit();
       await loadProductBrands(brand.id);
-
-      alert("Marca actualizada correctamente.");
     } catch (e: any) {
       alert(e?.message || "Error actualizando la marca.");
-      console.error(e);
-    } finally {
-      setUpdating(false);
-    }
+    } finally { setUpdating(false); }
   }
 
-  if (loading || !brand) {
-    return <div className="p-10 text-slate-300">Cargando marcas…</div>;
-  }
+  const inputStyle = {
+    border: "1.5px solid var(--nomi-border)",
+    color: "var(--nomi-navy)",
+    backgroundColor: "var(--nomi-gray)",
+    borderRadius: "10px", padding: "10px 14px", fontSize: "14px", outline: "none", width: "100%",
+  };
+
+  if (loading || !brand) return (
+    <div className="flex items-center justify-center py-20">
+      <div className="w-8 h-8 rounded-full border-2 border-t-transparent animate-spin"
+        style={{ borderColor: "var(--nomi-orange)" }} />
+    </div>
+  );
 
   return (
-    <div className="space-y-10 p-6">
+    <div className="space-y-8">
       <div>
-        <h1 className="text-3xl font-bold">Crear marca</h1>
-        <p className="text-slate-400">
-          Crea las marcas comerciales que luego podrás seleccionar al crear
-          productos.
+        <p className="text-xs font-bold uppercase tracking-widest mb-1"
+          style={{ color: "var(--nomi-teal)" }}>Catalogo</p>
+        <h1 className="text-3xl font-black" style={{ color: "var(--nomi-navy)" }}>Marcas</h1>
+        <p className="text-sm mt-1" style={{ color: "var(--nomi-muted)" }}>
+          Crea las marcas que luego podras seleccionar al crear productos
         </p>
       </div>
 
-      <div className="bg-slate-900 border border-slate-800 rounded-lg p-6 space-y-5">
-        <h2 className="text-xl font-semibold">Nueva marca comercial</h2>
+      {/* CREAR MARCA */}
+      <div className="bg-white rounded-2xl p-6 space-y-5"
+        style={{ border: "1.5px solid var(--nomi-border)" }}>
+        <div>
+          <h2 className="font-black text-base" style={{ color: "var(--nomi-navy)" }}>
+            Crear nueva marca
+          </h2>
+          <p className="text-sm mt-1" style={{ color: "var(--nomi-muted)" }}>
+            Las marcas con logo aparecen con imagen en el marketplace
+          </p>
+        </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
           <div>
-            <label className="text-sm text-slate-300 font-semibold mb-1 block">
-              Nombre de la marca
-            </label>
-
-            <input
-              className="p-3 bg-slate-800 rounded w-full"
-              placeholder="Ej: Nutrex, Apple, Adidas"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-            />
+            <label className="block text-xs font-bold mb-1.5 uppercase tracking-wide"
+              style={{ color: "var(--nomi-navy)" }}>Nombre de la marca *</label>
+            <input style={inputStyle} placeholder="Ej: Samsung, Apple, Adidas"
+              value={name} onChange={(e) => setName(e.target.value)} />
           </div>
 
           <div>
-            <label className="text-sm text-slate-300 font-semibold mb-1 block">
-              Logo de la marca
+            <label className="block text-xs font-bold mb-1.5 uppercase tracking-wide"
+              style={{ color: "var(--nomi-navy)" }}>Logo (opcional)</label>
+            <label className="flex items-center gap-3 px-4 py-2.5 rounded-xl cursor-pointer"
+              style={{ backgroundColor: "var(--nomi-teal-bg)", border: "1.5px dashed var(--nomi-teal)" }}>
+              <Upload className="w-4 h-4 shrink-0" style={{ color: "var(--nomi-teal)" }} />
+              <span className="text-sm font-semibold" style={{ color: "var(--nomi-teal)" }}>
+                Subir logo PNG/JPG
+              </span>
+              <input type="file" accept="image/png,image/jpeg,image/webp" className="hidden"
+                onChange={(e) => {
+                  const file = e.target.files?.[0] || null;
+                  setLogoFile(file);
+                  setPreviewLogo(file ? URL.createObjectURL(file) : null);
+                }} />
             </label>
-
-            <button
-              type="button"
-              onClick={() =>
-                document.getElementById("brandLogoUpload")?.click()
-              }
-              className="px-4 py-2 bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded text-sm"
-            >
-              Subir logo
-            </button>
-
-            <input
-              id="brandLogoUpload"
-              type="file"
-              accept="image/png,image/jpeg,image/webp"
-              className="hidden"
-              onChange={(e) => {
-                const file = e.target.files?.[0] || null;
-                setLogoFile(file);
-
-                if (file) {
-                  setPreviewLogo(URL.createObjectURL(file));
-                } else {
-                  setPreviewLogo(null);
-                }
-              }}
-            />
-
-            <p className="text-xs text-slate-500 mt-2">
-              Ideal: PNG sin fondo o logo con fondo blanco.
+            <p className="text-xs mt-1" style={{ color: "var(--nomi-muted)" }}>
+              Ideal: PNG sin fondo o logo con fondo blanco
             </p>
-
             {previewLogo && (
-              <div className="mt-4 bg-white rounded-lg p-4 w-fit">
-                <img
-                  src={previewLogo}
-                  alt="Preview logo"
-                  className="h-16 object-contain"
-                />
+              <div className="mt-3 p-3 rounded-xl inline-block" style={{ backgroundColor: "var(--nomi-gray)", border: "1px solid var(--nomi-border)" }}>
+                <img src={previewLogo} alt="Preview" className="h-12 object-contain" />
               </div>
             )}
           </div>
         </div>
 
-        <button
-          onClick={handleCreateBrand}
-          disabled={saving}
-          className="px-6 py-3 bg-emerald-500 hover:bg-emerald-400 text-black font-bold rounded disabled:opacity-50"
-        >
-          {saving ? "Guardando..." : "Crear marca"}
+        <button onClick={handleCreateBrand} disabled={saving || !name.trim()}
+          className="px-6 py-3 rounded-xl text-sm font-black cursor-pointer disabled:opacity-50"
+          style={{ backgroundColor: "var(--nomi-orange)", color: "#fff" }}>
+          {saving ? "Creando..." : "Crear marca"}
         </button>
       </div>
 
-      <div className="bg-slate-900 border border-slate-800 rounded-lg p-6 space-y-5">
-        <div>
-          <h2 className="text-xl font-semibold">Marcas creadas</h2>
-          <p className="text-sm text-slate-400">
-            Estas marcas aparecerán en la lista desplegable al crear productos.
-          </p>
-        </div>
+      {/* LISTA DE MARCAS */}
+      <div>
+        <h2 className="font-black text-base mb-4" style={{ color: "var(--nomi-navy)" }}>
+          Mis marcas ({productBrands.length})
+        </h2>
 
         {productBrands.length === 0 ? (
-          <div className="text-slate-400 text-sm">
-            Aún no tienes marcas creadas.
+          <div className="bg-white rounded-2xl px-5 py-10 text-center"
+            style={{ border: "1.5px solid var(--nomi-border)" }}>
+            <Tag className="w-10 h-10 mx-auto mb-3" style={{ color: "var(--nomi-border)" }} />
+            <p className="text-sm font-semibold" style={{ color: "var(--nomi-muted)" }}>
+              Aun no tienes marcas creadas
+            </p>
           </div>
         ) : (
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
             {productBrands.map((b) => {
               const isEditing = editingId === b.id;
-
               return (
-                <div
-                  key={b.id}
-                  className="border border-slate-800 rounded-lg p-4 bg-slate-950/40"
-                >
-                  <div className="h-20 bg-white rounded flex items-center justify-center p-3 mb-3">
-                    {isEditing ? (
-                      editingPreviewLogo ? (
-                        <img
-                          src={editingPreviewLogo}
-                          alt={editingName}
-                          className="max-h-14 object-contain"
-                        />
-                      ) : (
-                        <span className="text-slate-400 text-xs">Sin logo</span>
-                      )
-                    ) : b.logo_url ? (
-                      <img
-                        src={b.logo_url}
-                        alt={b.name}
-                        className="max-h-14 object-contain"
-                      />
+                <div key={b.id} className="bg-white rounded-2xl overflow-hidden"
+                  style={{ border: "1.5px solid var(--nomi-border)" }}>
+                  {/* LOGO */}
+                  <div className="h-24 flex items-center justify-center p-4"
+                    style={{ backgroundColor: "var(--nomi-gray)" }}>
+                    {(isEditing ? editingPreviewLogo : b.logo_url) ? (
+                      <img src={isEditing ? editingPreviewLogo! : b.logo_url}
+                        alt={b.name} className="max-h-16 object-contain" />
                     ) : (
-                      <span className="text-slate-400 text-xs">Sin logo</span>
+                      <div className="w-12 h-12 rounded-full flex items-center justify-center text-lg font-black text-white"
+                        style={{ backgroundColor: "var(--nomi-navy)" }}>
+                        {(b.name || "M").charAt(0).toUpperCase()}
+                      </div>
                     )}
                   </div>
 
-                  {isEditing ? (
-                    <div className="space-y-3">
-                      <input
-                        className="p-2 bg-slate-800 rounded w-full text-sm"
-                        value={editingName}
-                        onChange={(e) => setEditingName(e.target.value)}
-                        placeholder="Nombre de la marca"
-                      />
-
-                      <button
-                        type="button"
-                        onClick={() =>
-                          document
-                            .getElementById(`editLogoUpload-${b.id}`)
-                            ?.click()
-                        }
-                        className="w-full px-3 py-2 bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded text-xs"
-                      >
-                        Cambiar logo
-                      </button>
-
-                      <input
-                        id={`editLogoUpload-${b.id}`}
-                        type="file"
-                        accept="image/png,image/jpeg,image/webp"
-                        className="hidden"
-                        onChange={(e) => {
-                          const file = e.target.files?.[0] || null;
-                          setEditingLogoFile(file);
-
-                          if (file) {
-                            setEditingPreviewLogo(URL.createObjectURL(file));
-                          }
-                        }}
-                      />
-
-                      <div className="flex gap-2">
-                        <button
-                          onClick={handleUpdateBrand}
-                          disabled={updating}
-                          className="flex-1 px-3 py-2 bg-emerald-500 hover:bg-emerald-400 text-black font-bold rounded text-xs disabled:opacity-50"
-                        >
-                          {updating ? "Guardando..." : "Guardar"}
+                  <div className="p-4 space-y-3">
+                    {isEditing ? (
+                      <>
+                        <input value={editingName} onChange={(e) => setEditingName(e.target.value)}
+                          placeholder="Nombre"
+                          className="w-full px-3 py-2 rounded-xl text-sm outline-none"
+                          style={{ border: "1.5px solid var(--nomi-border)", color: "var(--nomi-navy)", backgroundColor: "var(--nomi-gray)" }} />
+                        <label className="flex items-center gap-2 cursor-pointer text-xs font-semibold"
+                          style={{ color: "var(--nomi-teal)" }}>
+                          <Upload className="w-3.5 h-3.5" />
+                          Cambiar logo
+                          <input type="file" accept="image/png,image/jpeg,image/webp" className="hidden"
+                            onChange={(e) => {
+                              const file = e.target.files?.[0] || null;
+                              setEditingLogoFile(file);
+                              if (file) setEditingPreviewLogo(URL.createObjectURL(file));
+                            }} />
+                        </label>
+                        <div className="flex gap-2">
+                          <button onClick={handleUpdateBrand} disabled={updating}
+                            className="flex-1 flex items-center justify-center gap-1 py-2 rounded-xl text-xs font-bold cursor-pointer disabled:opacity-60"
+                            style={{ backgroundColor: "var(--nomi-orange)", color: "#fff" }}>
+                            <Save className="w-3.5 h-3.5" />
+                            {updating ? "..." : "Guardar"}
+                          </button>
+                          <button onClick={cancelEdit} disabled={updating}
+                            className="px-3 py-2 rounded-xl cursor-pointer"
+                            style={{ backgroundColor: "var(--nomi-gray)", border: "1.5px solid var(--nomi-border)" }}>
+                            <X className="w-3.5 h-3.5" style={{ color: "var(--nomi-muted)" }} />
+                          </button>
+                        </div>
+                      </>
+                    ) : (
+                      <>
+                        <div className="font-black text-sm" style={{ color: "var(--nomi-navy)" }}>
+                          {b.name}
+                        </div>
+                        <button onClick={() => startEdit(b)}
+                          className="w-full py-2 rounded-xl text-xs font-bold cursor-pointer"
+                          style={{ backgroundColor: "var(--nomi-orange-bg)", color: "var(--nomi-orange)", border: "1px solid rgba(245,166,35,0.3)" }}>
+                          Editar
                         </button>
-
-                        <button
-                          onClick={cancelEdit}
-                          disabled={updating}
-                          className="flex-1 px-3 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded text-xs disabled:opacity-50"
-                        >
-                          Cancelar
-                        </button>
-                      </div>
-                    </div>
-                  ) : (
-                    <>
-                      <div className="font-semibold text-white mb-3">
-                        {b.name}
-                      </div>
-
-                      <button
-                        type="button"
-                        onClick={() => startEdit(b)}
-                        className="w-full px-3 py-2 bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded text-sm font-semibold"
-                      >
-                        Editar
-                      </button>
-                    </>
-                  )}
+                      </>
+                    )}
+                  </div>
                 </div>
               );
             })}
