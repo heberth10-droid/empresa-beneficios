@@ -16,41 +16,59 @@ export default function AdminResultsPage() {
     gmv: 0, orders: 0, avgTicket: 0, totalCreditLimit: 0,
     employees: 0, companies: 0, delivered: 0, pending: 0,
   });
-  const [topBrands, setTopBrands] = useState<any[]>([]);
-  const [topCompanies, setTopCompanies] = useState<any[]>([]);
+  const [topBrands, setTopBrands] = useState<{ name: string; revenue: number }[]>([]);
+  const [topCompanies, setTopCompanies] = useState<{ name: string; gmv: number }[]>([]);
 
   useEffect(() => {
     async function load() {
-      const [{ data: orders }, { data: employees }, { data: companies }, { data: items }] =
-        await Promise.all([
-          supabase.from("orders").select("subtotal, status, employee_id, employees(company_id, companies(name))"),
-          supabase.from("employees").select("id, credit_limit", { count: "exact" }),
-          supabase.from("companies").select("id", { count: "exact" }),
-          supabase.from("order_items").select("qty, unit_price, products(brand_id, product_brands(name))"),
-        ]);
+      const [
+        { data: orders },
+        { data: employees },
+        { data: companies },
+        { data: items },
+        { data: brands },
+        { data: orderItems },
+      ] = await Promise.all([
+        supabase.from("orders").select("id, subtotal, status, company_id"),
+        supabase.from("employees").select("id, credit_limit"),
+        supabase.from("companies").select("id, name"),
+        supabase.from("order_items").select("qty, unit_price, product_brand_id"),
+        supabase.from("product_brands").select("id, name"),
+        supabase.from("order_items").select("qty, unit_price, product_brand_id"),
+      ]);
 
       const allOrders = orders || [];
-      const gmv = allOrders.reduce((a: number, o: any) => a + Number(o.subtotal || 0), 0);
-      const totalCreditLimit = (employees || []).reduce((a: number, e: any) => a + Number(e.credit_limit || 0), 0);
+      const gmv = allOrders.reduce((a, o: any) => a + Number(o.subtotal || 0), 0);
+      const totalCreditLimit = (employees || []).reduce((a, e: any) => a + Number(e.credit_limit || 0), 0);
 
-      // Top marcas por revenue
-      const brandMap = new Map<string, number>();
-      for (const it of items || []) {
-        const name = (it.products as any)?.product_brands?.name || "Sin marca";
-        const rev = Number(it.unit_price || 0) * Number(it.qty || 0);
-        brandMap.set(name, (brandMap.get(name) || 0) + rev);
+      // Top marcas
+      const brandNameMap: Record<string, string> = {};
+      for (const b of brands || []) brandNameMap[b.id] = b.name || b.id;
+
+      const brandRevMap = new Map<string, number>();
+      for (const it of orderItems || []) {
+        const bId = (it as any).product_brand_id;
+        if (!bId) continue;
+        const name = brandNameMap[bId] || bId;
+        const rev = Number((it as any).unit_price || 0) * Number((it as any).qty || 0);
+        brandRevMap.set(name, (brandRevMap.get(name) || 0) + rev);
       }
-      const topBrandsArr = Array.from(brandMap.entries())
+      const topBrandsArr = Array.from(brandRevMap.entries())
         .sort((a, b) => b[1] - a[1]).slice(0, 5)
         .map(([name, revenue]) => ({ name, revenue }));
 
-      // Top empresas por GMV
-      const companyMap = new Map<string, number>();
+      // Top empresas
+      const companyNameMap: Record<string, string> = {};
+      for (const c of companies || []) companyNameMap[c.id] = c.name || c.id;
+
+      const compGmvMap = new Map<string, number>();
       for (const o of allOrders) {
-        const name = (o as any).employees?.companies?.name || "Sin empresa";
-        companyMap.set(name, (companyMap.get(name) || 0) + Number((o as any).subtotal || 0));
+        const cId = (o as any).company_id;
+        if (!cId) continue;
+        const name = companyNameMap[cId] || cId;
+        compGmvMap.set(name, (compGmvMap.get(name) || 0) + Number((o as any).subtotal || 0));
       }
-      const topCompaniesArr = Array.from(companyMap.entries())
+      const topCompaniesArr = Array.from(compGmvMap.entries())
         .sort((a, b) => b[1] - a[1]).slice(0, 5)
         .map(([name, gmv]) => ({ name, gmv }));
 
@@ -72,14 +90,14 @@ export default function AdminResultsPage() {
   }, []);
 
   const kpis = [
-    { label: "GMV total",           value: money(stats.gmv),          icon: TrendingUp,  accent: "var(--nomi-teal)",   bg: "var(--nomi-teal-bg)" },
-    { label: "Total ordenes",        value: stats.orders,              icon: ShoppingCart, accent: "var(--nomi-orange)", bg: "var(--nomi-orange-bg)" },
-    { label: "Ticket promedio",      value: money(stats.avgTicket),    icon: TrendingUp,  accent: "var(--nomi-navy)",   bg: "var(--nomi-gray)" },
-    { label: "Ordenes entregadas",   value: stats.delivered,           icon: ShoppingCart, accent: "#16A34A",            bg: "#DCFCE7" },
-    { label: "Ordenes pendientes",   value: stats.pending,             icon: ShoppingCart, accent: "#DC2626",            bg: "#FEE2E2" },
-    { label: "Cupos totales/mes",    value: money(stats.totalCreditLimit), icon: Users,   accent: "var(--nomi-teal)",   bg: "var(--nomi-teal-bg)" },
-    { label: "Empleados",            value: stats.employees,           icon: Users,       accent: "var(--nomi-navy)",   bg: "var(--nomi-gray)" },
-    { label: "Empresas",             value: stats.companies,           icon: Building2,   accent: "var(--nomi-orange)", bg: "var(--nomi-orange-bg)" },
+    { label: "GMV total",         value: money(stats.gmv),             icon: TrendingUp,   accent: "var(--nomi-teal)",   bg: "var(--nomi-teal-bg)" },
+    { label: "Total ordenes",     value: stats.orders,                  icon: ShoppingCart, accent: "var(--nomi-orange)", bg: "var(--nomi-orange-bg)" },
+    { label: "Ticket promedio",   value: money(stats.avgTicket),        icon: TrendingUp,   accent: "var(--nomi-navy)",   bg: "var(--nomi-gray)" },
+    { label: "Entregadas",        value: stats.delivered,               icon: ShoppingCart, accent: "#16A34A",            bg: "#DCFCE7" },
+    { label: "Pendientes",        value: stats.pending,                 icon: ShoppingCart, accent: "#DC2626",            bg: "#FEE2E2" },
+    { label: "Cupos totales/mes", value: money(stats.totalCreditLimit), icon: Users,        accent: "var(--nomi-teal)",   bg: "var(--nomi-teal-bg)" },
+    { label: "Empleados",         value: stats.employees,               icon: Users,        accent: "var(--nomi-navy)",   bg: "var(--nomi-gray)" },
+    { label: "Empresas",          value: stats.companies,               icon: Building2,    accent: "var(--nomi-orange)", bg: "var(--nomi-orange-bg)" },
   ];
 
   return (
@@ -93,7 +111,6 @@ export default function AdminResultsPage() {
         </p>
       </div>
 
-      {/* KPIs */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         {kpis.map((k) => {
           const Icon = k.icon;
@@ -108,7 +125,9 @@ export default function AdminResultsPage() {
                 </div>
               </div>
               <div className="text-2xl font-black" style={{ color: "var(--nomi-navy)" }}>
-                {loading ? <span className="inline-block w-20 h-7 rounded-lg animate-pulse" style={{ backgroundColor: "var(--nomi-border)" }} /> : k.value}
+                {loading
+                  ? <span className="inline-block w-20 h-7 rounded-lg animate-pulse" style={{ backgroundColor: "var(--nomi-border)" }} />
+                  : k.value}
               </div>
             </div>
           );
@@ -116,7 +135,6 @@ export default function AdminResultsPage() {
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-
         {/* TOP MARCAS */}
         <div className="bg-white rounded-2xl overflow-hidden"
           style={{ border: "1.5px solid var(--nomi-border)" }}>
@@ -130,14 +148,16 @@ export default function AdminResultsPage() {
               {[1,2,3].map(i => <div key={i} className="h-10 rounded-xl animate-pulse" style={{ backgroundColor: "var(--nomi-gray)" }} />)}
             </div>
           ) : topBrands.length === 0 ? (
-            <div className="px-5 py-8 text-center text-sm" style={{ color: "var(--nomi-muted)" }}>Sin datos</div>
+            <div className="px-5 py-8 text-center text-sm" style={{ color: "var(--nomi-muted)" }}>
+              Sin datos de ordenes aun
+            </div>
           ) : (
-            <div className="p-5 space-y-3">
+            <div className="p-5 space-y-4">
               {topBrands.map((b, i) => {
                 const pct = topBrands[0].revenue > 0 ? (b.revenue / topBrands[0].revenue) * 100 : 0;
                 return (
                   <div key={b.name}>
-                    <div className="flex justify-between text-sm mb-1">
+                    <div className="flex justify-between text-sm mb-1.5">
                       <span className="font-semibold" style={{ color: "var(--nomi-navy)" }}>
                         {i + 1}. {b.name}
                       </span>
@@ -145,8 +165,8 @@ export default function AdminResultsPage() {
                         {money(b.revenue)}
                       </span>
                     </div>
-                    <div className="h-1.5 rounded-full" style={{ backgroundColor: "var(--nomi-border)" }}>
-                      <div className="h-full rounded-full transition-all"
+                    <div className="h-2 rounded-full" style={{ backgroundColor: "var(--nomi-border)" }}>
+                      <div className="h-full rounded-full"
                         style={{ width: `${pct}%`, backgroundColor: "var(--nomi-teal)" }} />
                     </div>
                   </div>
@@ -169,14 +189,16 @@ export default function AdminResultsPage() {
               {[1,2,3].map(i => <div key={i} className="h-10 rounded-xl animate-pulse" style={{ backgroundColor: "var(--nomi-gray)" }} />)}
             </div>
           ) : topCompanies.length === 0 ? (
-            <div className="px-5 py-8 text-center text-sm" style={{ color: "var(--nomi-muted)" }}>Sin datos</div>
+            <div className="px-5 py-8 text-center text-sm" style={{ color: "var(--nomi-muted)" }}>
+              Sin datos de ordenes aun
+            </div>
           ) : (
-            <div className="p-5 space-y-3">
+            <div className="p-5 space-y-4">
               {topCompanies.map((c, i) => {
                 const pct = topCompanies[0].gmv > 0 ? (c.gmv / topCompanies[0].gmv) * 100 : 0;
                 return (
                   <div key={c.name}>
-                    <div className="flex justify-between text-sm mb-1">
+                    <div className="flex justify-between text-sm mb-1.5">
                       <span className="font-semibold" style={{ color: "var(--nomi-navy)" }}>
                         {i + 1}. {c.name}
                       </span>
@@ -184,8 +206,8 @@ export default function AdminResultsPage() {
                         {money(c.gmv)}
                       </span>
                     </div>
-                    <div className="h-1.5 rounded-full" style={{ backgroundColor: "var(--nomi-border)" }}>
-                      <div className="h-full rounded-full transition-all"
+                    <div className="h-2 rounded-full" style={{ backgroundColor: "var(--nomi-border)" }}>
+                      <div className="h-full rounded-full"
                         style={{ width: `${pct}%`, backgroundColor: "var(--nomi-orange)" }} />
                     </div>
                   </div>
