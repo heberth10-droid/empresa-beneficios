@@ -20,10 +20,16 @@ export default function AdminEmployeesPage() {
 
   useEffect(() => {
     async function load() {
-      const { data: employees } = await supabase
+      const { data: employees, error } = await supabase
         .from("employees")
         .select("id, company_id, name, document_type, document_number, email, phone, active, credit_limit, credit_used, max_installments, salary, address, city, created_at")
         .order("created_at", { ascending: false });
+
+      if (error) {
+        console.error("employees error:", error.message);
+        setLoading(false);
+        return;
+      }
 
       const companyIds = [...new Set((employees || []).map((e: any) => e.company_id).filter(Boolean))];
       let cmap: Record<string, string> = {};
@@ -152,8 +158,6 @@ export default function AdminEmployeesPage() {
           <div className="bg-white rounded-2xl w-full max-w-md shadow-2xl"
             style={{ border: "1.5px solid var(--nomi-border)" }}
             onClick={(e) => e.stopPropagation()}>
-
-            {/* HEADER */}
             <div className="flex items-center justify-between px-6 py-4"
               style={{ borderBottom: "1px solid var(--nomi-border)" }}>
               <div className="flex items-center gap-3">
@@ -176,8 +180,6 @@ export default function AdminEmployeesPage() {
                 <X className="w-4 h-4" style={{ color: "var(--nomi-muted)" }} />
               </button>
             </div>
-
-            {/* BODY */}
             <div className="px-6 py-5 space-y-3">
               {[
                 ["Empresa", companyMap[selected.company_id] || "—"],
@@ -188,10 +190,10 @@ export default function AdminEmployeesPage() {
                 ["Salario", selected.salary ? money(selected.salary) : "—"],
                 ["Cupo total", selected.credit_limit ? money(selected.credit_limit) : "—"],
                 ["Cupo usado", selected.credit_used ? money(selected.credit_used) : "—"],
-                ["Cupo disponible", money(Math.max(0, Number(selected.credit_limit || 0) - Number(selected.credit_used || 0)))],
+                ["Disponible", money(Math.max(0, Number(selected.credit_limit || 0) - Number(selected.credit_used || 0)))],
                 ["Cuotas maximas", selected.max_installments ?? "—"],
               ].map(([label, value]) => (
-                <div key={label} className="flex justify-between items-start gap-3">
+                <div key={String(label)} className="flex justify-between items-start gap-3">
                   <span className="text-xs font-semibold shrink-0" style={{ color: "var(--nomi-muted)" }}>
                     {label}
                   </span>
@@ -201,7 +203,6 @@ export default function AdminEmployeesPage() {
                 </div>
               ))}
             </div>
-
             <div className="px-6 pb-5">
               <span className="text-xs font-bold px-3 py-1.5 rounded-full"
                 style={selected.active

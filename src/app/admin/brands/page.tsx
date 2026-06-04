@@ -6,7 +6,8 @@ import { Tag, X, Save } from "lucide-react";
 
 export default function AdminBrandsPage() {
   const [rows, setRows] = useState<any[]>([]);
-  const [adminMap, setAdminMap] = useState<Record<string, string>>({});
+  const [sellerMap, setSellerMap] = useState<Record<string, string>>({});
+  const [prodCounts, setProdCounts] = useState<Record<string, number>>({});
   const [loading, setLoading] = useState(true);
   const [editing, setEditing] = useState<string | null>(null);
   const [editName, setEditName] = useState("");
@@ -15,23 +16,32 @@ export default function AdminBrandsPage() {
   const [msg, setMsg] = useState<{ id: string; ok: boolean; text: string } | null>(null);
 
   async function load() {
-    const { data: brands } = await supabase
-      .from("brands")
-      .select("id, name, nit, logo_url, active, admin_id, created_at")
-      .order("created_at", { ascending: false });
+    const { data: pb } = await supabase
+      .from("product_brands")
+      .select("id, name, logo_url, active, seller_brand_id, created_at")
+      .order("name", { ascending: true });
 
-    const adminIds = [...new Set((brands || []).map((b: any) => b.admin_id).filter(Boolean))];
-    let map: Record<string, string> = {};
-    if (adminIds.length > 0) {
-      const { data: users } = await supabase
-        .from("users")
-        .select("auth_id, name")
-        .in("auth_id", adminIds);
-      for (const u of users || []) map[u.auth_id] = u.name || u.auth_id;
+    const sellerIds = [...new Set((pb || []).map((b: any) => b.seller_brand_id).filter(Boolean))];
+    let smap: Record<string, string> = {};
+    if (sellerIds.length > 0) {
+      const { data: sellers } = await supabase
+        .from("brands")
+        .select("id, name")
+        .in("id", sellerIds);
+      for (const s of sellers || []) smap[s.id] = s.name || s.id;
     }
 
-    setRows(brands || []);
-    setAdminMap(map);
+    const { data: products } = await supabase
+      .from("products")
+      .select("product_brand_id");
+    const counts: Record<string, number> = {};
+    for (const p of products || []) {
+      if (p.product_brand_id) counts[p.product_brand_id] = (counts[p.product_brand_id] || 0) + 1;
+    }
+
+    setRows(pb || []);
+    setSellerMap(smap);
+    setProdCounts(counts);
     setLoading(false);
   }
 
@@ -47,14 +57,14 @@ export default function AdminBrandsPage() {
   async function saveEdit(id: string) {
     setSaving(true);
     const { error } = await supabase
-      .from("brands")
+      .from("product_brands")
       .update({ name: editName.trim(), logo_url: editLogo.trim() || null })
       .eq("id", id);
     setSaving(false);
     if (error) {
       setMsg({ id, ok: false, text: "Error: " + error.message });
     } else {
-      setMsg({ id, ok: true, text: "Guardado correctamente" });
+      setMsg({ id, ok: true, text: "Guardado" });
       setEditing(null);
       load();
       setTimeout(() => setMsg(null), 3000);
@@ -79,7 +89,7 @@ export default function AdminBrandsPage() {
           style={{ color: "var(--nomi-teal)" }}>Gestion</p>
         <h1 className="text-3xl font-black" style={{ color: "var(--nomi-navy)" }}>Marcas</h1>
         <p className="text-sm mt-1" style={{ color: "var(--nomi-muted)" }}>
-          {rows.length} marca{rows.length !== 1 ? "s" : ""} registrada{rows.length !== 1 ? "s" : ""}
+          {rows.length} marca{rows.length !== 1 ? "s" : ""} en product_brands
         </p>
       </div>
 
@@ -109,7 +119,6 @@ export default function AdminBrandsPage() {
           <div key={b.id} className="bg-white rounded-2xl overflow-hidden"
             style={{ border: "1.5px solid var(--nomi-border)" }}>
 
-            {/* LOGO */}
             <div className="h-20 flex items-center justify-center p-4"
               style={{ backgroundColor: "var(--nomi-gray)" }}>
               {(editing === b.id ? editLogo : b.logo_url) ? (
@@ -154,9 +163,9 @@ export default function AdminBrandsPage() {
                       {saving ? "Guardando..." : "Guardar"}
                     </button>
                     <button onClick={() => setEditing(null)}
-                      className="px-3 py-2 rounded-xl text-xs font-bold cursor-pointer"
-                      style={{ backgroundColor: "var(--nomi-gray)", color: "var(--nomi-muted)", border: "1.5px solid var(--nomi-border)" }}>
-                      <X className="w-3.5 h-3.5" />
+                      className="px-3 py-2 rounded-xl cursor-pointer"
+                      style={{ backgroundColor: "var(--nomi-gray)", border: "1.5px solid var(--nomi-border)" }}>
+                      <X className="w-3.5 h-3.5" style={{ color: "var(--nomi-muted)" }} />
                     </button>
                   </div>
                 </>
@@ -166,14 +175,14 @@ export default function AdminBrandsPage() {
                     <div className="font-black text-sm" style={{ color: "var(--nomi-navy)" }}>
                       {b.name || "Sin nombre"}
                     </div>
-                    <div className="text-xs mt-0.5" style={{ color: "var(--nomi-muted)" }}>
-                      NIT: {b.nit || "—"}
-                    </div>
-                    {adminMap[b.admin_id] && (
+                    {sellerMap[b.seller_brand_id] && (
                       <div className="text-xs mt-0.5" style={{ color: "var(--nomi-muted)" }}>
-                        Admin: {adminMap[b.admin_id]}
+                        Proveedor: {sellerMap[b.seller_brand_id]}
                       </div>
                     )}
+                    <div className="text-xs mt-0.5" style={{ color: "var(--nomi-muted)" }}>
+                      {prodCounts[b.id] || 0} productos
+                    </div>
                   </div>
                   <div className="flex items-center justify-between">
                     <span className="text-xs font-bold px-2.5 py-1 rounded-full"
@@ -183,7 +192,7 @@ export default function AdminBrandsPage() {
                       {b.active ? "Activa" : "Inactiva"}
                     </span>
                     <button onClick={() => startEdit(b)}
-                      className="text-xs font-bold px-3 py-1.5 rounded-xl cursor-pointer transition"
+                      className="text-xs font-bold px-3 py-1.5 rounded-xl cursor-pointer"
                       style={{ backgroundColor: "var(--nomi-orange-bg)", color: "var(--nomi-orange)", border: "1px solid rgba(245,166,35,0.3)" }}>
                       Editar
                     </button>
