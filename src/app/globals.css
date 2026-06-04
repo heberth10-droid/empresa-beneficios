@@ -30,6 +30,7 @@ body {
   font-family: Arial, Helvetica, sans-serif;
 }
 
+/* ── Carrusel infinito de marcas ── */
 @keyframes scrollBrands {
   0%   { transform: translateX(0); }
   100% { transform: translateX(-50%); }
@@ -46,10 +47,51 @@ body {
   animation-play-state: paused;
 }
 
+/* ── Ticker trust bar mobile ── */
+@keyframes ticker {
+  0%   { transform: translateX(0); }
+  100% { transform: translateX(-50%); }
+}
+
+.trust-ticker {
+  display: flex;
+  width: max-content;
+  animation: ticker 20s linear infinite;
+}
+
+.trust-ticker-item {
+  display: inline-flex;
+  align-items: center;
+  font-size: 11px;
+  font-weight: 600;
+  white-space: nowrap;
+  padding: 0 20px;
+}
+
+.trust-ticker-item::after {
+  content: "·";
+  margin-left: 20px;
+  opacity: 0.4;
+}
+
+/* ── Scroll horizontal sin scrollbar ── */
 .scroll-hide {
   scrollbar-width: none;
   -ms-overflow-style: none;
 }
 .scroll-hide::-webkit-scrollbar {
   display: none;
+}
+
+/* ── Banner móvil: borde a borde, altura generosa ── */
+/* Imagen recomendada para móvil: 750 x 560 px (ratio ~4:3) */
+@media (max-width: 767px) {
+  .promo-slide-mobile {
+    border-radius: 0 !important;
+    border-left: none !important;
+    border-right: none !important;
+  }
+  .promo-slide-mobile img {
+    height: 260px !important;
+  }
 }

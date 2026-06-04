@@ -57,14 +57,25 @@ export default function PromoCarousel({
   }
 
   const slideContent = (
-    <div className="relative w-full rounded-2xl overflow-hidden"
-      style={{ border: "1.5px solid var(--nomi-border)" }}>
-
-      {/* IMAGEN */}
-      <div className="w-full h-[160px] sm:h-[220px] md:h-[300px] lg:h-[380px]">
+    <div
+      className="promo-slide-mobile relative w-full overflow-hidden"
+      style={{
+        borderRadius: "16px",
+        border: "1.5px solid var(--nomi-border)",
+      }}
+    >
+      {/* IMAGEN
+          Tamaños recomendados:
+          - Desktop: 1280 x 420 px (ratio 16:5)
+          - Mobile:  750 x 560 px  (ratio ~4:3)
+      */}
+      <div className="w-full"
+        style={{
+          height: "clamp(180px, 42vw, 420px)",
+        }}>
         <img
           src={current.image}
-          alt={current.alt || "Promoción NOMI"}
+          alt={current.alt || "Promocion NOMI"}
           className="w-full h-full object-cover transition-opacity duration-500"
         />
       </div>
@@ -97,7 +108,7 @@ export default function PromoCarousel({
         </button>
       )}
 
-      {/* DOTS SOBRE LA IMAGEN */}
+      {/* DOTS */}
       {total > 1 && (
         <div className="absolute bottom-3 left-1/2 -translate-x-1/2 flex gap-2">
           {items.map((_, i) => (
@@ -119,6 +130,7 @@ export default function PromoCarousel({
 
   return (
     <div
+      className="-mx-4 md:mx-0"
       onMouseEnter={() => setPaused(true)}
       onMouseLeave={() => setPaused(false)}
     >

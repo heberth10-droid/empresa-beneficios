@@ -21,6 +21,15 @@ function enc(value: string) {
   return encodeURIComponent(value);
 }
 
+const trustItems = [
+  "✓ 0% intereses",
+  "✓ Sin estudio de credito",
+  "✓ Descuento automatico por nomina",
+  "✓ Aprobacion inmediata",
+  "✓ Sin codeudor",
+  "✓ Pago seguro por nomina",
+];
+
 export default function MarketHeader() {
   const router = useRouter();
   const sp = useSearchParams();
@@ -82,25 +91,29 @@ export default function MarketHeader() {
     router.push(url);
   }
 
-  const trustItems = [
-    "0% intereses",
-    "Sin estudio de credito",
-    "Descuento automatico por nomina",
-    "Aprobacion inmediata",
-  ];
-
   return (
     <header className="w-full sticky top-0 z-40 shadow-sm"
       style={{ backgroundColor: "var(--nomi-navy)", borderBottom: "1px solid rgba(255,255,255,0.08)" }}>
 
-      {/* TRUST BAR — desktop */}
+      {/* TRUST BAR — desktop: estática */}
       <div className="hidden md:flex items-center justify-center gap-6 py-1.5 text-xs font-semibold"
         style={{ backgroundColor: "var(--nomi-navy-dark)" }}>
         {trustItems.map((txt) => (
-          <span key={txt} style={{ color: "var(--nomi-teal)" }}>
-            {String.fromCharCode(10003)} {txt}
-          </span>
+          <span key={txt} style={{ color: "var(--nomi-teal)" }}>{txt}</span>
         ))}
+      </div>
+
+      {/* TRUST BAR — mobile: ticker infinito */}
+      <div className="md:hidden overflow-hidden py-1.5"
+        style={{ backgroundColor: "var(--nomi-navy-dark)", borderBottom: "1px solid rgba(255,255,255,0.08)" }}>
+        <div className="trust-ticker">
+          {[...trustItems, ...trustItems].map((txt, i) => (
+            <span key={i} className="trust-ticker-item"
+              style={{ color: "var(--nomi-teal)" }}>
+              {txt}
+            </span>
+          ))}
+        </div>
       </div>
 
       {/* MAIN ROW */}
@@ -293,25 +306,11 @@ export default function MarketHeader() {
         </div>
       </div>
 
-      {/* TRUST BAR — mobile, siempre visible debajo del header */}
-      <div className="md:hidden overflow-x-auto scroll-hide"
-        style={{ backgroundColor: "var(--nomi-navy-dark)", borderTop: "1px solid rgba(255,255,255,0.08)" }}>
-        <div className="flex items-center gap-4 px-4 py-2" style={{ width: "max-content" }}>
-          {trustItems.map((txt) => (
-            <span key={txt} className="text-xs font-semibold whitespace-nowrap flex items-center gap-1"
-              style={{ color: "var(--nomi-teal)" }}>
-              <span style={{ color: "var(--nomi-orange)" }}>&#10003;</span> {txt}
-            </span>
-          ))}
-        </div>
-      </div>
-
       {/* MOBILE MENU */}
       {mobileMenuOpen && (
         <div className="md:hidden border-t px-4 py-3 space-y-1"
           style={{ backgroundColor: "var(--nomi-navy-dark)", borderColor: "rgba(255,255,255,0.08)" }}>
 
-          {/* BOTON CATALOGO CON DROPDOWN */}
           <button
             type="button"
             onClick={() => { setMobileBuyOpen((v) => !v); setMobileCatsOpen(false); setMobileBrandsOpen(false); setMobileOpenCategory(null); }}
@@ -321,7 +320,6 @@ export default function MarketHeader() {
             {mobileBuyOpen ? <ChevronDown className="w-4 h-4 text-white" /> : <ChevronRight className="w-4 h-4 text-white" />}
           </button>
 
-          {/* DROPDOWN MOBILE */}
           {mobileBuyOpen && (
             <div className="ml-2 rounded-2xl overflow-hidden"
               style={{ border: "1px solid rgba(255,255,255,0.12)" }}>
@@ -332,7 +330,6 @@ export default function MarketHeader() {
                 Ver todos los productos <ChevronRight className="w-4 h-4" />
               </button>
 
-              {/* CATEGORIAS MOBILE */}
               <button onClick={() => setMobileCatsOpen((v) => !v)}
                 className="w-full flex items-center justify-between px-4 py-3 text-sm font-semibold cursor-pointer"
                 style={{ backgroundColor: "rgba(255,255,255,0.04)", color: "rgba(255,255,255,0.8)", borderBottom: "1px solid rgba(255,255,255,0.08)" }}>
@@ -374,7 +371,6 @@ export default function MarketHeader() {
                 </div>
               )}
 
-              {/* MARCAS MOBILE */}
               <button onClick={() => setMobileBrandsOpen((v) => !v)}
                 className="w-full flex items-center justify-between px-4 py-3 text-sm font-semibold cursor-pointer"
                 style={{ backgroundColor: "rgba(255,255,255,0.04)", color: "rgba(255,255,255,0.8)" }}>
@@ -404,7 +400,6 @@ export default function MarketHeader() {
             </div>
           )}
 
-          {/* OTROS LINKS */}
           <Link href="/brand" onClick={() => setMobileMenuOpen(false)}
             className="flex items-center gap-2 text-sm font-semibold py-2.5 px-3 rounded-xl"
             style={{ color: "var(--nomi-teal)" }}>
