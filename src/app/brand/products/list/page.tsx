@@ -3,199 +3,152 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
 import { useRouter } from "next/navigation";
+import { Package } from "lucide-react";
+
+function money(n: any) {
+  return new Intl.NumberFormat("es-CO", {
+    style: "currency", currency: "COP", maximumFractionDigits: 0,
+  }).format(Number(n || 0));
+}
 
 export default function BrandProductsListPage() {
   const router = useRouter();
-
   const [loading, setLoading] = useState(true);
-  const [brand, setBrand] = useState<any>(null);
   const [products, setProducts] = useState<any[]>([]);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
   useEffect(() => {
     async function init() {
-      setLoading(true);
-      setErrorMsg(null);
-
+      setLoading(true); setErrorMsg(null);
       const { data: authData } = await supabase.auth.getUser();
       const user = authData?.user;
-
-      if (!user) {
-        router.push("/login");
-        return;
-      }
+      if (!user) { router.push("/login"); return; }
 
       const { data: userData, error: userError } = await supabase
-        .from("users")
-        .select("*")
-        .eq("auth_id", user.id)
-        .single();
-
-      if (userError || !userData || userData.role !== "BRAND_ADMIN") {
-        router.push("/login");
-        return;
-      }
+        .from("users").select("*").eq("auth_id", user.id).single();
+      if (userError || !userData || userData.role !== "BRAND_ADMIN") { router.push("/login"); return; }
 
       const { data: brandData, error: brandError } = await supabase
-        .from("brands")
-        .select("*")
-        .eq("id", userData.brand_id)
-        .single();
+        .from("brands").select("*").eq("id", userData.brand_id).single();
+      if (brandError || !brandData) { router.push("/login"); return; }
 
-      if (brandError || !brandData) {
-        router.push("/login");
-        return;
-      }
+      const { data, error } = await supabase
+        .from("products")
+        .select("*, product_brands(name, logo_url)")
+        .eq("brand_id", brandData.id)
+        .order("created_at", { ascending: false });
 
-      setBrand(brandData);
-      await loadProducts(brandData.id);
+      if (error) { setErrorMsg("Error cargando productos: " + error.message); }
+      else { setProducts(data || []); }
       setLoading(false);
     }
-
     init();
   }, [router]);
 
-  async function loadProducts(brandId: string) {
-    const { data, error } = await supabase
-      .from("products")
-      .select("*, product_brands(name, logo_url)")
-      .eq("brand_id", brandId)
-      .order("created_at", { ascending: false });
-
-    if (error) {
-      setErrorMsg(error.message);
-      setProducts([]);
-      return;
-    }
-
-    setProducts(data || []);
-  }
-
-  if (loading || !brand) {
-    return (
-      <div className="p-10 text-slate-300">
-        Cargando listado de productos…
-      </div>
-    );
-  }
+  if (loading) return (
+    <div className="flex items-center justify-center py-20">
+      <div className="w-8 h-8 rounded-full border-2 border-t-transparent animate-spin"
+        style={{ borderColor: "var(--nomi-orange)" }} />
+    </div>
+  );
 
   return (
-    <div className="space-y-8 p-6">
-      <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-4">
+    <div className="space-y-6">
+      <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold">Listado de productos</h1>
-          <p className="text-slate-400">
-            Productos creados por {brand.name}. Desde aquí puedes entrar a editar,
-            activar o desactivar productos.
+          <p className="text-xs font-bold uppercase tracking-widest mb-1"
+            style={{ color: "var(--nomi-teal)" }}>Catalogo</p>
+          <h1 className="text-3xl font-black" style={{ color: "var(--nomi-navy)" }}>Mis productos</h1>
+          <p className="text-sm mt-1" style={{ color: "var(--nomi-muted)" }}>
+            {products.length} producto{products.length !== 1 ? "s" : ""} registrados
           </p>
         </div>
-
-        <button
-          onClick={() => router.push("/brand/products")}
-          className="px-5 py-3 rounded bg-emerald-500 hover:bg-emerald-400 text-black font-bold text-sm"
-        >
-          Crear nuevo producto
+        <button onClick={() => router.push("/brand/products")}
+          className="px-4 py-2.5 rounded-xl text-sm font-bold cursor-pointer"
+          style={{ backgroundColor: "var(--nomi-orange)", color: "#fff" }}>
+          + Crear producto
         </button>
       </div>
 
       {errorMsg && (
-        <div className="bg-red-500/15 border border-red-500/30 text-red-200 rounded p-3 text-sm">
-          {errorMsg}
-        </div>
+        <div className="px-4 py-3 rounded-xl text-sm font-semibold"
+          style={{ backgroundColor: "#FEE2E2", color: "#DC2626" }}>{errorMsg}</div>
       )}
 
       {products.length === 0 ? (
-        <div className="bg-slate-900 border border-slate-800 rounded-lg p-6">
-          <p className="text-slate-300">Aún no tienes productos creados.</p>
-          <button
-            onClick={() => router.push("/brand/products")}
-            className="mt-4 px-5 py-3 rounded bg-emerald-500 hover:bg-emerald-400 text-black font-bold text-sm"
-          >
+        <div className="bg-white rounded-2xl px-5 py-12 text-center"
+          style={{ border: "1.5px solid var(--nomi-border)" }}>
+          <Package className="w-10 h-10 mx-auto mb-3" style={{ color: "var(--nomi-border)" }} />
+          <p className="text-sm font-semibold mb-4" style={{ color: "var(--nomi-muted)" }}>
+            Aun no tienes productos creados
+          </p>
+          <button onClick={() => router.push("/brand/products")}
+            className="px-5 py-2.5 rounded-xl text-sm font-bold cursor-pointer"
+            style={{ backgroundColor: "var(--nomi-orange)", color: "#fff" }}>
             Crear primer producto
           </button>
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          {products.map((p) => (
-            <div
-              key={p.id}
-              className="bg-slate-900 border border-slate-800 p-4 rounded-lg"
-            >
-              {p.images && p.images.length > 0 ? (
-                <img
-                  src={p.images[0]}
-                  className="w-full h-40 object-cover rounded mb-3"
-                  alt={p.name}
-                />
-              ) : (
-                <div className="w-full h-40 rounded mb-3 bg-slate-800 flex items-center justify-center text-slate-500 text-sm">
-                  Sin imagen
-                </div>
-              )}
-
-              {p.product_brands?.logo_url && (
-                <img
-                  src={p.product_brands.logo_url}
-                  className="h-8 object-contain bg-white rounded px-2 py-1 mb-2"
-                  alt={p.product_brands.name}
-                />
-              )}
-
-              <div className="flex items-start justify-between gap-3">
-                <div>
-                  <h2 className="text-lg font-bold text-white">{p.name}</h2>
-                  <p className="text-sm text-slate-400">{p.sku}</p>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {products.map((p) => {
+            const img = Array.isArray(p.images) && p.images[0] ? p.images[0] : p.image_url;
+            return (
+              <div key={p.id} className="bg-white rounded-2xl overflow-hidden transition hover:shadow-md"
+                style={{ border: "1.5px solid var(--nomi-border)" }}>
+                {/* IMAGEN */}
+                <div className="h-44 overflow-hidden" style={{ backgroundColor: "var(--nomi-gray)" }}>
+                  {img
+                    ? <img src={img} className="w-full h-full object-cover"
+                        onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = "none"; }} alt={p.name} />
+                    : <div className="w-full h-full flex items-center justify-center">
+                        <Package className="w-12 h-12" style={{ color: "var(--nomi-border)" }} />
+                      </div>}
                 </div>
 
-                <span
-                  className={[
-                    "text-xs px-2 py-1 rounded-full font-bold",
-                    p.active
-                      ? "bg-emerald-500/15 text-emerald-300"
-                      : "bg-red-500/15 text-red-300",
-                  ].join(" ")}
-                >
-                  {p.active ? "Activo" : "Inactivo"}
-                </span>
+                <div className="p-4 space-y-2">
+                  {/* LOGO MARCA */}
+                  {p.product_brands?.logo_url && (
+                    <img src={p.product_brands.logo_url}
+                      className="h-6 object-contain rounded"
+                      style={{ backgroundColor: "#fff" }} alt={p.product_brands.name} />
+                  )}
+
+                  <div className="flex items-start justify-between gap-2">
+                    <div>
+                      <div className="font-black text-sm" style={{ color: "var(--nomi-navy)" }}>
+                        {p.name}
+                      </div>
+                      <div className="text-xs mt-0.5" style={{ color: "var(--nomi-muted)" }}>
+                        {p.sku && <span>SKU: {p.sku} · </span>}
+                        {p.category}
+                      </div>
+                    </div>
+                    <span className="text-xs font-bold px-2 py-0.5 rounded-full shrink-0"
+                      style={p.active
+                        ? { backgroundColor: "var(--nomi-teal-bg)", color: "var(--nomi-teal)" }
+                        : { backgroundColor: "#FEE2E2", color: "#DC2626" }}>
+                      {p.active ? "Activo" : "Inactivo"}
+                    </span>
+                  </div>
+
+                  <div className="flex items-center justify-between pt-1">
+                    <span className="font-black text-base" style={{ color: "var(--nomi-navy)" }}>
+                      {money(p.price)}
+                    </span>
+                    <span className="text-xs font-semibold" style={{ color: "var(--nomi-muted)" }}>
+                      Stock: {Number(p.stock || 0)}
+                    </span>
+                  </div>
+
+                  <button onClick={() => router.push(`/brand/products/${p.id}`)}
+                    className="w-full py-2.5 rounded-xl text-sm font-bold cursor-pointer transition mt-1"
+                    style={{ backgroundColor: "var(--nomi-gray)", color: "var(--nomi-navy)", border: "1.5px solid var(--nomi-border)" }}>
+                    Editar producto
+                  </button>
+                </div>
               </div>
-
-              {p.product_brands?.name && (
-                <p className="text-xs text-slate-500 mt-2">
-                  Marca: {p.product_brands.name}
-                </p>
-              )}
-
-              {p.category && (
-                <p className="text-xs text-slate-500 mt-1">
-                  Categoría: {p.category}
-                </p>
-              )}
-
-              {p.subcategory && (
-                <p className="text-xs text-slate-500 mt-1">
-                  Subcategoría: {p.subcategory}
-                </p>
-              )}
-
-              <div className="mt-3 flex items-center justify-between">
-                <p className="text-emerald-400 text-lg font-bold">
-                  ${Number(p.price || 0).toLocaleString("es-CO")}
-                </p>
-
-                <p className="text-xs text-slate-400">
-                  Stock: {Number(p.stock || 0)}
-                </p>
-              </div>
-
-              <button
-                type="button"
-                onClick={() => router.push(`/brand/products/${p.id}`)}
-                className="mt-4 w-full px-4 py-2 rounded bg-slate-800 hover:bg-slate-700 text-sm font-semibold"
-              >
-                Editar producto
-              </button>
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
     </div>
