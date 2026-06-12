@@ -327,288 +327,206 @@ export default function CompanyOrdersPage() {
     closeModal();
   }
 
-  if (loading) return <div className="p-6 text-slate-300">Cargando órdenes...</div>;
+  if (loading) return (
+    <div className="flex items-center justify-center py-20">
+      <div className="w-8 h-8 rounded-full border-2 border-t-transparent animate-spin" style={{ borderColor: "var(--nomi-orange)" }} />
+    </div>
+  );
 
-  if (errorMsg) {
-    return (
-      <div className="p-6">
-        <div className="bg-red-500/15 border border-red-500/30 text-red-200 rounded p-3 text-sm">
-          {errorMsg}
-        </div>
-      </div>
-    );
-  }
+  if (errorMsg && !orders.length) return (
+    <div className="px-4 py-3 rounded-xl text-sm font-semibold" style={{ backgroundColor: "#FEE2E2", color: "#DC2626" }}>
+      {errorMsg}
+    </div>
+  );
+
+  const statusConfig: Record<string, { label: string; color: string; bg: string }> = {
+    PENDING:    { label: "Pendiente",  color: "var(--nomi-orange)", bg: "var(--nomi-orange-bg)" },
+    CONFIRMED:  { label: "Confirmada", color: "var(--nomi-teal)",   bg: "var(--nomi-teal-bg)" },
+    PROCESSED:  { label: "Procesada",  color: "#8B5CF6",            bg: "#EDE9FE" },
+    DISPATCHED: { label: "Despachada", color: "#2563EB",            bg: "#DBEAFE" },
+    DELIVERED:  { label: "Entregada",  color: "#16A34A",            bg: "#DCFCE7" },
+    CANCELLED:  { label: "Cancelada",  color: "#DC2626",            bg: "#FEE2E2" },
+  };
 
   return (
-    <div className="space-y-5">
-      {/* HEADER */}
-      <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
-        <div>
-          <h1 className="text-2xl font-bold">Órdenes</h1>
-          <p className="text-slate-400 text-sm">
-            Mostrando <b className="text-slate-200">{filtered.length}</b> de{" "}
-            <b className="text-slate-200">{orders.length}</b>
-          </p>
-        </div>
-
-        <div className="flex gap-2">
-          <button
-            onClick={handleExport}
-            disabled={filtered.length === 0}
-            className="px-4 py-2 rounded border border-slate-700 text-slate-200 hover:bg-slate-900 transition disabled:opacity-50"
-          >
-            Exportar CSV
-          </button>
-
-          <button
-            onClick={handleRefresh}
-            disabled={refreshing}
-            className="px-4 py-2 rounded bg-slate-800 hover:bg-slate-700 transition disabled:opacity-60"
-          >
-            {refreshing ? "Actualizando..." : "Refrescar"}
-          </button>
-        </div>
+    <div className="space-y-6">
+      <div>
+        <p className="text-xs font-bold uppercase tracking-widest mb-1" style={{ color: "var(--nomi-teal)" }}>Gestion</p>
+        <h1 className="text-3xl font-black" style={{ color: "var(--nomi-navy)" }}>Ordenes</h1>
+        <p className="text-sm mt-1" style={{ color: "var(--nomi-muted)" }}>
+          {loading ? "Cargando..." : `${filtered.length} de ${orders.length} ordenes`}
+        </p>
       </div>
 
-      {/* CONTROLES */}
-      <div className="flex flex-col md:flex-row gap-3">
-        <select
-          value={statusFilter}
-          onChange={(e) => setStatusFilter(e.target.value)}
-          className="bg-slate-900 border border-slate-800 rounded px-3 py-2 text-sm"
-        >
-          {statusOptions.map((s) => (
-            <option key={s.value} value={s.value}>
-              {s.label}
-            </option>
-          ))}
-        </select>
-
-        <input
-          value={q}
-          onChange={(e) => setQ(e.target.value)}
-          placeholder="Buscar por nombre, documento, estado, id..."
-          className="flex-1 bg-slate-900 border border-slate-800 rounded px-3 py-2 text-sm"
-        />
-      </div>
-
-      {/* LISTADO */}
-      {filtered.length === 0 ? (
-        <div className="border border-slate-800 bg-slate-900 rounded-lg p-6 text-slate-300">
-          No hay órdenes con esos filtros.
-        </div>
-      ) : (
-        <div className="space-y-3">
-          {filtered.map((o) => {
-            const empName = employeeNameById[o.employee_id] || "Empleado";
-
-            return (
-              <button
-                key={o.id}
-                onClick={() => handleOpenModal(o.id)}
-                className="w-full text-left border border-slate-800 bg-slate-900 rounded-lg p-4 flex flex-col gap-3 hover:border-emerald-500 transition"
-              >
-                {/* Nombre • Documento / Orden + Fecha */}
-                <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-3">
-                  <div className="min-w-0">
-                    <div className="font-semibold truncate">
-                      {empName} <span className="text-slate-500">•</span>{" "}
-                      <span className="text-slate-200">
-                        {o.document_type}-{o.document_number}
-                      </span>
-                    </div>
-
-                    <div className="text-xs text-slate-400">
-                      Orden #{o.id} • {fmtDateTime(o.created_at)}
-                    </div>
-                  </div>
-
-                  <div className="flex items-center gap-3 text-sm">
-                    <div className="px-2 py-1 rounded border border-slate-700 text-slate-200">
-                      {o.status}
-                    </div>
-                  </div>
-                </div>
-
-                {/* Métricas */}
-                <div className="grid grid-cols-2 md:grid-cols-5 gap-3 text-sm">
-                  <div>
-                    <div className="text-xs text-slate-400">Total</div>
-                    <div className="font-semibold text-emerald-300">{money(o.subtotal)}</div>
-                  </div>
-
-                  <div>
-                    <div className="text-xs text-slate-400">Cuotas</div>
-                    <div className="font-semibold">{o.installments}</div>
-                  </div>
-
-                  <div>
-                    <div className="text-xs text-slate-400">Valor/cuota</div>
-                    <div className="font-semibold">{money(o.installment_amount)}</div>
-                  </div>
-
-                  <div>
-                    <div className="text-xs text-slate-400">1ra cuota</div>
-                    <div className="font-semibold">{firstDueByOrderId[o.id] || "—"}</div>
-                  </div>
-
-                  <div>
-                    <div className="text-xs text-slate-400">Monto (para nómina)</div>
-                    <div className="font-semibold text-slate-200">
-                      {money(o.installment_amount)} / periodo
-                    </div>
-                  </div>
-                </div>
-              </button>
-            );
-          })}
+      {errorMsg && (
+        <div className="px-4 py-3 rounded-xl text-sm font-semibold" style={{ backgroundColor: "#FEE2E2", color: "#DC2626" }}>
+          {errorMsg}
         </div>
       )}
 
-      {/* MODAL */}
-      {openOrder && (
-        <div
-          className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-4"
-          onClick={closeModal}
-        >
-          <div
-            className="w-full max-w-3xl bg-slate-950 border border-slate-800 rounded-xl overflow-hidden"
-            onClick={(e) => e.stopPropagation()}
-          >
-            {/* Header modal */}
-            <div className="flex items-center justify-between px-5 py-4 border-b border-slate-800">
-              <div className="font-bold">
-                Orden #{openOrder.id}
-              </div>
+      {/* FILTROS */}
+      <div className="bg-white rounded-2xl p-4 flex flex-col md:flex-row gap-3" style={{ border: "1.5px solid var(--nomi-border)" }}>
+        <input placeholder="Buscar empleado, estado..."
+          value={q} onChange={(e) => setQ(e.target.value)}
+          className="flex-1 px-4 py-2.5 rounded-xl text-sm outline-none"
+          style={{ border: "1.5px solid var(--nomi-border)", color: "var(--nomi-navy)", backgroundColor: "var(--nomi-gray)" }} />
+        <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}
+          className="px-4 py-2.5 rounded-xl text-sm outline-none cursor-pointer"
+          style={{ border: "1.5px solid var(--nomi-border)", color: "var(--nomi-navy)", backgroundColor: "var(--nomi-gray)" }}>
+          <option value="ALL">Todos los estados</option>
+          <option value="PENDING">Pendiente</option>
+          <option value="CONFIRMED">Confirmada</option>
+          <option value="PROCESSED">Procesada</option>
+          <option value="DISPATCHED">Despachada</option>
+          <option value="DELIVERED">Entregada</option>
+          <option value="CANCELLED">Cancelada</option>
+        </select>
+        <div className="flex gap-2">
+          <button onClick={() => loadOrders({ silent: true })} disabled={refreshing}
+            className="px-4 py-2.5 rounded-xl text-sm font-bold cursor-pointer disabled:opacity-60"
+            style={{ backgroundColor: "var(--nomi-gray)", color: "var(--nomi-navy)", border: "1.5px solid var(--nomi-border)" }}>
+            {refreshing ? "..." : "Actualizar"}
+          </button>
+          <button onClick={handleExport}
+            className="px-4 py-2.5 rounded-xl text-sm font-bold cursor-pointer"
+            style={{ backgroundColor: "var(--nomi-navy)", color: "#fff" }}>
+            CSV
+          </button>
+        </div>
+      </div>
 
-              <button
-                onClick={closeModal}
-                className="text-slate-300 hover:text-white text-xl leading-none"
-                aria-label="Cerrar"
-              >
-                ×
+      {/* TABLA */}
+      <div className="bg-white rounded-2xl overflow-hidden" style={{ border: "1.5px solid var(--nomi-border)" }}>
+        <div className="grid grid-cols-5 px-5 py-3 text-xs font-bold uppercase tracking-wide"
+          style={{ backgroundColor: "var(--nomi-gray)", color: "var(--nomi-muted)", borderBottom: "1px solid var(--nomi-border)" }}>
+          <span>Orden</span>
+          <span className="col-span-2">Empleado</span>
+          <span>Estado</span>
+          <span className="text-right">Total</span>
+        </div>
+
+        {loading ? (
+          <div className="p-5 space-y-3">
+            {[1,2,3,4,5].map(i => <div key={i} className="h-12 rounded-xl animate-pulse" style={{ backgroundColor: "var(--nomi-gray)" }} />)}
+          </div>
+        ) : filtered.length === 0 ? (
+          <div className="px-5 py-10 text-center text-sm" style={{ color: "var(--nomi-muted)" }}>
+            No hay ordenes con esos filtros
+          </div>
+        ) : filtered.map((o) => {
+          const st = statusConfig[o.status] || { label: o.status, color: "var(--nomi-muted)", bg: "var(--nomi-gray)" };
+          const firstDue = firstDueByOrderId[o.id];
+          return (
+            <div key={o.id}
+              className="grid grid-cols-5 px-5 py-3.5 items-center transition hover:bg-slate-50 cursor-pointer"
+              style={{ borderBottom: "1px solid var(--nomi-border)" }}
+              onClick={() => setOpenOrderId(o.id)}>
+              <div>
+                <div className="font-bold text-xs" style={{ color: "var(--nomi-navy)" }}>#{o.id.slice(0,8)}</div>
+                <div className="text-xs mt-0.5" style={{ color: "var(--nomi-muted)" }}>{fmtDateTime(o.created_at).split(",")[0]}</div>
+              </div>
+              <div className="col-span-2">
+                <div className="font-semibold text-sm" style={{ color: "var(--nomi-navy)" }}>{getEmployeeNameByOrder(o)}</div>
+                {firstDue && <div className="text-xs mt-0.5" style={{ color: "var(--nomi-muted)" }}>1a cuota: {firstDue}</div>}
+              </div>
+              <div>
+                <span className="text-xs font-bold px-2.5 py-1 rounded-full"
+                  style={{ backgroundColor: st.bg, color: st.color }}>{st.label}</span>
+              </div>
+              <div className="text-right font-black text-sm" style={{ color: "var(--nomi-navy)" }}>
+                {money(o.subtotal)}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      {/* MODAL */}
+      {openOrderId && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4"
+          style={{ backgroundColor: "rgba(0,0,0,0.5)" }}
+          onClick={() => setOpenOrderId(null)}>
+          <div className="bg-white rounded-2xl w-full max-w-lg shadow-2xl max-h-[90vh] overflow-y-auto"
+            style={{ border: "1.5px solid var(--nomi-border)" }}
+            onClick={(e) => e.stopPropagation()}>
+
+            <div className="flex items-center justify-between px-6 py-4 sticky top-0 bg-white z-10"
+              style={{ borderBottom: "1px solid var(--nomi-border)" }}>
+              <div className="font-black text-base" style={{ color: "var(--nomi-navy)" }}>
+                Orden #{openOrderId.slice(0,8)}
+              </div>
+              <button onClick={() => { setOpenOrderId(null); }}
+                className="w-8 h-8 flex items-center justify-center rounded-xl cursor-pointer"
+                style={{ backgroundColor: "var(--nomi-gray)" }}>
+                <span style={{ color: "var(--nomi-muted)" }}>✕</span>
               </button>
             </div>
 
-            <div className="p-5 space-y-5">
+            <div className="px-6 py-5 space-y-4">
+              {modalLoading && (
+                <div className="flex items-center justify-center py-8">
+                  <div className="w-6 h-6 rounded-full border-2 border-t-transparent animate-spin" style={{ borderColor: "var(--nomi-orange)" }} />
+                </div>
+              )}
               {modalError && (
-                <div className="bg-red-500/15 border border-red-500/30 text-red-200 rounded p-3 text-sm">
+                <div className="px-4 py-3 rounded-xl text-sm font-semibold" style={{ backgroundColor: "#FEE2E2", color: "#DC2626" }}>
                   {modalError}
                 </div>
               )}
-
-              {/* 4 cards */}
-              <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
-                <div className="border border-slate-800 bg-slate-900 rounded-lg p-3">
-                  <div className="text-xs text-slate-400">Empleado</div>
-                  <div className="font-semibold">
-                    {getEmployeeNameByOrder(openOrder)}
+              {!modalLoading && !modalError && (
+                <>
+                  {/* ESTADO */}
+                  <div>
+                    <p className="text-xs font-bold uppercase tracking-wide mb-2" style={{ color: "var(--nomi-teal)" }}>Estado</p>
+                    <div className="flex items-center gap-3 flex-wrap">
+                      {["PENDING","CONFIRMED","PROCESSED","DISPATCHED","DELIVERED","CANCELLED"].map((s) => {
+                        const sc = statusConfig[s] || { label: s, color: "var(--nomi-muted)", bg: "var(--nomi-gray)" };
+                        const order = orders.find(o => o.id === openOrderId);
+                        const isCurrent = order?.status === s;
+                        return (
+                          <button key={s} onClick={() => updateOrderStatus(openOrderId!, s as any)} disabled={updatingStatus || isCurrent}
+                            className="text-xs font-bold px-3 py-1.5 rounded-full cursor-pointer disabled:opacity-60 transition"
+                            style={isCurrent
+                              ? { backgroundColor: sc.bg, color: sc.color, border: `2px solid ${sc.color}` }
+                              : { backgroundColor: "var(--nomi-gray)", color: "var(--nomi-muted)", border: "1.5px solid var(--nomi-border)" }}>
+                            {sc.label}
+                          </button>
+                        );
+                      })}
+                    </div>
                   </div>
-                  <div className="text-xs text-slate-400 mt-1">
-                    {openOrder.document_type}-{openOrder.document_number}
-                  </div>
-                </div>
 
-                <div className="border border-slate-800 bg-slate-900 rounded-lg p-3">
-                  <div className="text-xs text-slate-400">Total</div>
-                  <div className="text-emerald-300 text-lg font-bold">
-                    {money(openOrder.subtotal)}
-                  </div>
-                </div>
-
-                <div className="border border-slate-800 bg-slate-900 rounded-lg p-3">
-                  <div className="text-xs text-slate-400">Valor cuota</div>
-                  <div className="font-semibold">
-                    {money(openOrder.installment_amount)}
-                  </div>
-                  <div className="text-xs text-slate-400 mt-1">
-                    {openOrder.installments} cuotas
-                  </div>
-                </div>
-
-                <div className="border border-slate-800 bg-slate-900 rounded-lg p-3">
-                  <div className="text-xs text-slate-400">1ra cuota</div>
-                  <div className="font-semibold">
-                    {firstDueByOrderId[openOrder.id] || "—"}
-                  </div>
-                </div>
-              </div>
-
-              {/* Items */}
-              <div className="space-y-2">
-                <div className="font-semibold">Ítems comprados</div>
-
-                {modalLoading ? (
-                  <div className="text-slate-300 text-sm">Cargando ítems...</div>
-                ) : modalItems.length === 0 ? (
-                  <div className="text-slate-400 text-sm">No hay ítems para esta orden.</div>
-                ) : (
-                  <div className="space-y-2">
-                    {modalItems.map((it: any) => {
-                      const img = it.image || "/no-image.png";
-                      const lineTotal = Number(it.price_snapshot || 0) * Number(it.qty || 0);
-
-                      return (
-                        <div
-                          key={it.id}
-                          className="flex items-center gap-3 border border-slate-800 bg-slate-900 rounded-lg p-3"
-                        >
-                          <img
-                            src={img}
-                            alt={it.name_snapshot}
-                            className="w-12 h-12 rounded border border-slate-800 object-cover"
-                            onError={(e) => {
-                              (e.currentTarget as HTMLImageElement).src = "/no-image.png";
-                            }}
-                          />
-
-                          <div className="flex-1 min-w-0">
-                            <div className="font-semibold truncate">{it.name_snapshot}</div>
-                            <div className="text-xs text-slate-400">
-                              {money(it.price_snapshot)} • Cant: {it.qty}
+                  {/* ITEMS */}
+                  <div>
+                    <p className="text-xs font-bold uppercase tracking-wide mb-2" style={{ color: "var(--nomi-teal)" }}>Productos</p>
+                    {modalItems.length === 0 ? (
+                      <p className="text-sm" style={{ color: "var(--nomi-muted)" }}>No hay items en esta orden</p>
+                    ) : (
+                      <div className="space-y-2">
+                        {modalItems.map((it) => (
+                          <div key={it.id} className="flex items-center justify-between px-4 py-3 rounded-xl"
+                            style={{ backgroundColor: "var(--nomi-gray)", border: "1px solid var(--nomi-border)" }}>
+                            <div>
+                              <div className="font-semibold text-sm" style={{ color: "var(--nomi-navy)" }}>{it.name_snapshot}</div>
+                              <div className="text-xs mt-0.5" style={{ color: "var(--nomi-muted)" }}>Cant: {it.qty} · Precio unit: {money(it.price_snapshot)}</div>
+                            </div>
+                            <div className="font-black text-sm" style={{ color: "var(--nomi-navy)" }}>
+                              {money(Number(it.price_snapshot) * Number(it.qty))}
                             </div>
                           </div>
-
-                          <div className="text-right font-bold text-emerald-300">
-                            {money(lineTotal)}
-                          </div>
+                        ))}
+                        <div className="flex justify-between items-center px-4 py-2.5 rounded-xl"
+                          style={{ backgroundColor: "var(--nomi-navy)" }}>
+                          <span className="text-xs font-bold text-white">Total</span>
+                          <span className="font-black text-sm" style={{ color: "var(--nomi-orange)" }}>
+                            {money(orders.find(o => o.id === openOrderId)?.subtotal)}
+                          </span>
                         </div>
-                      );
-                    })}
+                      </div>
+                    )}
                   </div>
-                )}
-              </div>
-
-              {/* Botones de estado */}
-              <div className="flex flex-col md:flex-row gap-2 md:justify-end">
-                <button
-                  disabled={updatingStatus}
-                  onClick={() => updateOrderStatus(openOrder.id, "CONFIRMED")}
-                  className="px-4 py-2 rounded bg-blue-500/90 hover:bg-blue-400 text-slate-950 font-bold transition disabled:opacity-60"
-                >
-                  Confirmar
-                </button>
-
-                <button
-                  disabled={updatingStatus}
-                  onClick={() => updateOrderStatus(openOrder.id, "PROCESSED")}
-                  className="px-4 py-2 rounded bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold transition disabled:opacity-60"
-                >
-                  Procesar
-                </button>
-
-                <button
-                  disabled={updatingStatus}
-                  onClick={() => updateOrderStatus(openOrder.id, "CANCELLED")}
-                  className="px-4 py-2 rounded bg-red-500 hover:bg-red-400 text-slate-950 font-bold transition disabled:opacity-60"
-                >
-                  Cancelar
-                </button>
-              </div>
-
-              <div className="text-xs text-slate-500">
-                Creada: {fmtDateTime(openOrder.created_at)}
-              </div>
+                </>
+              )}
             </div>
           </div>
         </div>

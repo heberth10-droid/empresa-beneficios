@@ -628,7 +628,7 @@ export default function CompanyEmployeesPage() {
     setOkMsg(null);
 
     const ok = confirm(
-      `¿Eliminar empleado ${emp.document_type} ${emp.document_number}?\n\nNota: esto borra el registro del empleado. (El usuario Auth se elimina después en hardening/admin).`
+      `¿Eliminar empleado ${emp.document_type} ${emp.document_number}?\n\nNota: esto borra el registro del empleado. El usuario Auth se elimina despues.`
     );
     if (!ok) return;
 
@@ -642,352 +642,247 @@ export default function CompanyEmployeesPage() {
     await loadEmployees(companyId);
   }
 
-  if (loading) return <div className="text-slate-300">Cargando empleados...</div>;
+  if (loading) return (
+    <div className="flex items-center justify-center py-20">
+      <div className="w4 h-8 rounded-full border-2 border-t-transparent animate-spin" style={{ borderColor: "var(--nomi-orange)" }} />
+    </div>
+  );
+
+  const IS = { border: "1.5px solid var(--nomi-border)", color: "var(--nomi-navy)", backgroundColor: "var(--nomi-gray)", borderRadius: "10px", padding: "10px 14px", fontSize: "14px", outline: "none", width: "100%" };
 
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold">Empleados</h1>
-        <p className="text-slate-400 text-sm">
-          Aquí defines cupo mensual autorizado y máximo de cuotas. Esto controla el checkout.
+        <p className="text-xs font-bold uppercase tracking-widest mb-1" style={{ color: "var(--nomi-teal)" }}>Gestion</p>
+        <h1 className="text-3xl font-black" style={{ color: "var(--nomi-navy)" }}>Empleados</h1>
+        <p className="text-sm mt-1" style={{ color: "var(--nomi-muted)" }}>
+          Define cupo mensual autorizado y maximo de cuotas por empleado
         </p>
       </div>
 
       {errorMsg && (
-        <div className="bg-red-500/15 border border-red-500/30 text-red-200 rounded p-3 text-sm">
+        <div className="px-4 py-3 rounded-xl text-sm font-semibold" style={{ backgroundColor: "#FEE2E2", color: "#DC2626" }}>
           {errorMsg}
         </div>
       )}
-
       {okMsg && (
-        <div className="bg-emerald-500/10 border border-emerald-500/30 text-emerald-200 rounded p-3 text-sm">
+        <div className="px-4 py-3 rounded-xl text-sm font-semibold" style={{ backgroundColor: "#DCFCE7", color: "#16A34A" }}>
           {okMsg}
         </div>
       )}
 
       {/* CARGA MASIVA */}
-      <div className="border border-slate-800 bg-slate-900 rounded-lg p-4 space-y-4">
+      <div className="bg-white rounded-2xl p-6 space-y-5" style={{ border: "1.5px solid var(--nomi-border)" }}>
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
           <div>
-            <h2 className="font-semibold">Carga masiva de empleados</h2>
-            <p className="text-slate-400 text-sm">
-              Sube un CSV, revisa la vista previa y confirma la carga.
-            </p>
+            <h2 className="font-black text-base" style={{ color: "var(--nomi-navy)" }}>Carga masiva de empleados</h2>
+            <p className="text-sm mt-1" style={{ color: "var(--nomi-muted)" }}>Sube un CSV, revisa la vista previa y confirma la carga</p>
           </div>
-
-          <button
-            type="button"
-            onClick={downloadTemplateCSV}
-            className="px-4 py-2 rounded bg-slate-800 hover:bg-slate-700 border border-slate-700 text-sm"
-          >
+          <button type="button" onClick={downloadTemplateCSV}
+            className="px-4 py-2.5 rounded-xl text-sm font-bold cursor-pointer shrink-0"
+            style={{ backgroundColor: "var(--nomi-gray)", color: "var(--nomi-navy)", border: "1.5px solid var(--nomi-border)" }}>
             Descargar plantilla CSV
           </button>
         </div>
 
-        <div className="border border-dashed border-slate-700 rounded-lg p-4 bg-slate-950/40">
-          <input
-            type="file"
-            accept=".csv"
-            onChange={(e) => {
-              const file = e.target.files?.[0];
-              if (file) handleBulkFile(file);
-            }}
-            className="block w-full text-sm text-slate-300"
-          />
-
-          <div className="text-xs text-slate-500 mt-3">
-            Columnas requeridas:{" "}
-            <b>
-              documento, tipo_documento, nombre, apellido, celular, direccion,
-              ciudad, correo_electronico, salario, cupo_mensual_autorizado,
-              cuotas_autorizadas
-            </b>
-          </div>
+        <div className="rounded-xl p-5" style={{ border: "1.5px dashed var(--nomi-teal)", backgroundColor: "var(--nomi-teal-bg)" }}>
+          <input type="file" accept=".csv"
+            onChange={(e) => { const file = e.target.files?.[0]; if (file) handleBulkFile(file); }}
+            className="block w-full text-sm font-semibold cursor-pointer" style={{ color: "var(--nomi-teal)" }} />
+          <p className="text-xs mt-2" style={{ color: "var(--nomi-muted)" }}>
+            Columnas requeridas: <b>documento, tipo_documento, nombre, apellido, celular, direccion, ciudad, correo_electronico, salario, cupo_mensual_autorizado, cuotas_autorizadas</b>
+          </p>
         </div>
 
-        {bulkParsing && (
-          <div className="text-emerald-400 text-sm">Leyendo archivo...</div>
-        )}
+        {bulkParsing && <p className="text-sm font-semibold" style={{ color: "var(--nomi-teal)" }}>Leyendo archivo...</p>}
 
         {bulkRows.length > 0 && (
           <div className="space-y-4">
             <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-2">
-              <div className="text-sm text-slate-300">
-                Archivo: <b>{bulkFileName}</b> · Válidos:{" "}
-                <b className="text-emerald-400">{bulkValidRows.length}</b> · Errores:{" "}
-                <b className="text-red-300">{bulkInvalidRows.length}</b>
-              </div>
-
+              <p className="text-sm" style={{ color: "var(--nomi-navy)" }}>
+                Archivo: <b>{bulkFileName}</b> · Validos: <b style={{ color: "var(--nomi-teal)" }}>{bulkValidRows.length}</b> · Errores: <b style={{ color: "#DC2626" }}>{bulkInvalidRows.length}</b>
+              </p>
               <div className="flex gap-2">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setBulkRows([]);
-                    setBulkFileName("");
-                  }}
-                  className="px-4 py-2 rounded border border-slate-700 text-slate-300 hover:bg-slate-800 text-sm"
-                >
+                <button type="button" onClick={() => { setBulkRows([]); setBulkFileName(""); }}
+                  className="px-4 py-2 rounded-xl text-sm font-semibold cursor-pointer"
+                  style={{ backgroundColor: "var(--nomi-gray)", color: "var(--nomi-muted)", border: "1.5px solid var(--nomi-border)" }}>
                   Cancelar
                 </button>
-
-                <button
-                  type="button"
-                  onClick={confirmBulkUpload}
-                  disabled={bulkSaving || bulkInvalidRows.length > 0}
-                  className="px-4 py-2 rounded bg-emerald-500 text-slate-950 font-bold hover:bg-emerald-400 disabled:opacity-50 text-sm"
-                >
+                <button type="button" onClick={confirmBulkUpload} disabled={bulkSaving || bulkInvalidRows.length > 0}
+                  className="px-4 py-2 rounded-xl text-sm font-bold cursor-pointer disabled:opacity-50"
+                  style={{ backgroundColor: "var(--nomi-orange)", color: "#fff" }}>
                   {bulkSaving ? "Cargando..." : "Confirmar carga"}
                 </button>
               </div>
             </div>
 
-            <div className="overflow-x-auto border border-slate-800 rounded-lg">
+            <div className="overflow-x-auto rounded-xl" style={{ border: "1.5px solid var(--nomi-border)" }}>
               <table className="w-full text-sm">
-                <thead className="bg-slate-800 text-slate-300">
+                <thead style={{ backgroundColor: "var(--nomi-gray)" }}>
                   <tr>
-                    <th className="p-3 text-left">Fila</th>
-                    <th className="p-3 text-left">Documento</th>
-                    <th className="p-3 text-left">Tipo</th>
-                    <th className="p-3 text-left">Nombre</th>
-                    <th className="p-3 text-left">Celular</th>
-                    <th className="p-3 text-left">Correo</th>
-                    <th className="p-3 text-left">Ciudad</th>
-                    <th className="p-3 text-left">Salario</th>
-                    <th className="p-3 text-left">Cupo mensual</th>
-                    <th className="p-3 text-left">Cuotas</th>
-                    <th className="p-3 text-left">Estado</th>
+                    {["Fila","Documento","Tipo","Nombre","Celular","Correo","Ciudad","Salario","Cupo","Cuotas","Estado"].map(h => (
+                      <th key={h} className="px-3 py-2.5 text-left text-xs font-bold uppercase tracking-wide" style={{ color: "var(--nomi-muted)", borderBottom: "1px solid var(--nomi-border)" }}>{h}</th>
+                    ))}
                   </tr>
                 </thead>
-
                 <tbody>
-                  {bulkRows.slice(0, 50).map((r) => (
-                    <tr key={r.rowNumber} className="border-t border-slate-800">
-                      <td className="p-3 text-slate-400">{r.rowNumber}</td>
-                      <td className="p-3 text-slate-300">{r.document_number || "—"}</td>
-                      <td className="p-3 text-slate-300">{r.document_type || "—"}</td>
-                      <td className="p-3 text-slate-200">
-                        {`${r.first_name} ${r.last_name}`.trim() || "—"}
-                      </td>
-                      <td className="p-3 text-slate-300">{r.phone || "—"}</td>
-                      <td className="p-3 text-slate-300">{r.email || "—"}</td>
-                      <td className="p-3 text-slate-300">{r.city || "—"}</td>
-                      <td className="p-3 text-slate-300">
-                        {Number.isFinite(r.salary) ? formatCOP(r.salary) : "—"}
-                      </td>
-                      <td className="p-3 text-emerald-400">
-                        {Number.isFinite(r.credit_limit)
-                          ? formatCOP(r.credit_limit)
-                          : "—"}
-                      </td>
-                      <td className="p-3 text-slate-300">
-                        {Number.isFinite(r.max_installments)
-                          ? r.max_installments
-                          : "—"}
-                      </td>
-                      <td className="p-3">
-                        {r.errors.length > 0 ? (
-                          <span className="text-red-300">
-                            {r.errors.join(", ")}
-                          </span>
-                        ) : (
-                          <span className="text-emerald-400">Listo</span>
-                        )}
-                      </td>
-                    </tr>
-                  ))}
+                  {bulkRows.slice(0, 50).map((r) => {
+                    const hasErr = r.errors.length > 0;
+                    return (
+                      <tr key={r.rowNumber} style={{ borderBottom: "1px solid var(--nomi-border)", backgroundColor: hasErr ? "#FEF2F2" : "#fff" }}>
+                        <td className="px-3 py-2 text-xs" style={{ color: "var(--nomi-muted)" }}>{r.rowNumber}</td>
+                        <td className="px-3 py-2 text-xs" style={{ color: "var(--nomi-muted)" }}>{r.document_number || "—"}</td>
+                        <td className="px-3 py-2 text-xs" style={{ color: "var(--nomi-muted)" }}>{r.document_type || "—"}</td>
+                        <td className="px-3 py-2 text-xs font-semibold" style={{ color: "var(--nomi-navy)" }}>{`${r.first_name} ${r.last_name}`.trim() || "—"}</td>
+                        <td className="px-3 py-2 text-xs" style={{ color: "var(--nomi-muted)" }}>{r.phone || "—"}</td>
+                        <td className="px-3 py-2 text-xs" style={{ color: "var(--nomi-muted)" }}>{r.email || "—"}</td>
+                        <td className="px-3 py-2 text-xs" style={{ color: "var(--nomi-muted)" }}>{r.city || "—"}</td>
+                        <td className="px-3 py-2 text-xs" style={{ color: "var(--nomi-navy)" }}>{Number.isFinite(r.salary) ? formatCOP(r.salary) : "—"}</td>
+                        <td className="px-3 py-2 text-xs font-bold" style={{ color: "var(--nomi-teal)" }}>{Number.isFinite(r.credit_limit) ? formatCOP(r.credit_limit) : "—"}</td>
+                        <td className="px-3 py-2 text-xs" style={{ color: "var(--nomi-navy)" }}>{Number.isFinite(r.max_installments) ? r.max_installments : "—"}</td>
+                        <td className="px-3 py-2 text-xs">
+                          {hasErr ? <span style={{ color: "#DC2626" }}>{r.errors.join(", ")}</span> : <span className="font-bold" style={{ color: "var(--nomi-teal)" }}>Listo</span>}
+                        </td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>
-
-            {bulkRows.length > 50 && (
-              <div className="text-xs text-slate-500">
-                Mostrando las primeras 50 filas de {bulkRows.length}.
-              </div>
-            )}
+            {bulkRows.length > 50 && <p className="text-xs" style={{ color: "var(--nomi-muted)" }}>Mostrando las primeras 50 filas de {bulkRows.length}.</p>}
           </div>
         )}
       </div>
 
-      {/* FORM */}
-      <div className="border border-slate-800 bg-slate-900 rounded-lg p-4 space-y-4">
+      {/* FORM CREAR/EDITAR */}
+      <div className="bg-white rounded-2xl p-6 space-y-4" style={{ border: "1.5px solid var(--nomi-border)" }}>
         <div className="flex items-center justify-between">
-          <h2 className="font-semibold">
+          <h2 className="font-black text-base" style={{ color: "var(--nomi-navy)" }}>
             {isEditing ? "Editar empleado" : "Crear empleado"}
           </h2>
-
           {isEditing && (
-            <button
-              onClick={resetForm}
-              className="text-sm text-slate-300 hover:text-white underline"
-            >
-              Cancelar edición
+            <button onClick={resetForm} className="text-xs font-semibold cursor-pointer" style={{ color: "var(--nomi-muted)" }}>
+              Cancelar edicion
             </button>
           )}
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-          <input
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            placeholder="Nombre (recomendado)"
-            className="bg-slate-800 rounded px-3 py-2"
-          />
-
-          <div className="flex gap-2">
-            <select
-              value={docType}
-              onChange={(e) => setDocType(e.target.value as any)}
-              className="bg-slate-800 rounded px-3 py-2 w-28"
-            >
-              {DOC_TYPES.map((t) => (
-                <option key={t} value={t}>
-                  {t}
-                </option>
-              ))}
-            </select>
-
-            <input
-              value={docNumber}
-              onChange={(e) => setDocNumber(e.target.value)}
-              placeholder="Documento"
-              className="bg-slate-800 rounded px-3 py-2 flex-1"
-            />
+          <div>
+            <label className="block text-xs font-bold mb-1.5 uppercase tracking-wide" style={{ color: "var(--nomi-navy)" }}>Nombre</label>
+            <input style={IS} value={name} onChange={(e) => setName(e.target.value)} placeholder="Nombre completo" />
           </div>
 
-          {/* Credenciales solo en creación */}
+          <div>
+            <label className="block text-xs font-bold mb-1.5 uppercase tracking-wide" style={{ color: "var(--nomi-navy)" }}>Documento</label>
+            <div className="flex gap-2">
+              <select style={{ ...IS, width: "auto", minWidth: "90px" }} value={docType} onChange={(e) => setDocType(e.target.value as any)}>
+                {DOC_TYPES.map((t) => <option key={t} value={t}>{t}</option>)}
+              </select>
+              <input style={IS} value={docNumber} onChange={(e) => setDocNumber(e.target.value)} placeholder="Numero" />
+            </div>
+          </div>
+
           {!isEditing && (
             <>
-              <input
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder="Correo (para login del empleado)"
-                className="bg-slate-800 rounded px-3 py-2"
-              />
-
-              <input
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                placeholder="Contraseña (mín 8)"
-                type="password"
-                className="bg-slate-800 rounded px-3 py-2"
-              />
+              <div>
+                <label className="block text-xs font-bold mb-1.5 uppercase tracking-wide" style={{ color: "var(--nomi-navy)" }}>Correo</label>
+                <input style={IS} value={email} onChange={(e) => setEmail(e.target.value)} placeholder="correo@empresa.com" />
+              </div>
+              <div>
+                <label className="block text-xs font-bold mb-1.5 uppercase tracking-wide" style={{ color: "var(--nomi-navy)" }}>Contrasena</label>
+                <input style={IS} type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Minimo 8 caracteres" />
+              </div>
             </>
           )}
 
           {isEditing && (
-            <div className="md:col-span-2 text-xs text-slate-400">
-              Nota: para cambiar correo/contraseña del empleado lo haremos luego en “hardening/admin”
-              (esto toca Auth).
+            <div className="md:col-span-2 px-3 py-2 rounded-xl text-xs" style={{ backgroundColor: "var(--nomi-gray)", color: "var(--nomi-muted)" }}>
+              Para cambiar correo o contrasena del empleado contacta al administrador.
             </div>
           )}
 
-          <input
-            type="number"
-            value={creditLimit}
-            onChange={(e) => setCreditLimit(e.target.value)}
-            placeholder="Cupo mensual autorizado"
-            className="bg-slate-800 rounded px-3 py-2"
-            min={0}
-          />
+          <div>
+            <label className="block text-xs font-bold mb-1.5 uppercase tracking-wide" style={{ color: "var(--nomi-navy)" }}>Cupo mensual autorizado</label>
+            <input style={IS} type="number" min={0} value={creditLimit} onChange={(e) => setCreditLimit(e.target.value)} placeholder="0" />
+          </div>
 
-          <select
-            value={maxInstallments}
-            onChange={(e) => setMaxInstallments(e.target.value)}
-            className="bg-slate-800 rounded px-3 py-2"
-          >
-            <option value="">Cuotas autorizadas</option>
-            {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].map((n) => (
-              <option key={n} value={n}>
-                {n} {n === 1 ? "cuota" : "cuotas"}
-              </option>
-            ))}
-          </select>
+          <div>
+            <label className="block text-xs font-bold mb-1.5 uppercase tracking-wide" style={{ color: "var(--nomi-navy)" }}>Cuotas autorizadas</label>
+            <select style={IS} value={maxInstallments} onChange={(e) => setMaxInstallments(e.target.value)}>
+              <option value="">Seleccionar cuotas</option>
+              {[1,2,3,4,5,6,7,8,9,10,11,12].map((n) => (
+                <option key={n} value={n}>{n} {n === 1 ? "cuota" : "cuotas"}</option>
+              ))}
+            </select>
+          </div>
 
-          <label className="flex items-center gap-2 text-sm text-slate-300">
-            <input
-              type="checkbox"
-              checked={active}
-              onChange={(e) => setActive(e.target.checked)}
-            />
-            Activo
-          </label>
         </div>
 
-        <button
-          onClick={handleSave}
-          disabled={saving}
-          className="bg-emerald-500 text-slate-950 font-bold px-5 py-2 rounded hover:bg-emerald-400 transition disabled:opacity-60"
-        >
-          {saving ? "Guardando..." : isEditing ? "Guardar cambios" : "Crear empleado"}
-        </button>
+        <div className="pt-2">
+          <button onClick={handleSave} disabled={saving}
+            className="px-6 py-3 rounded-xl text-sm font-black cursor-pointer disabled:opacity-50"
+            style={{ backgroundColor: "var(--nomi-orange)", color: "#fff" }}>
+            {saving ? "Guardando..." : isEditing ? "Guardar cambios" : "Crear empleado"}
+          </button>
+        </div>
       </div>
 
-      {/* LIST */}
-      <div className="border border-slate-800 bg-slate-900 rounded-lg overflow-hidden">
-        <div className="p-4 border-b border-slate-800 flex items-center justify-between">
-          <h2 className="font-semibold">Listado</h2>
-          <div className="text-sm text-slate-400">{rows.length} empleados</div>
+      {/* LISTA */}
+      <div className="bg-white rounded-2xl overflow-hidden" style={{ border: "1.5px solid var(--nomi-border)" }}>
+        <div className="px-5 py-4 flex flex-col md:flex-row md:items-center md:justify-between gap-3"
+          style={{ borderBottom: "1px solid var(--nomi-border)" }}>
+          <h2 className="font-black text-base" style={{ color: "var(--nomi-navy)" }}>
+            Empleados registrados ({rows.length})
+          </h2>
+          <input placeholder="Buscar por nombre o documento..."
+            className="px-4 py-2 rounded-xl text-sm outline-none"
+            style={{ border: "1.5px solid var(--nomi-border)", color: "var(--nomi-navy)", backgroundColor: "var(--nomi-gray)", minWidth: "220px" }} />
+        </div>
+
+        <div className="grid grid-cols-5 px-5 py-3 text-xs font-bold uppercase tracking-wide"
+          style={{ backgroundColor: "var(--nomi-gray)", color: "var(--nomi-muted)", borderBottom: "1px solid var(--nomi-border)" }}>
+          <span className="col-span-2">Empleado</span>
+          <span>Cupo</span>
+          <span>Cuotas</span>
+          <span className="text-center">Estado</span>
         </div>
 
         {rows.length === 0 ? (
-          <div className="p-4 text-slate-400 text-sm">No hay empleados aún.</div>
-        ) : (
-          <div className="divide-y divide-slate-800">
-            {rows.map((emp) => (
-              <div
-                key={emp.id}
-                className="p-4 flex flex-col md:flex-row md:items-center gap-3"
-              >
-                <div className="flex-1">
-                  <div className="font-semibold text-slate-100">
-                    {emp.name || "Empleado"}
-                  </div>
-
-                  <div className="text-sm text-slate-400">
-                    {emp.document_type} {emp.document_number} •{" "}
-                    {emp.active ? "Activo" : "Inactivo"}
-                    {emp.email ? (
-                      <>
-                        {" "}
-                        <span className="text-slate-500">|</span>{" "}
-                        <span className="text-slate-300">{emp.email}</span>
-                      </>
-                    ) : null}
-                  </div>
-                </div>
-
-                <div className="text-sm text-slate-300 w-full md:w-auto">
-                  <b>Cupo mensual:</b> ${Number(emp.credit_limit || 0).toFixed(0)}{" "}
-                  <span className="text-slate-500">|</span>{" "}
-                  <b>Máx cuotas:</b> {emp.max_installments}
-                </div>
-
-                <div className="flex gap-2">
-                  <button
-                    onClick={() => startEdit(emp)}
-                    className="px-3 py-2 rounded bg-slate-800 hover:bg-slate-700 text-sm"
-                  >
-                    Editar
-                  </button>
-
-                  <button
-                    onClick={() => toggleActive(emp)}
-                    className="px-3 py-2 rounded bg-slate-800 hover:bg-slate-700 text-sm"
-                  >
-                    {emp.active ? "Desactivar" : "Activar"}
-                  </button>
-
-                  <button
-                    onClick={() => deleteEmployee(emp)}
-                    className="px-3 py-2 rounded bg-red-500/20 hover:bg-red-500/30 text-red-200 text-sm"
-                  >
-                    Eliminar
-                  </button>
-                </div>
-              </div>
-            ))}
+          <div className="px-5 py-10 text-center text-sm" style={{ color: "var(--nomi-muted)" }}>
+            No se encontraron empleados
           </div>
-        )}
+        ) : rows.map((e) => (
+          <div key={e.id}
+            className="grid grid-cols-5 px-5 py-3.5 items-center transition hover:bg-slate-50 cursor-pointer"
+            style={{ borderBottom: "1px solid var(--nomi-border)" }}
+            onClick={() => startEdit(e)}>
+            <div className="col-span-2 flex items-center gap-3">
+              <div className="w9 h-9 rounded-full flex items-center justify-center text-sm font-black text-white shrink-0"
+                style={{ backgroundColor: "var(--nomi-navy)" }}>
+                {(e.name || "E").charAt(0).toUpperCase()}
+              </div>
+              <div>
+                <div className="font-bold text-sm" style={{ color: "var(--nomi-navy)" }}>{e.name || "Sin nombre"}</div>
+                <div className="text-xs mt-0.5" style={{ color: "var(--nomi-muted)" }}>{e.document_type} {e.document_number}</div>
+              </div>
+            </div>
+            <div className="font-bold text-sm" style={{ color: "var(--nomi-navy)" }}>
+              {e.credit_limit ? formatCOP(e.credit_limit) : "—"}
+            </div>
+            <div className="text-sm" style={{ color: "var(--nomi-muted)" }}>
+              {e.max_installments ? `${e.max_installments} cuotas` : "—"}
+            </div>
+            <div className="text-center">
+              <span className="text-xs font-bold px-2 py-0.5 rounded-full"
+                style={e.active
+                  ? { backgroundColor: "var(--nomi-teal-bg)", color: "var(--nomi-teal)" }
+                  : { backgroundColor: "#FEE2E2", color: "#DC2626" }}>
+                {e.active ? "Activo" : "Inactivo"}
+              </span>
+            </div>
+          </div>
+        ))}
       </div>
     </div>
   );
