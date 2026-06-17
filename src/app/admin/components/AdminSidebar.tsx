@@ -5,20 +5,21 @@ import { usePathname, useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
 import {
   LayoutDashboard, Building2, Tag, Users, Package,
-  ShoppingCart, BarChart2, CreditCard, Globe, List, LogOut,
+  ShoppingCart, BarChart2, CreditCard, Globe, List, LogOut, Landmark,
 } from "lucide-react";
 
 const items = [
-  { href: "/admin",             label: "Dashboard",     icon: LayoutDashboard },
-  { href: "/admin/companies",   label: "Empresas",      icon: Building2 },
-  { href: "/admin/brands",      label: "Marcas",        icon: Tag },
-  { href: "/admin/employees",   label: "Empleados",     icon: Users },
-  { href: "/admin/products",    label: "Productos",     icon: Package },
-  { href: "/admin/categories",  label: "Categorias",    icon: List },
-  { href: "/admin/website",     label: "Pagina web",    icon: Globe },
-  { href: "/admin/orders",      label: "Ordenes",       icon: ShoppingCart },
-  { href: "/admin/results",     label: "Resultados",    icon: BarChart2 },
-  { href: "/admin/payments",    label: "Pagos",         icon: CreditCard },
+  { href: "/admin",               label: "Dashboard",     icon: LayoutDashboard },
+  { href: "/admin/companies",     label: "Empresas",      icon: Building2 },
+  { href: "/admin/brands",        label: "Marcas",        icon: Tag },
+  { href: "/admin/employees",     label: "Empleados",     icon: Users },
+  { href: "/admin/products",      label: "Productos",     icon: Package },
+  { href: "/admin/categories",    label: "Categorias",    icon: List },
+  { href: "/admin/website",       label: "Pagina web",    icon: Globe },
+  { href: "/admin/orders",        label: "Ordenes",       icon: ShoppingCart },
+  { href: "/admin/installments",  label: "Cuotas",        icon: Landmark },
+  { href: "/admin/results",       label: "Resultados",    icon: BarChart2 },
+  { href: "/admin/payments",      label: "Pagos",         icon: CreditCard },
 ];
 
 export default function AdminSidebar({ onNavigate }: { onNavigate?: () => void }) {

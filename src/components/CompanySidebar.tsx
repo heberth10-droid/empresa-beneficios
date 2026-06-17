@@ -3,12 +3,13 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
-import { Settings, Users, ShoppingCart, LogOut, Globe } from "lucide-react";
+import { Settings, Users, ShoppingCart, LogOut, Globe, Landmark } from "lucide-react";
 
 const items = [
-  { href: "/company",           label: "Configuracion", icon: Settings },
-  { href: "/company/employees", label: "Empleados",     icon: Users },
-  { href: "/company/orders",    label: "Ordenes",       icon: ShoppingCart },
+  { href: "/company",                label: "Configuracion", icon: Settings },
+  { href: "/company/employees",      label: "Empleados",     icon: Users },
+  { href: "/company/orders",         label: "Ordenes",       icon: ShoppingCart },
+  { href: "/company/installments",   label: "Cuotas",        icon: Landmark },
 ];
 
 export default function CompanySidebar({ onNavigate }: { onNavigate?: () => void }) {
