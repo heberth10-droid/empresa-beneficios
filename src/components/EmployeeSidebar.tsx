@@ -3,55 +3,76 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
+import { Home, ShoppingBag, Bell, Settings, LogOut, ChevronLeft, Landmark } from "lucide-react";
 
-function Item({ href, label }: { href: string; label: string }) {
+const items = [
+  { href: "/employee",               label: "Mi resumen",      icon: Home },
+  { href: "/employee/orders",        label: "Mis ordenes",     icon: ShoppingBag },
+  { href: "/employee/installments",  label: "Mis cuotas",      icon: Landmark },
+  { href: "/employee/notifications", label: "Notificaciones",  icon: Bell },
+  { href: "/employee/settings",      label: "Mi perfil",       icon: Settings },
+];
+
+export default function EmployeeSidebar({ onNavigate }: { onNavigate?: () => void }) {
   const pathname = usePathname();
-  const active = pathname === href;
-
-  return (
-    <Link
-      href={href}
-      className={[
-        "block px-3 py-2 rounded-lg text-sm transition",
-        active
-          ? "bg-emerald-500 text-slate-950 font-semibold"
-          : "text-slate-200 hover:bg-slate-900 hover:text-white",
-      ].join(" ")}
-    >
-      {label}
-    </Link>
-  );
-}
-
-export default function EmployeeSidebar() {
   const router = useRouter();
 
   async function logout() {
     await supabase.auth.signOut();
-    router.push("/login");
+    router.push("/market");
   }
 
   return (
-    <aside className="w-64 border-r border-slate-800 bg-slate-950 p-4 hidden md:block">
-      <div className="mb-6">
-        <div className="text-2xl font-bold text-emerald-400">NOVA</div>
-        <div className="text-xs text-slate-400">Portal del Empleado</div>
+    <aside className="w-64 min-h-screen flex flex-col"
+      style={{ backgroundColor: "var(--nomi-navy)", borderRight: "1px solid rgba(255,255,255,0.08)" }}>
+
+      <div className="px-5 py-5" style={{ borderBottom: "1px solid rgba(255,255,255,0.08)" }}>
+        <div className="flex items-center gap-1 mb-0.5">
+          <span className="text-xl font-black text-white">N</span>
+          <span className="inline-flex items-center justify-center w-6 h-6 rounded-full border-2 text-xs font-black"
+            style={{ borderColor: "var(--nomi-orange)", color: "var(--nomi-teal)" }}>$</span>
+          <span className="text-xl font-black text-white">MI</span>
+        </div>
+        <div className="text-xs font-semibold mt-0.5" style={{ color: "rgba(255,255,255,0.4)" }}>
+          Mi portal
+        </div>
       </div>
 
-      <div className="space-y-2">
-        <Item href="/employee" label="Resumen" />
-        <Item href="/employee/orders" label="Mis órdenes" />
-        <Item href="/employee/notifications" label="Notificaciones" />
-        <Item href="/employee/settings" label="Configuración" />
-        <Item href="/market" label="Ir al Marketplace" />
-      </div>
+      <nav className="flex-1 px-3 py-4 space-y-0.5 overflow-y-auto">
+        {items.map((item) => {
+          const Icon = item.icon;
+          const active = pathname === item.href ||
+            (item.href !== "/employee" && pathname.startsWith(item.href + "/"));
+          return (
+            <Link key={item.href} href={item.href} onClick={onNavigate}
+              className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-semibold transition"
+              style={active ? {
+                backgroundColor: "rgba(245,166,35,0.15)",
+                color: "var(--nomi-orange)",
+                border: "1px solid rgba(245,166,35,0.25)",
+              } : {
+                color: "rgba(255,255,255,0.6)",
+                border: "1px solid transparent",
+              }}>
+              <Icon className="w-4 h-4 shrink-0" />
+              {item.label}
+            </Link>
+          );
+        })}
+      </nav>
 
-      <div className="mt-8 pt-4 border-t border-slate-800">
-        <button
-          onClick={logout}
-          className="w-full text-left px-3 py-2 rounded-lg text-sm text-slate-200 hover:bg-slate-900 hover:text-white transition"
-        >
-          Cerrar sesión
+      <div className="px-3 py-4" style={{ borderTop: "1px solid rgba(255,255,255,0.08)" }}>
+        <Link href="/market" onClick={onNavigate}
+          className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-semibold mb-1 transition"
+          style={{ color: "rgba(255,255,255,0.4)", border: "1px solid transparent" }}>
+          <ChevronLeft className="w-4 h-4" />
+          Volver al marketplace
+        </Link>
+        <button onClick={logout}
+          className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-semibold transition cursor-pointer"
+          style={{ color: "#F87171", border: "1px solid rgba(248,113,113,0.2)", backgroundColor: "rgba(248,113,113,0.08)" }}>
+          <LogOut className="w-4 h-4" />
+          Cerrar sesion
         </button>
       </div>
     </aside>
