@@ -20,11 +20,19 @@ export default function EmployeeInstallmentsPage() {
       const user = u?.user;
       if (!user) { router.push("/login"); return; }
 
-      const { data: userRow } = await supabase.from("users").select("role, company_id").eq("auth_id", user.id).single();
+      const { data: userRow } = await supabase.from("users").select("role, company_id, employee_id").eq("auth_id", user.id).single();
       if (!userRow || userRow.role !== "EMPLOYEE") { router.push("/login"); return; }
 
-      const { data: emp } = await supabase.from("employees").select("id").eq("company_id", userRow.company_id).eq("email", user.email).single();
-      if (!emp) { router.push("/login"); return; }
+      let emp: any = null;
+      if (userRow.employee_id) {
+        const { data } = await supabase.from("employees").select("id").eq("id", userRow.employee_id).single();
+        emp = data;
+      }
+      if (!emp && user.email) {
+        const { data } = await supabase.from("employees").select("id").eq("company_id", userRow.company_id).eq("email", user.email).single();
+        emp = data;
+      }
+      if (!emp) { setLoading(false); return; }
 
       const { data: ords } = await supabase.from("orders").select("id").eq("employee_id", emp.id);
       if (!ords || ords.length === 0) { setLoading(false); return; }
@@ -53,46 +61,55 @@ export default function EmployeeInstallmentsPage() {
     </div>
   );
 
-  return (
-    <div className="flex min-h-screen" style={{ backgroundColor: "var(--nomi-gray)" }}>
-      <div className="hidden md:flex"><EmployeeSidebar /></div>
-      <main className="flex-1 p-6 md:p-8 space-y-6">
-        <div>
-          <p className="text-xs font-bold uppercase tracking-widest mb-1" style={{ color: "var(--nomi-teal)" }}>Mi portal</p>
-          <h1 className="text-3xl font-black" style={{ color: "var(--nomi-navy)" }}>Mis cuotas</h1>
-          <p className="text-sm mt-1" style={{ color: "var(--nomi-muted)" }}>Historial de todas tus cuotas</p>
-        </div>
+  const Content = () => (
+    <div className="space-y-5">
+      <div>
+        <p className="text-xs font-bold uppercase tracking-widest mb-1" style={{ color: "var(--nomi-teal)" }}>Mi portal</p>
+        <h1 className="text-2xl md:text-3xl font-black" style={{ color: "var(--nomi-navy)" }}>Mis cuotas</h1>
+        <p className="text-sm mt-1" style={{ color: "var(--nomi-muted)" }}>Historial de todas tus cuotas</p>
+      </div>
 
-        <div className="bg-white rounded-2xl overflow-hidden" style={{ border: "1.5px solid var(--nomi-border)" }}>
-          <div className="grid grid-cols-5 px-5 py-3 text-xs font-bold uppercase tracking-wide"
-            style={{ backgroundColor: "var(--nomi-gray)", color: "var(--nomi-muted)", borderBottom: "1px solid var(--nomi-border)" }}>
-            <span>Orden</span>
-            <span>Cuota</span>
-            <span>Valor</span>
-            <span>Vence</span>
-            <span>Estado</span>
-          </div>
-          {installments.length === 0 ? (
-            <div className="px-5 py-10 text-center text-sm" style={{ color: "var(--nomi-muted)" }}>No tienes cuotas registradas</div>
-          ) : installments.map((i) => {
+      {installments.length === 0 ? (
+        <div className="bg-white rounded-2xl p-6 text-sm" style={{ border: "1.5px solid var(--nomi-border)", color: "var(--nomi-muted)" }}>
+          No tienes cuotas registradas.
+        </div>
+      ) : (
+        <div className="space-y-3">
+          {installments.map((i) => {
             const sc = statusCfg[i.status] || { label: i.status, color: "var(--nomi-muted)", bg: "var(--nomi-gray)" };
             return (
-              <div key={i.id} className="grid grid-cols-5 px-5 py-3.5 items-center"
-                style={{ borderBottom: "1px solid var(--nomi-border)" }}>
-                <div className="text-xs font-semibold" style={{ color: "var(--nomi-navy)" }}>#{i.order_id.slice(0, 8)}</div>
-                <div className="text-sm" style={{ color: "var(--nomi-muted)" }}>#{i.installment_number}</div>
-                <div className="font-black text-sm" style={{ color: "var(--nomi-navy)" }}>{money(i.amount)}</div>
-                <div className="text-sm" style={{ color: "var(--nomi-muted)" }}>
-                  {i.due_date ? new Date(i.due_date).toLocaleDateString("es-CO") : "-"}
-                  {i.paid_at && <div className="text-xs">Pagada: {new Date(i.paid_at).toLocaleDateString("es-CO")}</div>}
+              <div key={i.id} className="bg-white rounded-2xl p-4"
+                style={{ border: "1.5px solid var(--nomi-border)" }}>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="font-black text-sm" style={{ color: "var(--nomi-navy)" }}>{money(i.amount)}</p>
+                    <p className="text-xs mt-0.5" style={{ color: "var(--nomi-muted)" }}>
+                      Cuota #{i.installment_number} · Orden #{i.order_id.slice(0, 8)}
+                    </p>
+                  </div>
+                  <span className="text-xs font-bold px-2.5 py-1 rounded-full"
+                    style={{ backgroundColor: sc.bg, color: sc.color }}>{sc.label}</span>
                 </div>
-                <span className="text-xs font-bold px-2.5 py-1 rounded-full w-fit"
-                  style={{ backgroundColor: sc.bg, color: sc.color }}>{sc.label}</span>
+                <div className="flex gap-4 mt-3 text-xs" style={{ color: "var(--nomi-muted)" }}>
+                  <span>Vence: {i.due_date ? new Date(i.due_date).toLocaleDateString("es-CO") : "-"}</span>
+                  {i.paid_at && <span>Pagada: {new Date(i.paid_at).toLocaleDateString("es-CO")}</span>}
+                </div>
               </div>
             );
           })}
         </div>
-      </main>
+      )}
+    </div>
+  );
+
+  return (
+    <div className="min-h-screen" style={{ backgroundColor: "var(--nomi-gray)" }}>
+      <div className="md:hidden"><EmployeeSidebar /></div>
+      <div className="hidden md:flex min-h-screen">
+        <EmployeeSidebar />
+        <main className="flex-1 p-8 overflow-y-auto"><Content /></main>
+      </div>
+      <div className="md:hidden p-4"><Content /></div>
     </div>
   );
 }
