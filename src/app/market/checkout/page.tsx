@@ -28,7 +28,6 @@ function buildInstallmentDates(opts: { count: number; pay_frequency?: string | n
   const days = parsePayDays(opts.pay_days).sort((a, b) => a - b);
   const today = new Date();
   const results: Date[] = [];
-
   const addDays = (d: Date, n: number) => { const x = new Date(d); x.setDate(x.getDate() + n); return x; };
   const dateInMonth = (y: number, m: number, d: number) => { const last = new Date(y, m + 1, 0).getDate(); return new Date(y, m, Math.max(1, Math.min(d, last))); };
 
@@ -68,14 +67,13 @@ function CheckoutPageContent() {
   const [employeeInfo, setEmployeeInfo] = useState<any>(null);
   const [companyPayConfig, setCompanyPayConfig] = useState<any>(null);
   const [loading, setLoading] = useState(false);
+  const [validating, setValidating] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const [docError, setDocError] = useState<string | null>(null);
   const [justConfirmed, setJustConfirmed] = useState(false);
-
-  // Sesion activa
   const [loggedEmployee, setLoggedEmployee] = useState<any>(null);
   const [sessionLoading, setSessionLoading] = useState(true);
 
-  // Detectar sesion al cargar
   useEffect(() => {
     async function checkSession() {
       const { data: u } = await supabase.auth.getUser();
@@ -115,59 +113,39 @@ function CheckoutPageContent() {
     checkSession();
   }, []);
 
-  // Buscar empleado por documento (solo si NO hay sesion)
-  useEffect(() => {
-    if (loggedEmployee) return;
-    async function loadEmployee() {
-      setEmployeeInfo(null);
-      setCompanyPayConfig(null);
-      setErrorMsg(null);
-      const doc = documentNumber.trim();
-      if (!doc || doc.length < 5) return;
+  async function validateDocument() {
+    setDocError(null);
+    setEmployeeInfo(null);
+    setCompanyPayConfig(null);
+    const doc = documentNumber.trim();
+    if (!doc) { setDocError("Ingresa tu numero de documento."); return; }
 
-      const { data: emp, error } = await supabase.from("employees").select("id, active, company_id, credit_limit, credit_used, max_installments").eq("document_type", documentType).eq("document_number", doc).single();
+    setValidating(true);
+    const { data: emp, error } = await supabase.from("employees")
+      .select("id, active, company_id, credit_limit, credit_used, max_installments")
+      .eq("document_type", documentType).eq("document_number", doc).single();
+    setValidating(false);
 
-      if (error || !emp) {
-        if (doc.length >= 6) setErrorMsg("Este documento no esta registrado. Consulta con el administrador de tu empresa.");
-        return;
-      }
-      setErrorMsg(null);
-      setEmployeeInfo(emp);
-
-      if (emp.company_id) {
-        const { data: comp } = await supabase.from("companies").select("id, pay_frequency, pay_days").eq("id", emp.company_id).single();
-        if (comp) setCompanyPayConfig(comp);
-      }
-
-      const mi = Number(emp.max_installments || 1);
-      if (Number.isFinite(mi) && installments > mi) setInstallments(mi);
+    if (error || !emp) {
+      setDocError("Este documento no esta registrado. Consulta con el administrador de tu empresa.");
+      return;
     }
-    loadEmployee();
-  }, [documentType, documentNumber, loggedEmployee]);
 
-  const installmentAmount = useMemo(() => {
-    const n = Number(subtotal || 0);
-    const k = Math.max(1, Number(installments || 1));
-    return Math.round(n / k);
-  }, [subtotal, installments]);
+    setEmployeeInfo(emp);
+    const mi = Number(emp.max_installments || 1);
+    if (Number.isFinite(mi) && installments > mi) setInstallments(mi);
 
-  const maxInstallments = useMemo(() => {
-    const m = Number(employeeInfo?.max_installments);
-    return Number.isFinite(m) && m > 0 ? m : 1;
-  }, [employeeInfo]);
+    if (emp.company_id) {
+      const { data: comp } = await supabase.from("companies").select("id, pay_frequency, pay_days").eq("id", emp.company_id).single();
+      if (comp) setCompanyPayConfig(comp);
+    }
+  }
 
-  const creditLimit = useMemo(() => {
-    const c = Number(employeeInfo?.credit_limit);
-    return Number.isFinite(c) ? c : 0;
-  }, [employeeInfo]);
-
-  const creditUsed = useMemo(() => {
-    const c = Number(employeeInfo?.credit_used);
-    return Number.isFinite(c) ? c : 0;
-  }, [employeeInfo]);
-
+  const installmentAmount = useMemo(() => Math.round(Number(subtotal || 0) / Math.max(1, Number(installments || 1))), [subtotal, installments]);
+  const maxInstallments = useMemo(() => { const m = Number(employeeInfo?.max_installments); return Number.isFinite(m) && m > 0 ? m : 1; }, [employeeInfo]);
+  const creditLimit = useMemo(() => { const c = Number(employeeInfo?.credit_limit); return Number.isFinite(c) ? c : 0; }, [employeeInfo]);
+  const creditUsed = useMemo(() => { const c = Number(employeeInfo?.credit_used); return Number.isFinite(c) ? c : 0; }, [employeeInfo]);
   const creditAvailable = useMemo(() => Math.max(0, creditLimit - creditUsed), [creditLimit, creditUsed]);
-
   const exceedsLimit = creditLimit > 0 && installmentAmount > creditAvailable;
 
   const scheduleDates = useMemo(() => buildInstallmentDates({
@@ -188,7 +166,7 @@ function CheckoutPageContent() {
     if (!shippingAddress.trim()) return setErrorMsg("Falta la direccion.");
     if (!shippingCity.trim()) return setErrorMsg("Falta la ciudad.");
     if (!shippingDepartment.trim()) return setErrorMsg("Falta el departamento.");
-    if (!employeeInfo) return setErrorMsg("No se encontro un empleado con ese documento.");
+    if (!employeeInfo) return setErrorMsg("Valida tu documento antes de continuar.");
     if (employeeInfo.active === false) return setErrorMsg("Empleado inactivo. Contacta a tu empresa.");
     if (exceedsLimit) return setErrorMsg("La cuota supera el cupo disponible.");
     if (installments > maxInstallments) return setErrorMsg("Numero de cuotas no permitido.");
@@ -226,7 +204,6 @@ function CheckoutPageContent() {
   return (
     <div className="max-w-5xl mx-auto px-4 py-8 space-y-6">
 
-      {/* HEADER */}
       <div className="flex items-center justify-between">
         <div>
           <p className="text-xs font-bold uppercase tracking-widest mb-1" style={{ color: "var(--nomi-teal)" }}>Marketplace</p>
@@ -245,7 +222,6 @@ function CheckoutPageContent() {
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
 
-        {/* COLUMNA IZQUIERDA */}
         <div className="space-y-5">
 
           {/* DOCUMENTO */}
@@ -262,7 +238,7 @@ function CheckoutPageContent() {
             <div className="flex gap-3">
               <div style={{ width: "100px" }}>
                 <label className="block text-xs font-bold mb-1.5 uppercase tracking-wide" style={{ color: "var(--nomi-navy)" }}>Tipo</label>
-                <select value={documentType} onChange={(e) => setDocumentType(e.target.value)}
+                <select value={documentType} onChange={(e) => { setDocumentType(e.target.value); setEmployeeInfo(null); setDocError(null); }}
                   disabled={!!loggedEmployee} style={loggedEmployee ? IS_DISABLED : IS}>
                   <option value="CC">CC</option>
                   <option value="CE">CE</option>
@@ -270,19 +246,44 @@ function CheckoutPageContent() {
               </div>
               <div className="flex-1">
                 <label className="block text-xs font-bold mb-1.5 uppercase tracking-wide" style={{ color: "var(--nomi-navy)" }}>Numero de documento</label>
-                <input value={documentNumber} onChange={(e) => setDocumentNumber(e.target.value)}
-                  disabled={!!loggedEmployee} placeholder="Ej: 1020304050"
-                  style={loggedEmployee ? IS_DISABLED : IS} />
+                <div className="flex gap-2">
+                  <input value={documentNumber}
+                    onChange={(e) => { setDocumentNumber(e.target.value); if (!loggedEmployee) { setEmployeeInfo(null); setDocError(null); } }}
+                    onKeyDown={(e) => { if (e.key === "Enter" && !loggedEmployee) validateDocument(); }}
+                    disabled={!!loggedEmployee}
+                    placeholder="Ej: 1020304050"
+                    style={loggedEmployee ? IS_DISABLED : IS} />
+                  {!loggedEmployee && (
+                    <button onClick={validateDocument} disabled={validating || !documentNumber.trim()}
+                      className="px-4 py-2 rounded-xl text-sm font-black cursor-pointer disabled:opacity-50 shrink-0"
+                      style={{ backgroundColor: "var(--nomi-navy)", color: "#fff" }}>
+                      {validating ? "..." : "Validar"}
+                    </button>
+                  )}
+                </div>
+                {!loggedEmployee && !employeeInfo && (
+                  <p className="text-xs mt-1.5" style={{ color: "var(--nomi-muted)" }}>
+                    Ingresa tu documento y presiona Validar
+                  </p>
+                )}
               </div>
             </div>
 
+            {docError && (
+              <div className="px-4 py-3 rounded-xl text-sm font-semibold" style={{ backgroundColor: "#FEE2E2", color: "#DC2626" }}>
+                {docError}
+              </div>
+            )}
+
             {/* INFO CUPO */}
             {employeeInfo && (
-              <div className="rounded-xl p-4 space-y-2" style={{ backgroundColor: "var(--nomi-teal-bg)", border: "1.5px solid var(--nomi-teal)" }}>
-                <p className="text-xs font-bold uppercase tracking-wide" style={{ color: "var(--nomi-teal)" }}>Cupo disponible</p>
+              <div className="rounded-xl p-4 space-y-3" style={{ backgroundColor: "var(--nomi-teal-bg)", border: "1.5px solid var(--nomi-teal)" }}>
+                <p className="text-xs font-bold uppercase tracking-wide" style={{ color: "var(--nomi-teal)" }}>
+                  Cupo habilitado por cuota
+                </p>
                 <div className="grid grid-cols-3 gap-3">
                   <div>
-                    <p className="text-xs" style={{ color: "var(--nomi-muted)" }}>Total</p>
+                    <p className="text-xs" style={{ color: "var(--nomi-muted)" }}>Cupo por cuota</p>
                     <p className="font-black text-sm" style={{ color: "var(--nomi-navy)" }}>{money(creditLimit)}</p>
                   </div>
                   <div>
@@ -300,12 +301,6 @@ function CheckoutPageContent() {
               </div>
             )}
 
-            {!employeeInfo && documentNumber.length >= 6 && !loggedEmployee && (
-              <div className="px-4 py-3 rounded-xl text-sm font-semibold" style={{ backgroundColor: "#FEE2E2", color: "#DC2626" }}>
-                Este documento no esta registrado. Consulta con el administrador de tu empresa.
-              </div>
-            )}
-
             {/* CUOTAS */}
             {employeeInfo && (
               <div>
@@ -318,17 +313,15 @@ function CheckoutPageContent() {
                 </select>
                 <div className="mt-2 flex items-center justify-between text-sm">
                   <span style={{ color: "var(--nomi-muted)" }}>Valor por cuota:</span>
-                  <span className={`font-black ${exceedsLimit ? "text-red-600" : ""}`}
-                    style={exceedsLimit ? {} : { color: "var(--nomi-navy)" }}>
-                    {money(installmentAmount)}
-                    {exceedsLimit && " — excede cupo"}
+                  <span className="font-black" style={{ color: exceedsLimit ? "#DC2626" : "var(--nomi-navy)" }}>
+                    {money(installmentAmount)}{exceedsLimit ? " — excede cupo" : ""}
                   </span>
                 </div>
               </div>
             )}
           </div>
 
-          {/* RESUMEN CUOTAS */}
+          {/* CALENDARIO */}
           {employeeInfo && (
             <div className="bg-white rounded-2xl p-5 space-y-3" style={{ border: "1.5px solid var(--nomi-border)" }}>
               <h2 className="font-black text-base" style={{ color: "var(--nomi-navy)" }}>Calendario de pagos</h2>
@@ -352,7 +345,6 @@ function CheckoutPageContent() {
           {/* ENVIO */}
           <div className="bg-white rounded-2xl p-5 space-y-4" style={{ border: "1.5px solid var(--nomi-border)" }}>
             <h2 className="font-black text-base" style={{ color: "var(--nomi-navy)" }}>Direccion de envio</h2>
-
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
               <div>
                 <label className="block text-xs font-bold mb-1.5 uppercase tracking-wide" style={{ color: "var(--nomi-navy)" }}>Nombre completo</label>
@@ -363,12 +355,10 @@ function CheckoutPageContent() {
                 <input value={shippingPhone} onChange={(e) => setShippingPhone(e.target.value)} placeholder="3001234567" style={IS} />
               </div>
             </div>
-
             <div>
               <label className="block text-xs font-bold mb-1.5 uppercase tracking-wide" style={{ color: "var(--nomi-navy)" }}>Direccion</label>
               <input value={shippingAddress} onChange={(e) => setShippingAddress(e.target.value)} placeholder="Calle, carrera, #, apto..." style={IS} />
             </div>
-
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
               <div>
                 <label className="block text-xs font-bold mb-1.5 uppercase tracking-wide" style={{ color: "var(--nomi-navy)" }}>Ciudad</label>
@@ -379,20 +369,19 @@ function CheckoutPageContent() {
                 <input value={shippingDepartment} onChange={(e) => setShippingDepartment(e.target.value)} placeholder="Ej: Valle del Cauca" style={IS} />
               </div>
             </div>
-
             <div>
               <label className="block text-xs font-bold mb-1.5 uppercase tracking-wide" style={{ color: "var(--nomi-navy)" }}>Notas (opcional)</label>
               <textarea value={shippingNotes} onChange={(e) => setShippingNotes(e.target.value)}
-                rows={3} placeholder="Indicaciones para el mensajero, horario, etc."
+                rows={3} placeholder="Indicaciones para el mensajero..."
                 style={{ ...IS, resize: "none" }} />
             </div>
           </div>
         </div>
 
-        {/* COLUMNA DERECHA — RESUMEN */}
+        {/* RESUMEN DERECHA */}
         <div className="space-y-5">
           <div className="bg-white rounded-2xl p-5 space-y-4 md:sticky md:top-24" style={{ border: "1.5px solid var(--nomi-border)" }}>
-            <h2 className="font-black text-base" style={{ color: "var(--nomi-navy)" }}>Resumen de tu pedido</h2>
+            <h2 className="font-black text-base" style={{ color: "var(--nomi-navy)" }}>Resumen del pedido</h2>
 
             <div className="space-y-3">
               {(items || []).map((it) => (
@@ -400,14 +389,14 @@ function CheckoutPageContent() {
                   <div className="text-sm flex-1" style={{ color: "var(--nomi-navy)" }}>
                     {it.name} <span style={{ color: "var(--nomi-muted)" }}>x{it.qty}</span>
                   </div>
-                  <div className="font-semibold text-sm" style={{ color: "var(--nomi-navy)" }}>
+                  <div className="font-semibold text-sm shrink-0" style={{ color: "var(--nomi-navy)" }}>
                     {money(Number(it.price) * Number(it.qty))}
                   </div>
                 </div>
               ))}
             </div>
 
-            <div className="pt-3 flex items-center justify-between" style={{ borderTop: "1.5px solid var(--nomi-border)" }}>
+            <div className="flex items-center justify-between pt-3" style={{ borderTop: "1.5px solid var(--nomi-border)" }}>
               <span className="text-sm font-bold" style={{ color: "var(--nomi-muted)" }}>Total</span>
               <span className="font-black text-xl" style={{ color: "var(--nomi-navy)" }}>{money(subtotal)}</span>
             </div>
@@ -420,13 +409,13 @@ function CheckoutPageContent() {
 
             {!employeeInfo && (
               <p className="text-xs text-center" style={{ color: "var(--nomi-muted)" }}>
-                {loggedEmployee ? "Cargando tu informacion..." : "Ingresa tu documento para continuar"}
+                {loggedEmployee ? "Cargando tu informacion..." : "Valida tu documento para continuar"}
               </p>
             )}
 
-            <div className="flex items-start gap-2 text-xs" style={{ color: "var(--nomi-muted)" }}>
-              <span>✓</span>
-              <span>Sin intereses · Descuento automatico por nomina · Aprobacion inmediata</span>
+            <div className="text-xs text-center space-y-1" style={{ color: "var(--nomi-muted)" }}>
+              <p>✓ 0% intereses · Descuento automatico por nomina</p>
+              <p>✓ Sin estudio de credito · Aprobacion inmediata</p>
             </div>
           </div>
         </div>
