@@ -198,7 +198,7 @@ function CheckoutPageContent() {
       p_document_type: documentType,
       p_document_number: documentNumber.trim(),
       p_installments: installments,
-      p_cart: (items || []).map((it) => ({ id: it.id, name: it.name, price: it.price, qty: it.qty })),
+      p_cart: (items || []).map((it) => ({ product_id: it.id, name: it.name, price: it.price, qty: it.qty })),
       p_shipping_name: shippingName.trim(),
       p_shipping_phone: shippingPhone.trim(),
       p_shipping_address: shippingAddress.trim(),
