@@ -30,26 +30,17 @@ export default function EmployeeHome() {
       if (!userRow || userRow.role !== "EMPLOYEE" || !userRow.company_id) { router.push("/login"); return; }
 
       let emp: any = null;
-
-      // Caso 1: tiene employee_id directo en users
       if (userRow.employee_id) {
         const { data } = await supabase.from("employees").select("*").eq("id", userRow.employee_id).single();
         emp = data;
       }
-
-      // Caso 2: buscar por email + company_id (empleados creados antes)
       if (!emp && user.email) {
         const { data } = await supabase.from("employees").select("*").eq("company_id", userRow.company_id).eq("email", user.email).single();
         emp = data;
       }
 
-      if (!emp) {
-        setErr("No se encontro tu registro de empleado. Contacta al administrador de tu empresa.");
-        setLoading(false);
-        return;
-      }
+      if (!emp) { setErr("No se encontro tu registro de empleado. Contacta al administrador de tu empresa."); setLoading(false); return; }
 
-      // Si encontramos al empleado pero no tenia employee_id, lo actualizamos
       if (!userRow.employee_id && emp) {
         await supabase.from("users").update({ employee_id: emp.id }).eq("auth_id", user.id);
       }
@@ -100,124 +91,152 @@ export default function EmployeeHome() {
   };
 
   return (
-    <div className="flex min-h-screen" style={{ backgroundColor: "var(--nomi-gray)" }}>
-      <div className="hidden md:flex">
+    <div className="min-h-screen" style={{ backgroundColor: "var(--nomi-gray)" }}>
+
+      {/* SIDEBAR — desktop lateral, mobile topbar */}
+      <div className="md:hidden">
         <EmployeeSidebar />
       </div>
+      <div className="hidden md:flex min-h-screen">
+        <EmployeeSidebar />
+        <main className="flex-1 p-8 space-y-6 overflow-y-auto">
+          <EmployeeContent
+            employee={employee} company={company}
+            recentOrders={recentOrders} pendingInstallments={pendingInstallments}
+            creditLimit={creditLimit} creditUsed={creditUsed}
+            creditAvailable={creditAvailable} creditPct={creditPct}
+            statusCfg={statusCfg} money={money}
+          />
+        </main>
+      </div>
 
-      <main className="flex-1 p-6 md:p-8 space-y-6 overflow-y-auto">
+      {/* CONTENIDO MOBILE */}
+      <div className="md:hidden p-4 space-y-5">
+        <EmployeeContent
+          employee={employee} company={company}
+          recentOrders={recentOrders} pendingInstallments={pendingInstallments}
+          creditLimit={creditLimit} creditUsed={creditUsed}
+          creditAvailable={creditAvailable} creditPct={creditPct}
+          statusCfg={statusCfg} money={money}
+        />
+      </div>
+    </div>
+  );
+}
 
-        <div className="flex items-start justify-between">
+function EmployeeContent({ employee, company, recentOrders, pendingInstallments, creditLimit, creditUsed, creditAvailable, creditPct, statusCfg, money }: any) {
+  return (
+    <>
+      <div className="flex items-start justify-between">
+        <div>
+          <p className="text-xs font-bold uppercase tracking-widest mb-1" style={{ color: "var(--nomi-teal)" }}>Bienvenido</p>
+          <h1 className="text-2xl md:text-3xl font-black" style={{ color: "var(--nomi-navy)" }}>Hola, {employee.name?.split(" ")[0]}</h1>
+          <p className="text-sm mt-1" style={{ color: "var(--nomi-muted)" }}>{company?.name}{company?.nit ? ` · NIT ${company.nit}` : ""}</p>
+        </div>
+      </div>
+
+      <div className="bg-white rounded-2xl p-5" style={{ border: "1.5px solid var(--nomi-border)" }}>
+        <p className="text-xs font-bold uppercase tracking-widest mb-4" style={{ color: "var(--nomi-teal)" }}>Mi cupo mensual</p>
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
           <div>
-            <p className="text-xs font-bold uppercase tracking-widest mb-1" style={{ color: "var(--nomi-teal)" }}>Bienvenido</p>
-            <h1 className="text-3xl font-black" style={{ color: "var(--nomi-navy)" }}>Hola, {employee.name?.split(" ")[0]}</h1>
-            <p className="text-sm mt-1" style={{ color: "var(--nomi-muted)" }}>{company?.name}{company?.nit ? ` · NIT ${company.nit}` : ""}</p>
+            <p className="text-xs mb-1" style={{ color: "var(--nomi-muted)" }}>Cupo total</p>
+            <p className="text-lg font-black" style={{ color: "var(--nomi-navy)" }}>{money(creditLimit)}</p>
           </div>
-          <Link href="/market"
-            className="hidden md:flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-bold cursor-pointer"
-            style={{ backgroundColor: "var(--nomi-navy)", color: "#fff" }}>
-            Ir al marketplace
-          </Link>
+          <div>
+            <p className="text-xs mb-1" style={{ color: "var(--nomi-muted)" }}>Usado</p>
+            <p className="text-lg font-black" style={{ color: "var(--nomi-orange)" }}>{money(creditUsed)}</p>
+          </div>
+          <div>
+            <p className="text-xs mb-1" style={{ color: "var(--nomi-muted)" }}>Disponible</p>
+            <p className="text-lg font-black" style={{ color: "#16A34A" }}>{money(creditAvailable)}</p>
+          </div>
+          <div>
+            <p className="text-xs mb-1" style={{ color: "var(--nomi-muted)" }}>Cuotas max</p>
+            <p className="text-lg font-black" style={{ color: "var(--nomi-navy)" }}>{employee.max_installments}</p>
+          </div>
         </div>
-
-        <div className="bg-white rounded-2xl p-6" style={{ border: "1.5px solid var(--nomi-border)" }}>
-          <p className="text-xs font-bold uppercase tracking-widest mb-4" style={{ color: "var(--nomi-teal)" }}>Mi cupo mensual</p>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-5">
-            <div>
-              <p className="text-xs mb-1" style={{ color: "var(--nomi-muted)" }}>Cupo total</p>
-              <p className="text-xl font-black" style={{ color: "var(--nomi-navy)" }}>{money(creditLimit)}</p>
-            </div>
-            <div>
-              <p className="text-xs mb-1" style={{ color: "var(--nomi-muted)" }}>Usado</p>
-              <p className="text-xl font-black" style={{ color: "var(--nomi-orange)" }}>{money(creditUsed)}</p>
-            </div>
-            <div>
-              <p className="text-xs mb-1" style={{ color: "var(--nomi-muted)" }}>Disponible</p>
-              <p className="text-xl font-black" style={{ color: "#16A34A" }}>{money(creditAvailable)}</p>
-            </div>
-            <div>
-              <p className="text-xs mb-1" style={{ color: "var(--nomi-muted)" }}>Cuotas max</p>
-              <p className="text-xl font-black" style={{ color: "var(--nomi-navy)" }}>{employee.max_installments}</p>
-            </div>
-          </div>
-          <div className="w-full rounded-full h-3" style={{ backgroundColor: "var(--nomi-gray)" }}>
-            <div className="h-3 rounded-full transition-all"
-              style={{ width: `${creditPct}%`, backgroundColor: creditPct > 80 ? "#DC2626" : "var(--nomi-orange)" }} />
-          </div>
-          <p className="text-xs mt-2" style={{ color: "var(--nomi-muted)" }}>{creditPct}% del cupo utilizado</p>
+        <div className="w-full rounded-full h-3" style={{ backgroundColor: "var(--nomi-gray)" }}>
+          <div className="h-3 rounded-full transition-all"
+            style={{ width: `${creditPct}%`, backgroundColor: creditPct > 80 ? "#DC2626" : "var(--nomi-orange)" }} />
         </div>
+        <p className="text-xs mt-2" style={{ color: "var(--nomi-muted)" }}>{creditPct}% del cupo utilizado</p>
+      </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-
-          <div className="bg-white rounded-2xl p-5" style={{ border: "1.5px solid var(--nomi-border)" }}>
-            <div className="flex items-center justify-between mb-4">
-              <p className="text-xs font-bold uppercase tracking-widest" style={{ color: "var(--nomi-teal)" }}>Ultimas ordenes</p>
-              <Link href="/employee/orders" className="text-xs font-semibold" style={{ color: "var(--nomi-orange)" }}>Ver todas</Link>
-            </div>
-            {recentOrders.length === 0 ? (
-              <p className="text-sm" style={{ color: "var(--nomi-muted)" }}>No tienes ordenes aun.</p>
-            ) : recentOrders.map((o) => {
-              const sc = statusCfg[o.status] || { label: o.status, color: "var(--nomi-muted)", bg: "var(--nomi-gray)" };
-              return (
-                <Link key={o.id} href={`/employee/orders/${o.id}`}
-                  className="flex items-center justify-between py-3 cursor-pointer"
-                  style={{ borderBottom: "1px solid var(--nomi-border)" }}>
-                  <div>
-                    <p className="text-sm font-semibold" style={{ color: "var(--nomi-navy)" }}>#{o.id.slice(0, 8)}</p>
-                    <p className="text-xs mt-0.5" style={{ color: "var(--nomi-muted)" }}>{o.installments} cuotas de {money(o.installment_amount)}</p>
-                  </div>
-                  <div className="text-right">
-                    <p className="font-black text-sm" style={{ color: "var(--nomi-navy)" }}>{money(o.subtotal)}</p>
-                    <span className="text-xs font-bold px-2 py-0.5 rounded-full" style={{ backgroundColor: sc.bg, color: sc.color }}>{sc.label}</span>
-                  </div>
-                </Link>
-              );
-            })}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+        <div className="bg-white rounded-2xl p-5" style={{ border: "1.5px solid var(--nomi-border)" }}>
+          <div className="flex items-center justify-between mb-4">
+            <p className="text-xs font-bold uppercase tracking-widest" style={{ color: "var(--nomi-teal)" }}>Ultimas ordenes</p>
+            <Link href="/employee/orders" className="text-xs font-semibold" style={{ color: "var(--nomi-orange)" }}>Ver todas</Link>
           </div>
-
-          <div className="bg-white rounded-2xl p-5" style={{ border: "1.5px solid var(--nomi-border)" }}>
-            <div className="flex items-center justify-between mb-4">
-              <p className="text-xs font-bold uppercase tracking-widest" style={{ color: "var(--nomi-teal)" }}>Proximas cuotas</p>
-              <Link href="/employee/installments" className="text-xs font-semibold" style={{ color: "var(--nomi-orange)" }}>Ver todas</Link>
-            </div>
-            {pendingInstallments.length === 0 ? (
-              <p className="text-sm" style={{ color: "var(--nomi-muted)" }}>No tienes cuotas pendientes.</p>
-            ) : pendingInstallments.map((i) => (
-              <div key={i.id} className="flex items-center justify-between py-3"
+          {recentOrders.length === 0 ? (
+            <p className="text-sm" style={{ color: "var(--nomi-muted)" }}>No tienes ordenes aun.</p>
+          ) : recentOrders.map((o: any) => {
+            const sc = statusCfg[o.status] || { label: o.status, color: "var(--nomi-muted)", bg: "var(--nomi-gray)" };
+            return (
+              <Link key={o.id} href={`/employee/orders/${o.id}`}
+                className="flex items-center justify-between py-3 cursor-pointer"
                 style={{ borderBottom: "1px solid var(--nomi-border)" }}>
                 <div>
-                  <p className="text-sm font-semibold" style={{ color: "var(--nomi-navy)" }}>Cuota #{i.installment_number}</p>
-                  <p className="text-xs mt-0.5" style={{ color: "var(--nomi-muted)" }}>Vence: {i.due_date ? new Date(i.due_date).toLocaleDateString("es-CO") : "-"}</p>
+                  <p className="text-sm font-semibold" style={{ color: "var(--nomi-navy)" }}>#{o.id.slice(0, 8)}</p>
+                  <p className="text-xs mt-0.5" style={{ color: "var(--nomi-muted)" }}>{o.installments} cuotas de {money(o.installment_amount)}</p>
                 </div>
-                <p className="font-black text-sm" style={{ color: "var(--nomi-orange)" }}>{money(i.amount)}</p>
-              </div>
-            ))}
-          </div>
+                <div className="text-right">
+                  <p className="font-black text-sm" style={{ color: "var(--nomi-navy)" }}>{money(o.subtotal)}</p>
+                  <span className="text-xs font-bold px-2 py-0.5 rounded-full" style={{ backgroundColor: sc.bg, color: sc.color }}>{sc.label}</span>
+                </div>
+              </Link>
+            );
+          })}
         </div>
 
         <div className="bg-white rounded-2xl p-5" style={{ border: "1.5px solid var(--nomi-border)" }}>
-          <p className="text-xs font-bold uppercase tracking-widest mb-4" style={{ color: "var(--nomi-teal)" }}>Mis datos</p>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
-            <div>
-              <p className="text-xs mb-1" style={{ color: "var(--nomi-muted)" }}>Documento</p>
-              <p className="font-semibold" style={{ color: "var(--nomi-navy)" }}>{employee.document_type} {employee.document_number}</p>
+          <div className="flex items-center justify-between mb-4">
+            <p className="text-xs font-bold uppercase tracking-widest" style={{ color: "var(--nomi-teal)" }}>Proximas cuotas</p>
+            <Link href="/employee/installments" className="text-xs font-semibold" style={{ color: "var(--nomi-orange)" }}>Ver todas</Link>
+          </div>
+          {pendingInstallments.length === 0 ? (
+            <p className="text-sm" style={{ color: "var(--nomi-muted)" }}>No tienes cuotas pendientes.</p>
+          ) : pendingInstallments.map((i: any) => (
+            <div key={i.id} className="flex items-center justify-between py-3"
+              style={{ borderBottom: "1px solid var(--nomi-border)" }}>
+              <div>
+                <p className="text-sm font-semibold" style={{ color: "var(--nomi-navy)" }}>Cuota #{i.installment_number}</p>
+                <p className="text-xs mt-0.5" style={{ color: "var(--nomi-muted)" }}>Vence: {i.due_date ? new Date(i.due_date).toLocaleDateString("es-CO") : "-"}</p>
+              </div>
+              <p className="font-black text-sm" style={{ color: "var(--nomi-orange)" }}>{money(i.amount)}</p>
             </div>
-            <div>
-              <p className="text-xs mb-1" style={{ color: "var(--nomi-muted)" }}>Email</p>
-              <p className="font-semibold" style={{ color: "var(--nomi-navy)" }}>{employee.email}</p>
-            </div>
-            <div>
-              <p className="text-xs mb-1" style={{ color: "var(--nomi-muted)" }}>Celular</p>
-              <p className="font-semibold" style={{ color: "var(--nomi-navy)" }}>{employee.phone || "—"}</p>
-            </div>
-            <div>
-              <p className="text-xs mb-1" style={{ color: "var(--nomi-muted)" }}>Ciudad</p>
-              <p className="font-semibold" style={{ color: "var(--nomi-navy)" }}>{employee.city || "—"}</p>
-            </div>
+          ))}
+        </div>
+      </div>
+
+      <div className="bg-white rounded-2xl p-5" style={{ border: "1.5px solid var(--nomi-border)" }}>
+        <p className="text-xs font-bold uppercase tracking-widest mb-4" style={{ color: "var(--nomi-teal)" }}>Mis datos</p>
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+          <div>
+            <p className="text-xs mb-1" style={{ color: "var(--nomi-muted)" }}>Documento</p>
+            <p className="font-semibold" style={{ color: "var(--nomi-navy)" }}>{employee.document_type} {employee.document_number}</p>
+          </div>
+          <div>
+            <p className="text-xs mb-1" style={{ color: "var(--nomi-muted)" }}>Email</p>
+            <p className="font-semibold text-xs break-all" style={{ color: "var(--nomi-navy)" }}>{employee.email}</p>
+          </div>
+          <div>
+            <p className="text-xs mb-1" style={{ color: "var(--nomi-muted)" }}>Celular</p>
+            <p className="font-semibold" style={{ color: "var(--nomi-navy)" }}>{employee.phone || "—"}</p>
+          </div>
+          <div>
+            <p className="text-xs mb-1" style={{ color: "var(--nomi-muted)" }}>Ciudad</p>
+            <p className="font-semibold" style={{ color: "var(--nomi-navy)" }}>{employee.city || "—"}</p>
           </div>
         </div>
-
-      </main>
-    </div>
+        <div className="mt-4">
+          <Link href="/employee/settings"
+            className="inline-flex px-4 py-2 rounded-xl text-sm font-bold cursor-pointer"
+            style={{ backgroundColor: "var(--nomi-orange)", color: "#fff" }}>
+            Editar mis datos
+          </Link>
+        </div>
+      </div>
+    </>
   );
 }
