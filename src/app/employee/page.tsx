@@ -26,11 +26,34 @@ export default function EmployeeHome() {
       const user = u?.user;
       if (!user) { router.push("/login"); return; }
 
-      const { data: userRow } = await supabase.from("users").select("role, company_id").eq("auth_id", user.id).single();
+      const { data: userRow } = await supabase.from("users").select("role, company_id, employee_id").eq("auth_id", user.id).single();
       if (!userRow || userRow.role !== "EMPLOYEE" || !userRow.company_id) { router.push("/login"); return; }
 
-      const { data: emp, error: empErr } = await supabase.from("employees").select("*").eq("company_id", userRow.company_id).eq("email", user.email).single();
-      if (empErr || !emp) { setErr("No se encontro tu registro de empleado."); setLoading(false); return; }
+      let emp: any = null;
+
+      // Caso 1: tiene employee_id directo en users
+      if (userRow.employee_id) {
+        const { data } = await supabase.from("employees").select("*").eq("id", userRow.employee_id).single();
+        emp = data;
+      }
+
+      // Caso 2: buscar por email + company_id (empleados creados antes)
+      if (!emp && user.email) {
+        const { data } = await supabase.from("employees").select("*").eq("company_id", userRow.company_id).eq("email", user.email).single();
+        emp = data;
+      }
+
+      if (!emp) {
+        setErr("No se encontro tu registro de empleado. Contacta al administrador de tu empresa.");
+        setLoading(false);
+        return;
+      }
+
+      // Si encontramos al empleado pero no tenia employee_id, lo actualizamos
+      if (!userRow.employee_id && emp) {
+        await supabase.from("users").update({ employee_id: emp.id }).eq("auth_id", user.id);
+      }
+
       setEmployee(emp);
 
       const { data: comp } = await supabase.from("companies").select("id, name, nit").eq("id", userRow.company_id).single();
@@ -84,12 +107,11 @@ export default function EmployeeHome() {
 
       <main className="flex-1 p-6 md:p-8 space-y-6 overflow-y-auto">
 
-        {/* HEADER */}
         <div className="flex items-start justify-between">
           <div>
             <p className="text-xs font-bold uppercase tracking-widest mb-1" style={{ color: "var(--nomi-teal)" }}>Bienvenido</p>
             <h1 className="text-3xl font-black" style={{ color: "var(--nomi-navy)" }}>Hola, {employee.name?.split(" ")[0]}</h1>
-            <p className="text-sm mt-1" style={{ color: "var(--nomi-muted)" }}>{company?.name} {company?.nit ? `· NIT ${company.nit}` : ""}</p>
+            <p className="text-sm mt-1" style={{ color: "var(--nomi-muted)" }}>{company?.name}{company?.nit ? ` · NIT ${company.nit}` : ""}</p>
           </div>
           <Link href="/market"
             className="hidden md:flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-bold cursor-pointer"
@@ -98,7 +120,6 @@ export default function EmployeeHome() {
           </Link>
         </div>
 
-        {/* CUPO */}
         <div className="bg-white rounded-2xl p-6" style={{ border: "1.5px solid var(--nomi-border)" }}>
           <p className="text-xs font-bold uppercase tracking-widest mb-4" style={{ color: "var(--nomi-teal)" }}>Mi cupo mensual</p>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-5">
@@ -128,7 +149,6 @@ export default function EmployeeHome() {
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
 
-          {/* ULTIMAS ORDENES */}
           <div className="bg-white rounded-2xl p-5" style={{ border: "1.5px solid var(--nomi-border)" }}>
             <div className="flex items-center justify-between mb-4">
               <p className="text-xs font-bold uppercase tracking-widest" style={{ color: "var(--nomi-teal)" }}>Ultimas ordenes</p>
@@ -155,7 +175,6 @@ export default function EmployeeHome() {
             })}
           </div>
 
-          {/* CUOTAS PENDIENTES */}
           <div className="bg-white rounded-2xl p-5" style={{ border: "1.5px solid var(--nomi-border)" }}>
             <div className="flex items-center justify-between mb-4">
               <p className="text-xs font-bold uppercase tracking-widest" style={{ color: "var(--nomi-teal)" }}>Proximas cuotas</p>
@@ -176,7 +195,6 @@ export default function EmployeeHome() {
           </div>
         </div>
 
-        {/* DATOS PERSONALES */}
         <div className="bg-white rounded-2xl p-5" style={{ border: "1.5px solid var(--nomi-border)" }}>
           <p className="text-xs font-bold uppercase tracking-widest mb-4" style={{ color: "var(--nomi-teal)" }}>Mis datos</p>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
