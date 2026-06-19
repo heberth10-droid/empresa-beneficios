@@ -30,13 +30,11 @@ function buildInstallmentDates(opts: { count: number; pay_frequency?: string | n
   const results: Date[] = [];
   const addDays = (d: Date, n: number) => { const x = new Date(d); x.setDate(x.getDate() + n); return x; };
   const dateInMonth = (y: number, m: number, d: number) => { const last = new Date(y, m + 1, 0).getDate(); return new Date(y, m, Math.max(1, Math.min(d, last))); };
-
   if (days.length === 0 || (!freq.includes("MONTH") && !freq.includes("BIWEEK"))) {
     let d = addDays(today, 15);
     for (let i = 0; i < count; i++) { results.push(d); d = addDays(d, 15); }
     return results.map((d) => d.toISOString().slice(0, 10));
   }
-
   const y = today.getFullYear(); const m = today.getMonth();
   const candidates: Date[] = [];
   for (let k = 0; k < 14; k++) {
@@ -44,7 +42,6 @@ function buildInstallmentDates(opts: { count: number; pay_frequency?: string | n
     if (freq.includes("MONTH")) { candidates.push(dateInMonth(yy, month0, days[0])); }
     else { candidates.push(dateInMonth(yy, month0, days[0])); candidates.push(dateInMonth(yy, month0, days[1] ?? days[0])); }
   }
-
   const filtered = candidates.filter((d) => d.getTime() >= new Date(today.toDateString()).getTime()).sort((a, b) => a.getTime() - b.getTime());
   for (const d of filtered) { if (results.length >= count) break; results.push(d); }
   while (results.length < count) { const last = results[results.length - 1] || addDays(today, 15); results.push(addDays(last, 15)); }
@@ -79,10 +76,8 @@ function CheckoutPageContent() {
       const { data: u } = await supabase.auth.getUser();
       const user = u?.user;
       if (!user) { setSessionLoading(false); return; }
-
       const { data: userRow } = await supabase.from("users").select("role, company_id, employee_id").eq("auth_id", user.id).single();
       if (!userRow || userRow.role !== "EMPLOYEE") { setSessionLoading(false); return; }
-
       let emp: any = null;
       if (userRow.employee_id) {
         const { data } = await supabase.from("employees").select("id, name, document_type, document_number, phone, address, city, active, credit_limit, credit_used, max_installments, company_id").eq("id", userRow.employee_id).single();
@@ -92,7 +87,6 @@ function CheckoutPageContent() {
         const { data } = await supabase.from("employees").select("id, name, document_type, document_number, phone, address, city, active, credit_limit, credit_used, max_installments, company_id").eq("company_id", userRow.company_id).eq("email", user.email).single();
         emp = data;
       }
-
       if (emp) {
         setLoggedEmployee(emp);
         setDocumentType(emp.document_type || "CC");
@@ -102,7 +96,6 @@ function CheckoutPageContent() {
         setShippingAddress(emp.address || "");
         setShippingCity(emp.city || "");
         setEmployeeInfo(emp);
-
         if (emp.company_id) {
           const { data: comp } = await supabase.from("companies").select("id, pay_frequency, pay_days").eq("id", emp.company_id).single();
           if (comp) setCompanyPayConfig(comp);
@@ -119,22 +112,20 @@ function CheckoutPageContent() {
     setCompanyPayConfig(null);
     const doc = documentNumber.trim();
     if (!doc) { setDocError("Ingresa tu numero de documento."); return; }
-
     setValidating(true);
-    const { data: emp, error } = await supabase.from("employees")
-      .select("id, active, company_id, credit_limit, credit_used, max_installments")
-      .eq("document_type", documentType).eq("document_number", doc).single();
+    const { data: empRows, error } = await supabase.rpc("get_employee_by_document", {
+      p_document_type: documentType,
+      p_document_number: doc,
+    });
     setValidating(false);
-
+    const emp = empRows?.[0] ?? null;
     if (error || !emp) {
       setDocError("Este documento no esta registrado. Consulta con el administrador de tu empresa.");
       return;
     }
-
     setEmployeeInfo(emp);
     const mi = Number(emp.max_installments || 1);
     if (Number.isFinite(mi) && installments > mi) setInstallments(mi);
-
     if (emp.company_id) {
       const { data: comp } = await supabase.from("companies").select("id, pay_frequency, pay_days").eq("id", emp.company_id).single();
       if (comp) setCompanyPayConfig(comp);
@@ -170,7 +161,6 @@ function CheckoutPageContent() {
     if (employeeInfo.active === false) return setErrorMsg("Empleado inactivo. Contacta a tu empresa.");
     if (exceedsLimit) return setErrorMsg("La cuota supera el cupo disponible.");
     if (installments > maxInstallments) return setErrorMsg("Numero de cuotas no permitido.");
-
     setLoading(true);
     const { data: orderId, error } = await supabase.rpc("create_order_by_document", {
       p_document_type: documentType,
@@ -185,7 +175,6 @@ function CheckoutPageContent() {
       p_shipping_notes: shippingNotes.trim(),
     });
     setLoading(false);
-
     if (error || !orderId) { setErrorMsg(error?.message || "No se pudo confirmar la compra."); return; }
     setJustConfirmed(true);
     router.push(`/market/order/${orderId}`);
@@ -209,36 +198,28 @@ function CheckoutPageContent() {
           <p className="text-xs font-bold uppercase tracking-widest mb-1" style={{ color: "var(--nomi-teal)" }}>Marketplace</p>
           <h1 className="text-2xl md:text-3xl font-black" style={{ color: "var(--nomi-navy)" }}>Finalizar compra</h1>
         </div>
-        <Link href="/market/cart" className="text-sm font-semibold" style={{ color: "var(--nomi-orange)" }}>
-          Volver al carrito
-        </Link>
+        <Link href="/market/cart" className="text-sm font-semibold" style={{ color: "var(--nomi-orange)" }}>Volver al carrito</Link>
       </div>
 
       {errorMsg && (
-        <div className="px-4 py-3 rounded-xl text-sm font-semibold" style={{ backgroundColor: "#FEE2E2", color: "#DC2626" }}>
-          {errorMsg}
-        </div>
+        <div className="px-4 py-3 rounded-xl text-sm font-semibold" style={{ backgroundColor: "#FEE2E2", color: "#DC2626" }}>{errorMsg}</div>
       )}
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-
         <div className="space-y-5">
 
           {/* DOCUMENTO */}
           <div className="bg-white rounded-2xl p-5 space-y-4" style={{ border: "1.5px solid var(--nomi-border)" }}>
             <div>
               <h2 className="font-black text-base" style={{ color: "var(--nomi-navy)" }}>Validacion del empleado</h2>
-              {loggedEmployee && (
-                <p className="text-xs mt-1 font-semibold" style={{ color: "var(--nomi-teal)" }}>
-                  Sesion activa como {loggedEmployee.name}
-                </p>
-              )}
+              {loggedEmployee && <p className="text-xs mt-1 font-semibold" style={{ color: "var(--nomi-teal)" }}>Sesion activa como {loggedEmployee.name}</p>}
             </div>
 
             <div className="flex gap-3">
               <div style={{ width: "100px" }}>
                 <label className="block text-xs font-bold mb-1.5 uppercase tracking-wide" style={{ color: "var(--nomi-navy)" }}>Tipo</label>
-                <select value={documentType} onChange={(e) => { setDocumentType(e.target.value); setEmployeeInfo(null); setDocError(null); }}
+                <select value={documentType}
+                  onChange={(e) => { setDocumentType(e.target.value); setEmployeeInfo(null); setDocError(null); }}
                   disabled={!!loggedEmployee} style={loggedEmployee ? IS_DISABLED : IS}>
                   <option value="CC">CC</option>
                   <option value="CE">CE</option>
@@ -261,26 +242,19 @@ function CheckoutPageContent() {
                     </button>
                   )}
                 </div>
-                {!loggedEmployee && !employeeInfo && (
-                  <p className="text-xs mt-1.5" style={{ color: "var(--nomi-muted)" }}>
-                    Ingresa tu documento y presiona Validar
-                  </p>
+                {!loggedEmployee && !employeeInfo && !docError && (
+                  <p className="text-xs mt-1.5" style={{ color: "var(--nomi-muted)" }}>Ingresa tu documento y presiona Validar</p>
                 )}
               </div>
             </div>
 
             {docError && (
-              <div className="px-4 py-3 rounded-xl text-sm font-semibold" style={{ backgroundColor: "#FEE2E2", color: "#DC2626" }}>
-                {docError}
-              </div>
+              <div className="px-4 py-3 rounded-xl text-sm font-semibold" style={{ backgroundColor: "#FEE2E2", color: "#DC2626" }}>{docError}</div>
             )}
 
-            {/* INFO CUPO */}
             {employeeInfo && (
               <div className="rounded-xl p-4 space-y-3" style={{ backgroundColor: "var(--nomi-teal-bg)", border: "1.5px solid var(--nomi-teal)" }}>
-                <p className="text-xs font-bold uppercase tracking-wide" style={{ color: "var(--nomi-teal)" }}>
-                  Cupo habilitado por cuota
-                </p>
+                <p className="text-xs font-bold uppercase tracking-wide" style={{ color: "var(--nomi-teal)" }}>Cupo habilitado por cuota</p>
                 <div className="grid grid-cols-3 gap-3">
                   <div>
                     <p className="text-xs" style={{ color: "var(--nomi-muted)" }}>Cupo por cuota</p>
@@ -295,13 +269,10 @@ function CheckoutPageContent() {
                     <p className="font-black text-sm" style={{ color: "#16A34A" }}>{money(creditAvailable)}</p>
                   </div>
                 </div>
-                <p className="text-xs" style={{ color: "var(--nomi-muted)" }}>
-                  Cuotas habilitadas: <b style={{ color: "var(--nomi-navy)" }}>{maxInstallments}</b>
-                </p>
+                <p className="text-xs" style={{ color: "var(--nomi-muted)" }}>Cuotas habilitadas: <b style={{ color: "var(--nomi-navy)" }}>{maxInstallments}</b></p>
               </div>
             )}
 
-            {/* CUOTAS */}
             {employeeInfo && (
               <div>
                 <label className="block text-xs font-bold mb-1.5 uppercase tracking-wide" style={{ color: "var(--nomi-navy)" }}>Numero de cuotas</label>
@@ -378,11 +349,10 @@ function CheckoutPageContent() {
           </div>
         </div>
 
-        {/* RESUMEN DERECHA */}
-        <div className="space-y-5">
+        {/* RESUMEN */}
+        <div>
           <div className="bg-white rounded-2xl p-5 space-y-4 md:sticky md:top-24" style={{ border: "1.5px solid var(--nomi-border)" }}>
             <h2 className="font-black text-base" style={{ color: "var(--nomi-navy)" }}>Resumen del pedido</h2>
-
             <div className="space-y-3">
               {(items || []).map((it) => (
                 <div key={it.id} className="flex items-center justify-between gap-3">
@@ -395,24 +365,20 @@ function CheckoutPageContent() {
                 </div>
               ))}
             </div>
-
             <div className="flex items-center justify-between pt-3" style={{ borderTop: "1.5px solid var(--nomi-border)" }}>
               <span className="text-sm font-bold" style={{ color: "var(--nomi-muted)" }}>Total</span>
               <span className="font-black text-xl" style={{ color: "var(--nomi-navy)" }}>{money(subtotal)}</span>
             </div>
-
             <button onClick={confirmOrder} disabled={loading || !employeeInfo || exceedsLimit}
               className="w-full py-3.5 rounded-xl text-sm font-black cursor-pointer disabled:opacity-50 transition"
               style={{ backgroundColor: "var(--nomi-orange)", color: "#fff" }}>
               {loading ? "Confirmando..." : "Confirmar compra"}
             </button>
-
             {!employeeInfo && (
               <p className="text-xs text-center" style={{ color: "var(--nomi-muted)" }}>
                 {loggedEmployee ? "Cargando tu informacion..." : "Valida tu documento para continuar"}
               </p>
             )}
-
             <div className="text-xs text-center space-y-1" style={{ color: "var(--nomi-muted)" }}>
               <p>✓ 0% intereses · Descuento automatico por nomina</p>
               <p>✓ Sin estudio de credito · Aprobacion inmediata</p>
