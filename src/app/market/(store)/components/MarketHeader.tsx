@@ -98,7 +98,7 @@ export default function MarketHeader() {
 
   function goSearch() {
     const value = q.trim();
-    router.push(value ? `/market?q=${encodeURIComponent(value)}` : "/market");
+    router.push(value ? `/market/catalog?q=${encodeURIComponent(value)}` : "/market/catalog");
     setMobileMenuOpen(false);
   }
 

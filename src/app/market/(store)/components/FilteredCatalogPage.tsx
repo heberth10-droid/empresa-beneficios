@@ -9,30 +9,15 @@ type FilterType = "all" | "category" | "subcategory" | "brand";
 type Props = {
   filterType: FilterType;
   filterValue: string;
+  initialQ?: string;
 };
 
-type Brand = {
-  id: string;
-  name: string | null;
-};
-
-type MarketCategory = {
-  id: string;
-  name: string;
-};
-
-type MarketSubcategory = {
-  id: string;
-  category_name: string;
-  name: string;
-};
+type Brand = { id: string; name: string | null; };
+type MarketCategory = { id: string; name: string; };
+type MarketSubcategory = { id: string; category_name: string; name: string; };
 
 function formatCOP(n: number) {
-  return new Intl.NumberFormat("es-CO", {
-    style: "currency",
-    currency: "COP",
-    maximumFractionDigits: 0,
-  }).format(Number.isFinite(n) ? n : 0);
+  return new Intl.NumberFormat("es-CO", { style: "currency", currency: "COP", maximumFractionDigits: 0 }).format(Number.isFinite(n) ? n : 0);
 }
 
 function getMainImage(row: any): string | null {
@@ -44,10 +29,7 @@ function getMainImage(row: any): string | null {
     const s = images.trim();
     if (!s) return null;
     if (s.startsWith("[") && s.endsWith("]")) {
-      try {
-        const arr = JSON.parse(s);
-        if (Array.isArray(arr) && arr.length > 0) return String(arr[0]);
-      } catch {}
+      try { const arr = JSON.parse(s); if (Array.isArray(arr) && arr.length > 0) return String(arr[0]); } catch {}
     }
     const first = s.split(",").map((x) => x.trim()).filter(Boolean)[0];
     return first || null;
@@ -55,7 +37,7 @@ function getMainImage(row: any): string | null {
   return null;
 }
 
-export default function FilteredCatalogPage({ filterType, filterValue }: Props) {
+export default function FilteredCatalogPage({ filterType, filterValue, initialQ = "" }: Props) {
   const [brands, setBrands] = useState<Brand[]>([]);
   const [categories, setCategories] = useState<MarketCategory[]>([]);
   const [subcategories, setSubcategories] = useState<MarketSubcategory[]>([]);
@@ -63,6 +45,7 @@ export default function FilteredCatalogPage({ filterType, filterValue }: Props) 
   const [brandId, setBrandId] = useState(filterType === "brand" ? filterValue : "ALL");
   const [category, setCategory] = useState(filterType === "category" ? filterValue : "ALL");
   const [subcategory, setSubcategory] = useState(filterType === "subcategory" ? filterValue : "ALL");
+  const [searchQ, setSearchQ] = useState(initialQ);
 
   const [sort, setSort] = useState<"NEW" | "PRICE_ASC" | "PRICE_DESC" | "AZ" | "ZA">("NEW");
   const [onlyAvailable, setOnlyAvailable] = useState(false);
@@ -87,34 +70,27 @@ export default function FilteredCatalogPage({ filterType, filterValue }: Props) 
   useEffect(() => {
     function handleClickOutside(e: MouseEvent) {
       const target = e.target as HTMLElement;
-      if (!target.closest("[data-dropdown]")) {
-        setSortOpen(false);
-        setFilterOpen(false);
-      }
+      if (!target.closest("[data-dropdown]")) { setSortOpen(false); setFilterOpen(false); }
     }
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  const totalPages = useMemo(() => {
-    const t = Math.ceil((total || 0) / pageSize);
-    return t <= 0 ? 1 : t;
-  }, [total]);
+  const totalPages = useMemo(() => { const t = Math.ceil((total || 0) / pageSize); return t <= 0 ? 1 : t; }, [total]);
 
   const filteredSubcategories = useMemo(() => {
     if (category === "ALL") return subcategories;
-    return subcategories.filter(
-      (s) => s.category_name.trim().toLowerCase() === category.trim().toLowerCase()
-    );
+    return subcategories.filter((s) => s.category_name.trim().toLowerCase() === category.trim().toLowerCase());
   }, [subcategories, category]);
 
   const pageTitle = useMemo(() => {
+    if (searchQ) return `Resultados para "${searchQ}"`;
     if (filterType === "all") return "Todos los productos";
     if (filterType === "category") return `Categoria: ${filterValue}`;
     if (filterType === "subcategory") return `Subcategoria: ${filterValue}`;
     const brandName = brands.find((b) => b.id === filterValue)?.name;
     return brandName ? `Marca: ${brandName}` : "Marca";
-  }, [filterType, filterValue, brands]);
+  }, [filterType, filterValue, brands, searchQ]);
 
   useEffect(() => {
     async function loadFilters() {
@@ -130,9 +106,7 @@ export default function FilteredCatalogPage({ filterType, filterValue }: Props) 
     loadFilters();
   }, []);
 
-  useEffect(() => {
-    setPage(1);
-  }, [brandId, category, subcategory, sort, onlyAvailable, onlyDiscount]);
+  useEffect(() => { setPage(1); }, [brandId, category, subcategory, sort, onlyAvailable, onlyDiscount, searchQ]);
 
   useEffect(() => {
     async function loadProducts() {
@@ -149,11 +123,21 @@ export default function FilteredCatalogPage({ filterType, filterValue }: Props) 
         if (subcategory !== "ALL") query = query.eq("subcategory", subcategory);
         if (onlyAvailable) query = query.gt("stock", 0);
         if (onlyDiscount) query = query.gt("discount_price", 0);
+
+        // Busqueda por nombre, descripcion, categoria y subcategoria
+        if (searchQ.trim()) {
+          const q = searchQ.trim();
+          query = query.or(
+            `name.ilike.%${q}%,description.ilike.%${q}%,category.ilike.%${q}%,subcategory.ilike.%${q}%`
+          );
+        }
+
+        // Orden — solo uno a la vez
         if (sort === "PRICE_ASC") query = query.order("price", { ascending: true });
-        if (sort === "PRICE_DESC") query = query.order("price", { ascending: false });
-        if (sort === "AZ") query = query.order("name", { ascending: true });
-        if (sort === "ZA") query = query.order("name", { ascending: false });
-        if (sort === "NEW") query = query.order("created_at", { ascending: false });
+        else if (sort === "PRICE_DESC") query = query.order("price", { ascending: false });
+        else if (sort === "AZ") query = query.order("name", { ascending: true });
+        else if (sort === "ZA") query = query.order("name", { ascending: false });
+        else query = query.order("created_at", { ascending: false });
 
         const from = (page - 1) * pageSize;
         const to = from + pageSize - 1;
@@ -178,7 +162,7 @@ export default function FilteredCatalogPage({ filterType, filterValue }: Props) 
       }
     }
     loadProducts();
-  }, [brandId, category, subcategory, sort, onlyAvailable, onlyDiscount, page]);
+  }, [brandId, category, subcategory, sort, onlyAvailable, onlyDiscount, searchQ, page]);
 
   function resetFilters() {
     setBrandId(filterType === "brand" ? filterValue : "ALL");
@@ -187,10 +171,11 @@ export default function FilteredCatalogPage({ filterType, filterValue }: Props) 
     setSort("NEW");
     setOnlyAvailable(false);
     setOnlyDiscount(false);
+    setSearchQ("");
     setPage(1);
   }
 
-  const hasActiveFilters = brandId !== "ALL" || category !== "ALL" || subcategory !== "ALL" || onlyAvailable || onlyDiscount;
+  const hasActiveFilters = brandId !== "ALL" || category !== "ALL" || subcategory !== "ALL" || onlyAvailable || onlyDiscount || !!searchQ;
 
   const sortOptions = [
     { value: "NEW", label: "Mas recientes" },
@@ -204,7 +189,7 @@ export default function FilteredCatalogPage({ filterType, filterValue }: Props) 
     <div className="max-w-6xl mx-auto px-4 py-8">
       <div className="mb-6">
         <h1 className="text-2xl md:text-3xl font-black text-slate-900">{pageTitle}</h1>
-        <p className="text-slate-500 text-sm mt-1">Explora productos disponibles y ajusta los filtros segun tu necesidad.</p>
+        <p className="text-slate-500 text-sm mt-1">{loading ? "Cargando..." : `${total} producto(s)`}</p>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-12 gap-6">
@@ -215,6 +200,12 @@ export default function FilteredCatalogPage({ filterType, filterValue }: Props) 
             <div>
               <h2 className="font-black text-slate-900">Filtros</h2>
               <p className="text-xs text-slate-500">Refina el catalogo.</p>
+            </div>
+            <div>
+              <label className="text-xs text-slate-500">Buscar</label>
+              <input value={searchQ} onChange={(e) => setSearchQ(e.target.value)}
+                placeholder="Nombre, marca, categoria..."
+                className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2 mt-1 text-sm outline-none" />
             </div>
             <div>
               <label className="text-xs text-slate-500">Marca</label>
@@ -258,13 +249,15 @@ export default function FilteredCatalogPage({ filterType, filterValue }: Props) 
         </aside>
 
         {/* FILTROS MOBILE */}
-        <div className="md:hidden col-span-1 mb-2">
+        <div className="md:hidden col-span-1 mb-2 space-y-2">
+          <input value={searchQ} onChange={(e) => setSearchQ(e.target.value)}
+            placeholder="Buscar productos, marcas, categorias..."
+            className="w-full px-4 py-2.5 rounded-xl text-sm outline-none"
+            style={{ border: "1.5px solid var(--nomi-border)", backgroundColor: "#fff", color: "var(--nomi-navy)" }} />
           <div className="flex gap-3">
-
             {/* ORDENAR */}
             <div className="relative flex-1" data-dropdown="sort">
-              <button
-                onClick={() => { setSortOpen(!sortOpen); setFilterOpen(false); }}
+              <button onClick={() => { setSortOpen(!sortOpen); setFilterOpen(false); }}
                 className="w-full flex items-center justify-between gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold cursor-pointer transition"
                 style={{ backgroundColor: sortOpen ? "var(--nomi-navy)" : "#fff", color: sortOpen ? "#fff" : "var(--nomi-navy)", border: "1.5px solid var(--nomi-border)" }}>
                 <span>Ordenar</span>
@@ -294,13 +287,10 @@ export default function FilteredCatalogPage({ filterType, filterValue }: Props) 
             <div className="relative flex-1" data-dropdown="filter">
               <button
                 onClick={() => {
-                  setFilterOpen(!filterOpen);
-                  setSortOpen(false);
+                  setFilterOpen(!filterOpen); setSortOpen(false);
                   if (!filterOpen) {
-                    setPendingBrandId(brandId);
-                    setPendingCategory(category);
-                    setPendingSubcategory(subcategory);
-                    setPendingOnlyAvailable(onlyAvailable);
+                    setPendingBrandId(brandId); setPendingCategory(category);
+                    setPendingSubcategory(subcategory); setPendingOnlyAvailable(onlyAvailable);
                     setPendingOnlyDiscount(onlyDiscount);
                   }
                 }}
@@ -354,13 +344,9 @@ export default function FilteredCatalogPage({ filterType, filterValue }: Props) 
                   <div className="flex gap-2 pt-1">
                     <button
                       onClick={() => {
-                        setBrandId(pendingBrandId);
-                        setCategory(pendingCategory);
-                        setSubcategory(pendingSubcategory);
-                        setOnlyAvailable(pendingOnlyAvailable);
-                        setOnlyDiscount(pendingOnlyDiscount);
-                        setPage(1);
-                        setFilterOpen(false);
+                        setBrandId(pendingBrandId); setCategory(pendingCategory);
+                        setSubcategory(pendingSubcategory); setOnlyAvailable(pendingOnlyAvailable);
+                        setOnlyDiscount(pendingOnlyDiscount); setPage(1); setFilterOpen(false);
                       }}
                       className="flex-1 py-2.5 rounded-xl text-sm font-black cursor-pointer"
                       style={{ backgroundColor: "var(--nomi-orange)", color: "#fff" }}>
@@ -386,12 +372,6 @@ export default function FilteredCatalogPage({ filterType, filterValue }: Props) 
         </div>
 
         <section className="md:col-span-9 space-y-5">
-          <div className="flex items-center justify-between">
-            <p className="text-sm text-slate-500">
-              {loading ? "Cargando..." : `${total} producto(s) - Pagina ${page} de ${totalPages}`}
-            </p>
-          </div>
-
           {err && (
             <div className="bg-red-50 border border-red-200 text-red-700 rounded-xl p-3 text-sm">
               Error cargando productos: {err}
