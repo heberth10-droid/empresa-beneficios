@@ -238,7 +238,7 @@ export default function MarketHeader() {
                 {brandsOpen && (
                   <div className="space-y-0.5">
                     {productBrands.map((b) => (
-                      <button key={b.id} onClick={() => go(`/market/brand=${b.id}`)}
+                      <button key={b.id} onClick={() => go(`/market/brand/${b.id}`)}
                         className="flex items-center gap-2.5 px-3 py-2 w-full text-left hover:bg-slate-50 rounded-xl cursor-pointer">
                         {b.logo_url ? (
                           <img src={b.logo_url} className="w-6 h-6 object-contain rounded bg-white border"
@@ -457,7 +457,7 @@ export default function MarketHeader() {
               {mobileBrandsOpen && (
                 <div style={{ backgroundColor: "rgba(0,0,0,0.2)" }}>
                   {productBrands.map((b) => (
-                    <button key={b.id} onClick={() => go(`/market/brand=${b.id}`)}
+                    <button key={b.id} onClick={() => go(`/market/brand/${b.id}`)}
                       className="flex items-center gap-3 w-full text-left px-6 py-2.5 cursor-pointer"
                       style={{ borderBottom: "1px solid rgba(255,255,255,0.05)" }}>
                       {b.logo_url ? (
