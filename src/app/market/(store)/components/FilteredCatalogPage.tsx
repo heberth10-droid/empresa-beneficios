@@ -233,6 +233,8 @@ export default function FilteredCatalogPage({ filterType, filterValue }: Props) 
                 <option value="NEW">Mas recientes</option>
                 <option value="PRICE_ASC">Precio: menor a mayor</option>
                 <option value="PRICE_DESC">Precio: mayor a menor</option>
+                <option value="AZ">A - Z</option>
+                <option value="ZA">Z - A</option>
               </select>
             </div>
             <label className="flex items-center gap-2 text-sm text-slate-700">
@@ -269,6 +271,8 @@ export default function FilteredCatalogPage({ filterType, filterValue }: Props) 
                     { value: "NEW", label: "Mas recientes" },
                     { value: "PRICE_ASC", label: "Precio: menor a mayor" },
                     { value: "PRICE_DESC", label: "Precio: mayor a menor" },
+                    { value: "AZ", label: "A - Z" },
+                    { value: "ZA", label: "Z - A" },
                   ].map((opt) => (
                     <button key={opt.value}
                       onClick={() => { setSort(opt.value as any); setSortOpen(false); setPage(1); }}

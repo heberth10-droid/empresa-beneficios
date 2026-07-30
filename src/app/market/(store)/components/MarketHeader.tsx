@@ -204,7 +204,7 @@ export default function MarketHeader() {
                       return (
                         <div key={cat.id}>
                           <div className="flex items-center">
-                            <button onClick={() => go(`/market/category=${enc(cat.name)}`)}
+                            <button onClick={() => go(`/market/category/${enc(cat.name)}`)}
                               className="flex-1 text-left px-4 py-2 text-sm hover:bg-slate-50 rounded-lg cursor-pointer text-slate-700">
                               {cat.name}
                             </button>
@@ -424,7 +424,7 @@ export default function MarketHeader() {
                     return (
                       <div key={cat.id}>
                         <div className="flex items-center" style={{ borderBottom: "1px solid rgba(255,255,255,0.05)" }}>
-                          <button onClick={() => go(`/market/category=${enc(cat.name)}`)}
+                          <button onClick={() => go(`/market/category/${enc(cat.name)}`)}
                             className="flex-1 text-left px-6 py-2.5 text-sm cursor-pointer"
                             style={{ color: "rgba(255,255,255,0.7)" }}>
                             {cat.name}
