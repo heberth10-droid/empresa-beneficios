@@ -64,7 +64,7 @@ export default function FilteredCatalogPage({ filterType, filterValue }: Props) 
   const [category, setCategory] = useState(filterType === "category" ? filterValue : "ALL");
   const [subcategory, setSubcategory] = useState(filterType === "subcategory" ? filterValue : "ALL");
 
-  const [sort, setSort] = useState<"NEW" | "PRICE_ASC" | "PRICE_DESC">("NEW");
+  const [sort, setSort] = useState<"NEW" | "PRICE_ASC" | "PRICE_DESC" | "AZ" | "ZA">("NEW");
   const [onlyAvailable, setOnlyAvailable] = useState(false);
   const [onlyDiscount, setOnlyDiscount] = useState(false);
 
@@ -151,6 +151,8 @@ export default function FilteredCatalogPage({ filterType, filterValue }: Props) 
         if (onlyDiscount) query = query.gt("discount_price", 0);
         if (sort === "PRICE_ASC") query = query.order("price", { ascending: true });
         if (sort === "PRICE_DESC") query = query.order("price", { ascending: false });
+        if (sort === "AZ") query = query.order("name", { ascending: true });
+        if (sort === "ZA") query = query.order("name", { ascending: false });
         if (sort === "NEW") query = query.order("created_at", { ascending: false });
 
         const from = (page - 1) * pageSize;
@@ -189,6 +191,14 @@ export default function FilteredCatalogPage({ filterType, filterValue }: Props) 
   }
 
   const hasActiveFilters = brandId !== "ALL" || category !== "ALL" || subcategory !== "ALL" || onlyAvailable || onlyDiscount;
+
+  const sortOptions = [
+    { value: "NEW", label: "Mas recientes" },
+    { value: "PRICE_ASC", label: "Precio: menor a mayor" },
+    { value: "PRICE_DESC", label: "Precio: mayor a menor" },
+    { value: "AZ", label: "A - Z" },
+    { value: "ZA", label: "Z - A" },
+  ];
 
   return (
     <div className="max-w-6xl mx-auto px-4 py-8">
@@ -230,11 +240,7 @@ export default function FilteredCatalogPage({ filterType, filterValue }: Props) 
             <div>
               <label className="text-xs text-slate-500">Ordenar</label>
               <select value={sort} onChange={(e) => setSort(e.target.value as any)} className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2 mt-1">
-                <option value="NEW">Mas recientes</option>
-                <option value="PRICE_ASC">Precio: menor a mayor</option>
-                <option value="PRICE_DESC">Precio: mayor a menor</option>
-                <option value="AZ">A - Z</option>
-                <option value="ZA">Z - A</option>
+                {sortOptions.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
               </select>
             </div>
             <label className="flex items-center gap-2 text-sm text-slate-700">
@@ -267,13 +273,7 @@ export default function FilteredCatalogPage({ filterType, filterValue }: Props) 
               {sortOpen && (
                 <div className="absolute top-full left-0 right-0 mt-1 z-50 rounded-xl overflow-hidden shadow-xl"
                   style={{ backgroundColor: "#fff", border: "1.5px solid var(--nomi-border)" }}>
-                  {[
-                    { value: "NEW", label: "Mas recientes" },
-                    { value: "PRICE_ASC", label: "Precio: menor a mayor" },
-                    { value: "PRICE_DESC", label: "Precio: mayor a menor" },
-                    { value: "AZ", label: "A - Z" },
-                    { value: "ZA", label: "Z - A" },
-                  ].map((opt) => (
+                  {sortOptions.map((opt) => (
                     <button key={opt.value}
                       onClick={() => { setSort(opt.value as any); setSortOpen(false); setPage(1); }}
                       className="w-full text-left px-4 py-3 text-sm transition cursor-pointer"
