@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
 import { useRouter } from "next/navigation";
 import { Package } from "lucide-react";
@@ -16,6 +16,7 @@ export default function BrandProductsListPage() {
   const [loading, setLoading] = useState(true);
   const [products, setProducts] = useState<any[]>([]);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const [q, setQ] = useState("");
 
   useEffect(() => {
     async function init() {
@@ -45,6 +46,14 @@ export default function BrandProductsListPage() {
     init();
   }, [router]);
 
+  const filtered = useMemo(() => {
+    const x = q.trim().toLowerCase();
+    if (!x) return products;
+    return products.filter((p) =>
+      [p.name, p.sku, p.category, p.subcategory].join(" ").toLowerCase().includes(x)
+    );
+  }, [products, q]);
+
   if (loading) return (
     <div className="flex items-center justify-center py-20">
       <div className="w-8 h-8 rounded-full border-2 border-t-transparent animate-spin"
@@ -60,7 +69,7 @@ export default function BrandProductsListPage() {
             style={{ color: "var(--nomi-teal)" }}>Catalogo</p>
           <h1 className="text-3xl font-black" style={{ color: "var(--nomi-navy)" }}>Mis productos</h1>
           <p className="text-sm mt-1" style={{ color: "var(--nomi-muted)" }}>
-            {products.length} producto{products.length !== 1 ? "s" : ""} registrados
+            {filtered.length} de {products.length} producto{products.length !== 1 ? "s" : ""}
           </p>
         </div>
         <button onClick={() => router.push("/brand/products")}
@@ -75,6 +84,14 @@ export default function BrandProductsListPage() {
           style={{ backgroundColor: "#FEE2E2", color: "#DC2626" }}>{errorMsg}</div>
       )}
 
+      <input
+        placeholder="Buscar por nombre, SKU, categoria..."
+        value={q}
+        onChange={(e) => setQ(e.target.value)}
+        className="w-full md:w-96 px-4 py-2.5 rounded-xl text-sm outline-none"
+        style={{ border: "1.5px solid var(--nomi-border)", color: "var(--nomi-navy)", backgroundColor: "#fff" }}
+      />
+
       {products.length === 0 ? (
         <div className="bg-white rounded-2xl px-5 py-12 text-center"
           style={{ border: "1.5px solid var(--nomi-border)" }}>
@@ -88,14 +105,20 @@ export default function BrandProductsListPage() {
             Crear primer producto
           </button>
         </div>
+      ) : filtered.length === 0 ? (
+        <div className="bg-white rounded-2xl px-5 py-10 text-center"
+          style={{ border: "1.5px solid var(--nomi-border)" }}>
+          <p className="text-sm font-semibold" style={{ color: "var(--nomi-muted)" }}>
+            No hay productos que coincidan con "{q}"
+          </p>
+        </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {products.map((p) => {
+          {filtered.map((p) => {
             const img = Array.isArray(p.images) && p.images[0] ? p.images[0] : p.image_url;
             return (
               <div key={p.id} className="bg-white rounded-2xl overflow-hidden transition hover:shadow-md"
                 style={{ border: "1.5px solid var(--nomi-border)" }}>
-                {/* IMAGEN */}
                 <div className="h-44 overflow-hidden" style={{ backgroundColor: "var(--nomi-gray)" }}>
                   {img
                     ? <img src={img} className="w-full h-full object-cover"
@@ -106,7 +129,6 @@ export default function BrandProductsListPage() {
                 </div>
 
                 <div className="p-4 space-y-2">
-                  {/* LOGO MARCA */}
                   {p.product_brands?.logo_url && (
                     <img src={p.product_brands.logo_url}
                       className="h-6 object-contain rounded"
@@ -115,9 +137,7 @@ export default function BrandProductsListPage() {
 
                   <div className="flex items-start justify-between gap-2">
                     <div>
-                      <div className="font-black text-sm" style={{ color: "var(--nomi-navy)" }}>
-                        {p.name}
-                      </div>
+                      <div className="font-black text-sm" style={{ color: "var(--nomi-navy)" }}>{p.name}</div>
                       <div className="text-xs mt-0.5" style={{ color: "var(--nomi-muted)" }}>
                         {p.sku && <span>SKU: {p.sku} · </span>}
                         {p.category}
