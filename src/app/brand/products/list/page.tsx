@@ -3,12 +3,10 @@
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
 import { useRouter } from "next/navigation";
-import { Package } from "lucide-react";
+import { Package, Trash2 } from "lucide-react";
 
 function money(n: any) {
-  return new Intl.NumberFormat("es-CO", {
-    style: "currency", currency: "COP", maximumFractionDigits: 0,
-  }).format(Number(n || 0));
+  return new Intl.NumberFormat("es-CO", { style: "currency", currency: "COP", maximumFractionDigits: 0 }).format(Number(n || 0));
 }
 
 export default function BrandProductsListPage() {
@@ -17,6 +15,18 @@ export default function BrandProductsListPage() {
   const [products, setProducts] = useState<any[]>([]);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [q, setQ] = useState("");
+  const [brandId, setBrandId] = useState<string | null>(null);
+  const [deleting, setDeleting] = useState<string | null>(null);
+
+  async function loadProducts(bId: string) {
+    const { data, error } = await supabase
+      .from("products")
+      .select("*, product_brands(name, logo_url)")
+      .eq("brand_id", bId)
+      .order("created_at", { ascending: false });
+    if (error) { setErrorMsg("Error cargando productos: " + error.message); }
+    else { setProducts(data || []); }
+  }
 
   useEffect(() => {
     async function init() {
@@ -33,14 +43,8 @@ export default function BrandProductsListPage() {
         .from("brands").select("*").eq("id", userData.brand_id).single();
       if (brandError || !brandData) { router.push("/login"); return; }
 
-      const { data, error } = await supabase
-        .from("products")
-        .select("*, product_brands(name, logo_url)")
-        .eq("brand_id", brandData.id)
-        .order("created_at", { ascending: false });
-
-      if (error) { setErrorMsg("Error cargando productos: " + error.message); }
-      else { setProducts(data || []); }
+      setBrandId(brandData.id);
+      await loadProducts(brandData.id);
       setLoading(false);
     }
     init();
@@ -53,6 +57,18 @@ export default function BrandProductsListPage() {
       [p.name, p.sku, p.category, p.subcategory].join(" ").toLowerCase().includes(x)
     );
   }, [products, q]);
+
+  async function deleteProduct(p: any) {
+    const confirmed = confirm(
+      `¿Estas seguro de eliminar "${p.name}"?\n\nEsta accion no se puede deshacer.`
+    );
+    if (!confirmed) return;
+    setDeleting(p.id);
+    const { error } = await supabase.from("products").delete().eq("id", p.id);
+    setDeleting(null);
+    if (error) { setErrorMsg("Error eliminando: " + error.message); return; }
+    if (brandId) await loadProducts(brandId);
+  }
 
   if (loading) return (
     <div className="flex items-center justify-center py-20">
@@ -130,8 +146,7 @@ export default function BrandProductsListPage() {
 
                 <div className="p-4 space-y-2">
                   {p.product_brands?.logo_url && (
-                    <img src={p.product_brands.logo_url}
-                      className="h-6 object-contain rounded"
+                    <img src={p.product_brands.logo_url} className="h-6 object-contain rounded"
                       style={{ backgroundColor: "#fff" }} alt={p.product_brands.name} />
                   )}
 
@@ -160,11 +175,20 @@ export default function BrandProductsListPage() {
                     </span>
                   </div>
 
-                  <button onClick={() => router.push(`/brand/products/${p.id}`)}
-                    className="w-full py-2.5 rounded-xl text-sm font-bold cursor-pointer transition mt-1"
-                    style={{ backgroundColor: "var(--nomi-gray)", color: "var(--nomi-navy)", border: "1.5px solid var(--nomi-border)" }}>
-                    Editar producto
-                  </button>
+                  <div className="flex gap-2 mt-1">
+                    <button onClick={() => router.push(`/brand/products/${p.id}`)}
+                      className="flex-1 py-2.5 rounded-xl text-sm font-bold cursor-pointer transition"
+                      style={{ backgroundColor: "var(--nomi-gray)", color: "var(--nomi-navy)", border: "1.5px solid var(--nomi-border)" }}>
+                      Editar
+                    </button>
+                    <button onClick={() => deleteProduct(p)} disabled={deleting === p.id}
+                      className="w-10 h-10 flex items-center justify-center rounded-xl cursor-pointer disabled:opacity-50"
+                      style={{ backgroundColor: "#FEE2E2", border: "1.5px solid #FECACA" }}>
+                      {deleting === p.id
+                        ? <div className="w-4 h-4 rounded-full border-2 border-t-transparent animate-spin" style={{ borderColor: "#DC2626" }} />
+                        : <Trash2 className="w-4 h-4" style={{ color: "#DC2626" }} />}
+                    </button>
+                  </div>
                 </div>
               </div>
             );

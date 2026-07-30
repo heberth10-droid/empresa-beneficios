@@ -17,6 +17,7 @@ export default function EditProductPage() {
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [deleting, setDeleting] = useState(false);
   const [product, setProduct] = useState<any>(null);
   const [brand, setBrand] = useState<any>(null);
   const [variants, setVariants] = useState<any[]>([]);
@@ -82,9 +83,7 @@ export default function EditProductPage() {
       const fileName = `${Date.now()}-${Math.random().toString(36)}.${ext}`;
       const filePath = `${brand.id}/${product.id}/${fileName}`;
       const { error } = await supabase.storage.from(IMAGE_BUCKET).upload(filePath, file, { contentType: file.type, cacheControl: "3600" });
-      if (!error) {
-        urls.push(supabase.storage.from(IMAGE_BUCKET).getPublicUrl(filePath).data.publicUrl);
-      }
+      if (!error) urls.push(supabase.storage.from(IMAGE_BUCKET).getPublicUrl(filePath).data.publicUrl);
     }
     return urls;
   }
@@ -106,7 +105,6 @@ export default function EditProductPage() {
     }).eq("id", product.id);
 
     setSaving(false);
-
     if (error) { setMsg({ ok: false, text: "Error guardando: " + error.message }); return; }
     setMsg({ ok: true, text: "Producto actualizado correctamente." });
     setProduct({ ...product, images });
@@ -119,6 +117,21 @@ export default function EditProductPage() {
     const newList = (product.images || []).filter((img: string) => img !== url);
     await supabase.from("products").update({ images: newList }).eq("id", product.id);
     setProduct({ ...product, images: newList });
+  }
+
+  async function deleteProduct() {
+    if (!product) return;
+    const confirmed = confirm(
+      `¿Estas seguro de eliminar "${product.name}"?\n\nEsta accion no se puede deshacer.`
+    );
+    if (!confirmed) return;
+
+    setDeleting(true);
+    const { error } = await supabase.from("products").delete().eq("id", product.id);
+    setDeleting(false);
+
+    if (error) { setMsg({ ok: false, text: "Error eliminando: " + error.message }); return; }
+    router.push("/brand/products/list");
   }
 
   if (loading) return (
@@ -205,7 +218,6 @@ export default function EditProductPage() {
       {/* IMAGENES */}
       <div className="bg-white rounded-2xl p-5 space-y-4" style={{ border: "1.5px solid var(--nomi-border)" }}>
         <p className="text-xs font-bold uppercase tracking-widest" style={{ color: "var(--nomi-teal)" }}>Imagenes</p>
-
         {product.images && product.images.length > 0 && (
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
             {product.images.map((img: string) => (
@@ -222,12 +234,10 @@ export default function EditProductPage() {
             ))}
           </div>
         )}
-
         <label className="flex items-center gap-3 px-4 py-3 rounded-xl cursor-pointer w-fit"
           style={{ backgroundColor: "var(--nomi-teal-bg)", border: "1.5px dashed var(--nomi-teal)" }}>
           <span className="text-sm font-semibold" style={{ color: "var(--nomi-teal)" }}>+ Agregar imagenes</span>
-          <input type="file" multiple accept="image/*" className="hidden"
-            onChange={(e) => setFiles(e.target.files)} />
+          <input type="file" multiple accept="image/*" className="hidden" onChange={(e) => setFiles(e.target.files)} />
         </label>
         {files && files.length > 0 && (
           <p className="text-xs font-semibold" style={{ color: "var(--nomi-teal)" }}>
@@ -249,8 +259,7 @@ export default function EditProductPage() {
                   <span style={{ color: "var(--nomi-muted)" }}>{v.value}</span>
                 </div>
                 <div className="text-xs" style={{ color: "var(--nomi-muted)" }}>
-                  Stock: {v.stock}
-                  {v.price_delta !== 0 && ` · +${money(v.price_delta)}`}
+                  Stock: {v.stock}{v.price_delta !== 0 && ` · +${money(v.price_delta)}`}
                 </div>
               </div>
             ))}
@@ -258,17 +267,23 @@ export default function EditProductPage() {
         </div>
       )}
 
-      {/* GUARDAR */}
-      <div className="flex gap-3 pb-6">
-        <button onClick={saveChanges} disabled={saving}
+      {/* ACCIONES */}
+      <div className="flex flex-col md:flex-row gap-3 pb-6">
+        <button onClick={saveChanges} disabled={saving || deleting}
           className="flex-1 py-3.5 rounded-xl text-sm font-black cursor-pointer disabled:opacity-50"
           style={{ backgroundColor: "var(--nomi-orange)", color: "#fff" }}>
           {saving ? "Guardando..." : "Guardar cambios"}
         </button>
-        <button onClick={() => router.push("/brand/products/list")}
-          className="px-6 py-3.5 rounded-xl text-sm font-bold cursor-pointer"
+        <button onClick={() => router.push("/brand/products/list")} disabled={saving || deleting}
+          className="px-6 py-3.5 rounded-xl text-sm font-bold cursor-pointer disabled:opacity-50"
           style={{ backgroundColor: "var(--nomi-gray)", color: "var(--nomi-navy)", border: "1.5px solid var(--nomi-border)" }}>
           Cancelar
+        </button>
+        <button onClick={deleteProduct} disabled={saving || deleting}
+          className="px-6 py-3.5 rounded-xl text-sm font-bold cursor-pointer disabled:opacity-50 flex items-center gap-2"
+          style={{ backgroundColor: "#FEE2E2", color: "#DC2626", border: "1.5px solid #FECACA" }}>
+          <Trash2 className="w-4 h-4" />
+          {deleting ? "Eliminando..." : "Eliminar producto"}
         </button>
       </div>
     </div>
