@@ -58,7 +58,7 @@ export default function EditProductPage() {
       const { data: prod } = await supabase.from("products").select("*").eq("id", id).single();
       if (!prod) { alert("Producto no encontrado"); return router.push("/brand/products/list"); }
 
-      setProduct(prod);
+      setProduct({ ...prod, images: (prod.images || []).filter((x: any) => typeof x === "string" && x.startsWith("http")) });
       setName(prod.name || "");
       setSku(prod.sku || "");
       setDescription(prod.description || "");
