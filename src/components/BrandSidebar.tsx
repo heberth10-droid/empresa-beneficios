@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
+import NomiLogo from "@/components/NomiLogo";
 import {
   LayoutDashboard, Package, ShoppingCart, User,
   Tag, List, LogOut, Globe, BookOpen, PlusCircle,
@@ -10,20 +11,20 @@ import {
 import { useEffect, useState } from "react";
 
 const productItems = [
-  { href: "/brand",               label: "Dashboard",      icon: LayoutDashboard },
-  { href: "/brand/product-brands",label: "Marcas",         icon: Tag },
-  { href: "/brand/products",      label: "Crear producto", icon: Package },
-  { href: "/brand/products/list", label: "Mis productos",  icon: List },
-  { href: "/brand/orders",        label: "Ordenes",        icon: ShoppingCart },
-  { href: "/brand/profile",       label: "Mi perfil",      icon: User },
+  { href: "/brand",                label: "Dashboard",      icon: LayoutDashboard },
+  { href: "/brand/product-brands", label: "Marcas",         icon: Tag },
+  { href: "/brand/products",       label: "Crear producto", icon: Package },
+  { href: "/brand/products/list",  label: "Mis productos",  icon: List },
+  { href: "/brand/orders",         label: "Ordenes",        icon: ShoppingCart },
+  { href: "/brand/profile",        label: "Mi perfil",      icon: User },
 ];
 
 const courseItems = [
-  { href: "/brand",               label: "Dashboard",      icon: LayoutDashboard },
-  { href: "/brand/courses/new",   label: "Crear curso",    icon: PlusCircle },
-  { href: "/brand/courses",       label: "Mis cursos",     icon: BookOpen },
-  { href: "/brand/orders",        label: "Ordenes",        icon: ShoppingCart },
-  { href: "/brand/profile",       label: "Mi perfil",      icon: User },
+  { href: "/brand",              label: "Dashboard",   icon: LayoutDashboard },
+  { href: "/brand/courses/new",  label: "Crear curso", icon: PlusCircle },
+  { href: "/brand/courses",      label: "Mis cursos",  icon: BookOpen },
+  { href: "/brand/orders",       label: "Ordenes",     icon: ShoppingCart },
+  { href: "/brand/profile",      label: "Mi perfil",   icon: User },
 ];
 
 export default function BrandSidebar({ onNavigate }: { onNavigate?: () => void }) {
@@ -55,13 +56,8 @@ export default function BrandSidebar({ onNavigate }: { onNavigate?: () => void }
       style={{ backgroundColor: "var(--nomi-navy)", borderRight: "1px solid rgba(255,255,255,0.08)" }}>
 
       <div className="px-5 py-5" style={{ borderBottom: "1px solid rgba(255,255,255,0.08)" }}>
-        <div className="flex items-center gap-1 mb-0.5">
-          <span className="text-xl font-black text-white">N</span>
-          <span className="inline-flex items-center justify-center w-6 h-6 rounded-full border-2 text-xs font-black"
-            style={{ borderColor: "var(--nomi-orange)", color: "var(--nomi-teal)" }}>$</span>
-          <span className="text-xl font-black text-white">MI</span>
-        </div>
-        <div className="text-xs font-semibold mt-0.5" style={{ color: "rgba(255,255,255,0.4)" }}>
+        <NomiLogo size="md" />
+        <div className="text-xs font-semibold mt-1" style={{ color: "rgba(255,255,255,0.4)" }}>
           {brandType === "COURSES" ? "Panel de Cursos" : "Panel de Proveedor"}
         </div>
       </div>

@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
+import NomiLogo from "@/components/NomiLogo";
 import {
   LayoutDashboard, Building2, Tag, Users, Package,
   ShoppingCart, BarChart2, CreditCard, Globe, List,
@@ -39,13 +40,8 @@ export default function AdminSidebar({ onNavigate }: { onNavigate?: () => void }
       style={{ backgroundColor: "var(--nomi-navy)", borderRight: "1px solid rgba(255,255,255,0.08)" }}>
 
       <div className="px-5 py-5" style={{ borderBottom: "1px solid rgba(255,255,255,0.08)" }}>
-        <div className="flex items-center gap-1 mb-0.5">
-          <span className="text-xl font-black text-white">N</span>
-          <span className="inline-flex items-center justify-center w-6 h-6 rounded-full border-2 text-xs font-black"
-            style={{ borderColor: "var(--nomi-orange)", color: "var(--nomi-teal)" }}>$</span>
-          <span className="text-xl font-black text-white">MI</span>
-        </div>
-        <div className="text-xs font-semibold mt-0.5" style={{ color: "rgba(255,255,255,0.4)" }}>Super Admin</div>
+        <NomiLogo size="md" />
+        <div className="text-xs font-semibold mt-1" style={{ color: "rgba(255,255,255,0.4)" }}>Super Admin</div>
       </div>
 
       <nav className="flex-1 px-3 py-4 space-y-0.5 overflow-y-auto">

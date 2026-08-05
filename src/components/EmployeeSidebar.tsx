@@ -3,15 +3,16 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
+import NomiLogo from "@/components/NomiLogo";
 import { Home, ShoppingBag, Bell, Settings, LogOut, ChevronLeft, Landmark, Menu, X, ShoppingCart } from "lucide-react";
 import { useState } from "react";
 
 const items = [
-  { href: "/employee",               label: "Mi resumen",      icon: Home },
-  { href: "/employee/orders",        label: "Mis ordenes",     icon: ShoppingBag },
-  { href: "/employee/installments",  label: "Mis cuotas",      icon: Landmark },
-  { href: "/employee/notifications", label: "Notificaciones",  icon: Bell },
-  { href: "/employee/settings",      label: "Mi perfil",       icon: Settings },
+  { href: "/employee",               label: "Mi resumen",     icon: Home },
+  { href: "/employee/orders",        label: "Mis ordenes",    icon: ShoppingBag },
+  { href: "/employee/installments",  label: "Mis cuotas",     icon: Landmark },
+  { href: "/employee/notifications", label: "Notificaciones", icon: Bell },
+  { href: "/employee/settings",      label: "Mi perfil",      icon: Settings },
 ];
 
 export default function EmployeeSidebar({ onNavigate }: { onNavigate?: () => void }) {
@@ -32,8 +33,7 @@ export default function EmployeeSidebar({ onNavigate }: { onNavigate?: () => voi
           const active = pathname === item.href ||
             (item.href !== "/employee" && pathname.startsWith(item.href + "/"));
           return (
-            <Link key={item.href} href={item.href}
-              onClick={onClick}
+            <Link key={item.href} href={item.href} onClick={onClick}
               className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-semibold transition"
               style={active ? {
                 backgroundColor: "rgba(245,166,35,0.15)",
@@ -59,13 +59,8 @@ export default function EmployeeSidebar({ onNavigate }: { onNavigate?: () => voi
         style={{ backgroundColor: "var(--nomi-navy)", borderRight: "1px solid rgba(255,255,255,0.08)" }}>
 
         <div className="px-5 py-5" style={{ borderBottom: "1px solid rgba(255,255,255,0.08)" }}>
-          <div className="flex items-center gap-1 mb-0.5">
-            <span className="text-xl font-black text-white">N</span>
-            <span className="inline-flex items-center justify-center w-6 h-6 rounded-full border-2 text-xs font-black"
-              style={{ borderColor: "var(--nomi-orange)", color: "var(--nomi-teal)" }}>$</span>
-            <span className="text-xl font-black text-white">MI</span>
-          </div>
-          <div className="text-xs font-semibold mt-0.5" style={{ color: "rgba(255,255,255,0.4)" }}>Mi portal</div>
+          <NomiLogo size="md" />
+          <div className="text-xs font-semibold mt-1" style={{ color: "rgba(255,255,255,0.4)" }}>Mi portal</div>
         </div>
 
         <nav className="flex-1 px-3 py-4 space-y-0.5 overflow-y-auto">
@@ -92,36 +87,24 @@ export default function EmployeeSidebar({ onNavigate }: { onNavigate?: () => voi
       <div className="md:hidden w-full sticky top-0 z-40"
         style={{ backgroundColor: "var(--nomi-navy)", borderBottom: "1px solid rgba(255,255,255,0.08)" }}>
         <div className="flex items-center justify-between px-4 py-3">
-          {/* LOGO */}
-          <div className="flex items-center gap-1">
-            <span className="text-lg font-black text-white">N</span>
-            <span className="inline-flex items-center justify-center w-5 h-5 rounded-full border-2 text-xs font-black"
-              style={{ borderColor: "var(--nomi-orange)", color: "var(--nomi-teal)" }}>$</span>
-            <span className="text-lg font-black text-white">MI</span>
-            <span className="text-xs ml-1 font-semibold" style={{ color: "rgba(255,255,255,0.4)" }}>· Mi portal</span>
-          </div>
-
+          <NomiLogo size="sm" />
           <div className="flex items-center gap-3">
-            {/* BOTON MARKETPLACE */}
             <Link href="/market"
               className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold"
               style={{ backgroundColor: "var(--nomi-teal)", color: "#fff" }}>
               <ShoppingCart className="w-3.5 h-3.5" />
               Marketplace
             </Link>
-            {/* HAMBURGER */}
             <button onClick={() => setMobileOpen(!mobileOpen)} className="text-white cursor-pointer">
               {mobileOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
             </button>
           </div>
         </div>
 
-        {/* MENU MOBILE DESPLEGABLE */}
         {mobileOpen && (
-          <div className="px-3 pb-4 space-y-0.5" style={{ borderTop: "1px solid rgba(255,255,255,0.08)", backgroundColor: "var(--nomi-navy-dark)" }}>
-            <div className="pt-2">
-              <NavItems onClick={() => setMobileOpen(false)} />
-            </div>
+          <div className="px-3 pb-4 space-y-0.5"
+            style={{ borderTop: "1px solid rgba(255,255,255,0.08)", backgroundColor: "var(--nomi-navy-dark)" }}>
+            <div className="pt-2"><NavItems onClick={() => setMobileOpen(false)} /></div>
             <div className="pt-2" style={{ borderTop: "1px solid rgba(255,255,255,0.08)" }}>
               <button onClick={logout}
                 className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-semibold transition cursor-pointer mt-1"

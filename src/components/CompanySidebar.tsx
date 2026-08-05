@@ -3,13 +3,14 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
+import NomiLogo from "@/components/NomiLogo";
 import { Settings, Users, ShoppingCart, LogOut, Globe, Landmark } from "lucide-react";
 
 const items = [
-  { href: "/company",                label: "Configuracion", icon: Settings },
-  { href: "/company/employees",      label: "Empleados",     icon: Users },
-  { href: "/company/orders",         label: "Ordenes",       icon: ShoppingCart },
-  { href: "/company/installments",   label: "Cuotas",        icon: Landmark },
+  { href: "/company",              label: "Configuracion", icon: Settings },
+  { href: "/company/employees",    label: "Empleados",     icon: Users },
+  { href: "/company/orders",       label: "Ordenes",       icon: ShoppingCart },
+  { href: "/company/installments", label: "Cuotas",        icon: Landmark },
 ];
 
 export default function CompanySidebar({ onNavigate }: { onNavigate?: () => void }) {
@@ -26,15 +27,8 @@ export default function CompanySidebar({ onNavigate }: { onNavigate?: () => void
       style={{ backgroundColor: "var(--nomi-navy)", borderRight: "1px solid rgba(255,255,255,0.08)" }}>
 
       <div className="px-5 py-5" style={{ borderBottom: "1px solid rgba(255,255,255,0.08)" }}>
-        <div className="flex items-center gap-1 mb-0.5">
-          <span className="text-xl font-black text-white">N</span>
-          <span className="inline-flex items-center justify-center w-6 h-6 rounded-full border-2 text-xs font-black"
-            style={{ borderColor: "var(--nomi-orange)", color: "var(--nomi-teal)" }}>$</span>
-          <span className="text-xl font-black text-white">MI</span>
-        </div>
-        <div className="text-xs font-semibold mt-0.5" style={{ color: "rgba(255,255,255,0.4)" }}>
-          Panel de Empresa
-        </div>
+        <NomiLogo size="md" />
+        <div className="text-xs font-semibold mt-1" style={{ color: "rgba(255,255,255,0.4)" }}>Panel de Empresa</div>
       </div>
 
       <nav className="flex-1 px-3 py-4 space-y-0.5 overflow-y-auto">
