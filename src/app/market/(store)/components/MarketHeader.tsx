@@ -40,7 +40,6 @@ export default function MarketHeader() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
 
-  // Mobile submenus
   const [mobileProdOpen, setMobileProdOpen] = useState(false);
   const [mobileProdCatsOpen, setMobileProdCatsOpen] = useState(false);
   const [mobileProdBrandsOpen, setMobileProdBrandsOpen] = useState(false);
@@ -132,13 +131,11 @@ export default function MarketHeader() {
     <header className="w-full sticky top-0 z-40 shadow-sm"
       style={{ backgroundColor: "var(--nomi-navy)", borderBottom: "1px solid rgba(255,255,255,0.08)" }}>
 
-      {/* TRUST BAR desktop */}
       <div className="hidden md:flex items-center justify-center gap-6 py-1.5 text-xs font-semibold"
         style={{ backgroundColor: "var(--nomi-navy-dark)" }}>
         {trustItems.map((txt) => <span key={txt} style={{ color: "var(--nomi-teal)" }}>{txt}</span>)}
       </div>
 
-      {/* TRUST BAR mobile */}
       <div className="md:hidden overflow-hidden py-1.5"
         style={{ backgroundColor: "var(--nomi-navy-dark)", borderBottom: "1px solid rgba(255,255,255,0.08)" }}>
         <div className="trust-ticker">
@@ -148,15 +145,11 @@ export default function MarketHeader() {
         </div>
       </div>
 
-      {/* MAIN ROW */}
       <div className="max-w-6xl mx-auto px-4 py-3 flex items-center gap-4">
 
         {/* LOGO */}
-        <Link href="/market" className="shrink-0 flex items-center mr-2">
-          <span className="text-2xl font-black tracking-tight text-white">N</span>
-          <span className="inline-flex items-center justify-center w-7 h-7 rounded-full border-2 text-sm font-black mx-0.5"
-            style={{ borderColor: "var(--nomi-orange)", color: "var(--nomi-teal)" }}>$</span>
-          <span className="text-2xl font-black tracking-tight text-white">MI</span>
+        <Link href="/market" className="shrink-0 mr-3">
+          <img src="/nomi-logo.jpg" alt="NOMI" className="h-8 object-contain rounded" />
         </Link>
 
         {/* SEARCH desktop */}
@@ -172,7 +165,6 @@ export default function MarketHeader() {
           </button>
         </div>
 
-        {/* ACTIONS desktop */}
         <div className="hidden md:flex items-center gap-2 shrink-0">
 
           <Link href="/brand"
@@ -187,7 +179,6 @@ export default function MarketHeader() {
             <Building2 className="w-3.5 h-3.5" /> Empleador
           </Link>
 
-          {/* MENU PRODUCTOS desktop */}
           <div className="relative" data-menu="products">
             <button type="button"
               onClick={() => { setProductsOpen((v) => !v); setCoursesOpen(false); setUserMenuOpen(false); }}
@@ -270,7 +261,6 @@ export default function MarketHeader() {
             )}
           </div>
 
-          {/* MENU CURSOS desktop */}
           <div className="relative" data-menu="courses">
             <button type="button"
               onClick={() => { setCoursesOpen((v) => !v); setProductsOpen(false); setUserMenuOpen(false); }}
@@ -309,7 +299,6 @@ export default function MarketHeader() {
             )}
           </div>
 
-          {/* CARRITO */}
           <button onClick={() => router.push("/market/cart")}
             className="relative inline-flex items-center gap-2 text-sm font-semibold cursor-pointer"
             style={{ color: "rgba(255,255,255,0.9)" }}>
@@ -322,7 +311,6 @@ export default function MarketHeader() {
             )}
           </button>
 
-          {/* SESION desktop */}
           {authUser ? (
             <div className="relative" data-menu="user">
               <button onClick={() => { setUserMenuOpen((v) => !v); setProductsOpen(false); setCoursesOpen(false); }}
@@ -367,7 +355,6 @@ export default function MarketHeader() {
           )}
         </div>
 
-        {/* MOBILE RIGHT */}
         <div className="flex md:hidden items-center gap-3 ml-auto">
           <button onClick={() => router.push("/market/cart")} className="relative cursor-pointer">
             <ShoppingCart className="w-5 h-5" style={{ color: "var(--nomi-teal)" }} />
@@ -388,7 +375,6 @@ export default function MarketHeader() {
         </div>
       </div>
 
-      {/* SEARCH mobile */}
       <div className="md:hidden px-4 pb-3">
         <div className="relative">
           <input value={q} onChange={(e) => setQ(e.target.value)}
@@ -403,12 +389,10 @@ export default function MarketHeader() {
         </div>
       </div>
 
-      {/* MOBILE MENU */}
       {mobileMenuOpen && (
         <div className="md:hidden border-t px-4 py-3 space-y-2 max-h-[80vh] overflow-y-auto"
           style={{ backgroundColor: "var(--nomi-navy-dark)", borderColor: "rgba(255,255,255,0.08)" }}>
 
-          {/* SESION MOBILE */}
           {authUser ? (
             <div className="rounded-2xl overflow-hidden" style={{ border: "1px solid rgba(255,255,255,0.12)" }}>
               <div className="flex items-center gap-2 px-4 py-3" style={{ backgroundColor: "rgba(255,255,255,0.06)" }}>
@@ -439,7 +423,6 @@ export default function MarketHeader() {
             </Link>
           )}
 
-          {/* PRODUCTOS MOBILE */}
           <div className="rounded-2xl overflow-hidden" style={{ border: "1px solid rgba(255,255,255,0.12)" }}>
             <button onClick={() => setMobileProdOpen((v) => !v)}
               className="w-full flex items-center justify-between px-4 py-3 text-sm font-bold cursor-pointer"
@@ -447,7 +430,6 @@ export default function MarketHeader() {
               Productos
               {mobileProdOpen ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
             </button>
-
             {mobileProdOpen && (
               <div>
                 <button onClick={() => go("/market/catalog")}
@@ -455,8 +437,6 @@ export default function MarketHeader() {
                   style={{ color: "rgba(255,255,255,0.9)", borderTop: "1px solid rgba(255,255,255,0.08)", backgroundColor: "rgba(255,255,255,0.04)" }}>
                   Ver todos los productos <ChevronRight className="w-4 h-4" />
                 </button>
-
-                {/* CATEGORIAS */}
                 <button onClick={() => setMobileProdCatsOpen((v) => !v)}
                   className="w-full flex items-center justify-between px-4 py-2.5 text-sm font-semibold cursor-pointer"
                   style={{ color: "rgba(255,255,255,0.8)", borderTop: "1px solid rgba(255,255,255,0.06)" }}>
@@ -495,8 +475,6 @@ export default function MarketHeader() {
                     })}
                   </div>
                 )}
-
-                {/* MARCAS */}
                 <button onClick={() => setMobileProdBrandsOpen((v) => !v)}
                   className="w-full flex items-center justify-between px-4 py-2.5 text-sm font-semibold cursor-pointer"
                   style={{ color: "rgba(255,255,255,0.8)", borderTop: "1px solid rgba(255,255,255,0.06)" }}>
@@ -526,7 +504,6 @@ export default function MarketHeader() {
             )}
           </div>
 
-          {/* CURSOS MOBILE */}
           <div className="rounded-2xl overflow-hidden" style={{ border: "1px solid rgba(255,255,255,0.12)" }}>
             <button onClick={() => setMobileCourseOpen((v) => !v)}
               className="w-full flex items-center justify-between px-4 py-3 text-sm font-bold cursor-pointer"
@@ -534,7 +511,6 @@ export default function MarketHeader() {
               Cursos
               {mobileCourseOpen ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
             </button>
-
             {mobileCourseOpen && (
               <div>
                 <button onClick={() => go("/market/courses")}
@@ -542,7 +518,6 @@ export default function MarketHeader() {
                   style={{ color: "rgba(255,255,255,0.9)", borderTop: "1px solid rgba(255,255,255,0.08)", backgroundColor: "rgba(255,255,255,0.04)" }}>
                   Ver todos los cursos <ChevronRight className="w-4 h-4" />
                 </button>
-
                 {courseCategories.length > 0 && (
                   <>
                     <button onClick={() => setMobileCourseCatsOpen((v) => !v)}
