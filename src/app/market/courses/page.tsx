@@ -136,7 +136,7 @@ function CourseCatalogContent() {
                     <p className="text-xs line-clamp-2" style={{ color: "var(--nomi-muted)" }}>{c.description}</p>
                   )}
                   <div className="flex items-center gap-2 pt-1">
-                    {c.discount_price ? (
+                    {false ? (
                       <>
                         <span className="font-black text-base" style={{ color: "var(--nomi-orange)" }}>{money(c.discount_price)}</span>
                         <span className="text-xs line-through" style={{ color: "var(--nomi-muted)" }}>{money(c.price)}</span>

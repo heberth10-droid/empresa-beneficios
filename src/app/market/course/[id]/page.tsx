@@ -31,7 +31,7 @@ export default function CourseDetailPage() {
 
   function addToCart() {
     if (!course) return;
-    const finalPrice = course.discount_price || course.price;
+    const finalPrice = course.price;
     addItem({
       id: course.id,
       name: course.name,
@@ -49,7 +49,7 @@ export default function CourseDetailPage() {
     </div>
   );
 
-  const finalPrice = course.discount_price || course.price;
+  const finalPrice = course.price;
 
   return (
     <div className="max-w-5xl mx-auto px-4 py-8 space-y-6">
@@ -87,7 +87,7 @@ export default function CourseDetailPage() {
 
           <div className="flex items-center gap-3">
             <span className="text-3xl font-black" style={{ color: "var(--nomi-navy)" }}>{money(finalPrice)}</span>
-            {course.discount_price && (
+            {false {course.discount_price && ({course.discount_price && ( (
               <span className="text-lg line-through" style={{ color: "var(--nomi-muted)" }}>{money(course.price)}</span>
             )}
           </div>
