@@ -5,21 +5,45 @@ import { usePathname, useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
 import {
   LayoutDashboard, Package, ShoppingCart, User,
-  Tag, List, LogOut, Globe,
+  Tag, List, LogOut, Globe, BookOpen, PlusCircle,
 } from "lucide-react";
+import { useEffect, useState } from "react";
 
-const items = [
-  { href: "/brand",                  label: "Dashboard",      icon: LayoutDashboard },
-  { href: "/brand/product-brands",   label: "Marcas",         icon: Tag },
-  { href: "/brand/products",         label: "Crear producto", icon: Package },
-  { href: "/brand/products/list",    label: "Mis productos",  icon: List },
-  { href: "/brand/orders",           label: "Ordenes",        icon: ShoppingCart },
-  { href: "/brand/profile",          label: "Mi perfil",      icon: User },
+const productItems = [
+  { href: "/brand",               label: "Dashboard",      icon: LayoutDashboard },
+  { href: "/brand/product-brands",label: "Marcas",         icon: Tag },
+  { href: "/brand/products",      label: "Crear producto", icon: Package },
+  { href: "/brand/products/list", label: "Mis productos",  icon: List },
+  { href: "/brand/orders",        label: "Ordenes",        icon: ShoppingCart },
+  { href: "/brand/profile",       label: "Mi perfil",      icon: User },
+];
+
+const courseItems = [
+  { href: "/brand",               label: "Dashboard",      icon: LayoutDashboard },
+  { href: "/brand/courses/new",   label: "Crear curso",    icon: PlusCircle },
+  { href: "/brand/courses",       label: "Mis cursos",     icon: BookOpen },
+  { href: "/brand/orders",        label: "Ordenes",        icon: ShoppingCart },
+  { href: "/brand/profile",       label: "Mi perfil",      icon: User },
 ];
 
 export default function BrandSidebar({ onNavigate }: { onNavigate?: () => void }) {
   const pathname = usePathname();
   const router = useRouter();
+  const [brandType, setBrandType] = useState<"PRODUCTS" | "COURSES">("PRODUCTS");
+
+  useEffect(() => {
+    async function detectType() {
+      const { data: u } = await supabase.auth.getUser();
+      if (!u?.user) return;
+      const { data: userRow } = await supabase.from("users").select("brand_id").eq("auth_id", u.user.id).single();
+      if (!userRow?.brand_id) return;
+      const { data: brand } = await supabase.from("brands").select("brand_type").eq("id", userRow.brand_id).single();
+      if (brand?.brand_type) setBrandType(brand.brand_type as any);
+    }
+    detectType();
+  }, []);
+
+  const items = brandType === "COURSES" ? courseItems : productItems;
 
   async function handleLogout() {
     await supabase.auth.signOut();
@@ -38,7 +62,7 @@ export default function BrandSidebar({ onNavigate }: { onNavigate?: () => void }
           <span className="text-xl font-black text-white">MI</span>
         </div>
         <div className="text-xs font-semibold mt-0.5" style={{ color: "rgba(255,255,255,0.4)" }}>
-          Panel de Proveedor
+          {brandType === "COURSES" ? "Panel de Cursos" : "Panel de Proveedor"}
         </div>
       </div>
 
@@ -48,8 +72,7 @@ export default function BrandSidebar({ onNavigate }: { onNavigate?: () => void }
           const active = pathname === item.href ||
             (item.href !== "/brand" && pathname.startsWith(item.href + "/"));
           return (
-            <Link key={item.href} href={item.href}
-              onClick={onNavigate}
+            <Link key={item.href} href={item.href} onClick={onNavigate}
               className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-semibold transition"
               style={active ? {
                 backgroundColor: "rgba(245,166,35,0.15)",
