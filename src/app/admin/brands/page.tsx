@@ -12,6 +12,7 @@ export default function AdminBrandsPage() {
   const [editing, setEditing] = useState<string | null>(null);
   const [editName, setEditName] = useState("");
   const [editLogo, setEditLogo] = useState("");
+  const [editType, setEditType] = useState("PRODUCTS");
   const [saving, setSaving] = useState(false);
   const [msg, setMsg] = useState<{ id: string; ok: boolean; text: string } | null>(null);
   const [q, setQ] = useState("");
@@ -25,7 +26,7 @@ export default function AdminBrandsPage() {
     const sellerIds = [...new Set((pb || []).map((b: any) => b.seller_brand_id).filter(Boolean))];
     let smap: Record<string, string> = {};
     if (sellerIds.length > 0) {
-      const { data: sellers } = await supabase.from("brands").select("id, name").in("id", sellerIds);
+      const { data: sellers } = await supabase.from("brands").select("id, name, brand_type").in("id", sellerIds);
       for (const s of sellers || []) smap[s.id] = s.name || s.id;
     }
 
@@ -53,6 +54,7 @@ export default function AdminBrandsPage() {
     setEditing(b.id);
     setEditName(b.name || "");
     setEditLogo(b.logo_url || "");
+    setEditType(b.brand_type || "PRODUCTS");
     setMsg(null);
   }
 
@@ -62,6 +64,13 @@ export default function AdminBrandsPage() {
       .from("product_brands")
       .update({ name: editName.trim(), logo_url: editLogo.trim() || null })
       .eq("id", id);
+
+    // Actualizar brand_type en tabla brands si existe seller_brand_id
+    const row = rows.find(r => r.id === id);
+    if (row?.seller_brand_id) {
+      await supabase.from("brands").update({ brand_type: editType }).eq("id", row.seller_brand_id);
+    }
+
     setSaving(false);
     if (error) {
       setMsg({ id, ok: false, text: "Error: " + error.message });
@@ -101,19 +110,14 @@ export default function AdminBrandsPage() {
         </div>
       )}
 
-      <input
-        placeholder="Buscar marca por nombre..."
-        value={q}
-        onChange={(e) => setQ(e.target.value)}
+      <input placeholder="Buscar marca por nombre..."
+        value={q} onChange={(e) => setQ(e.target.value)}
         className="w-full md:w-80"
-        style={{ ...IS, backgroundColor: "#fff", padding: "10px 14px", fontSize: "14px" }}
-      />
+        style={{ ...IS, backgroundColor: "#fff", padding: "10px 14px", fontSize: "14px" }} />
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         {loading ? (
-          [1,2,3].map(i => (
-            <div key={i} className="h-48 rounded-2xl animate-pulse" style={{ backgroundColor: "var(--nomi-border)" }} />
-          ))
+          [1,2,3].map(i => <div key={i} className="h-48 rounded-2xl animate-pulse" style={{ backgroundColor: "var(--nomi-border)" }} />)
         ) : filtered.length === 0 ? (
           <div className="col-span-3 py-12 text-center">
             <Tag className="w-10 h-10 mx-auto mb-3" style={{ color: "var(--nomi-border)" }} />
@@ -146,6 +150,13 @@ export default function AdminBrandsPage() {
                     <label className="block text-xs font-bold mb-1 uppercase tracking-wide" style={{ color: "var(--nomi-navy)" }}>URL del logo</label>
                     <input value={editLogo} onChange={(e) => setEditLogo(e.target.value)} placeholder="https://..." style={IS} />
                   </div>
+                  <div>
+                    <label className="block text-xs font-bold mb-1 uppercase tracking-wide" style={{ color: "var(--nomi-navy)" }}>Tipo de proveedor</label>
+                    <select value={editType} onChange={(e) => setEditType(e.target.value)} style={IS}>
+                      <option value="PRODUCTS">Productos</option>
+                      <option value="COURSES">Cursos</option>
+                    </select>
+                  </div>
                   {msg?.id === b.id && (
                     <p className="text-xs font-semibold" style={{ color: msg?.ok ? "#16A34A" : "#DC2626" }}>{msg?.text}</p>
                   )}
@@ -172,12 +183,18 @@ export default function AdminBrandsPage() {
                     <div className="text-xs mt-0.5" style={{ color: "var(--nomi-muted)" }}>{prodCounts[b.id] || 0} productos</div>
                   </div>
                   <div className="flex items-center justify-between">
-                    <span className="text-xs font-bold px-2.5 py-1 rounded-full"
-                      style={b.active
-                        ? { backgroundColor: "var(--nomi-teal-bg)", color: "var(--nomi-teal)" }
-                        : { backgroundColor: "#FEE2E2", color: "#DC2626" }}>
-                      {b.active ? "Activa" : "Inactiva"}
-                    </span>
+                    <div className="flex gap-2">
+                      <span className="text-xs font-bold px-2.5 py-1 rounded-full"
+                        style={b.active
+                          ? { backgroundColor: "var(--nomi-teal-bg)", color: "var(--nomi-teal)" }
+                          : { backgroundColor: "#FEE2E2", color: "#DC2626" }}>
+                        {b.active ? "Activa" : "Inactiva"}
+                      </span>
+                      <span className="text-xs font-bold px-2.5 py-1 rounded-full"
+                        style={{ backgroundColor: b.brand_type === "COURSES" ? "#EDE9FE" : "var(--nomi-orange-bg)", color: b.brand_type === "COURSES" ? "#8B5CF6" : "var(--nomi-orange)" }}>
+                        {b.brand_type === "COURSES" ? "Cursos" : "Productos"}
+                      </span>
+                    </div>
                     <button onClick={() => startEdit(b)}
                       className="text-xs font-bold px-3 py-1.5 rounded-xl cursor-pointer"
                       style={{ backgroundColor: "var(--nomi-orange-bg)", color: "var(--nomi-orange)", border: "1px solid rgba(245,166,35,0.3)" }}>

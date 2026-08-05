@@ -5,21 +5,24 @@ import { usePathname, useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
 import {
   LayoutDashboard, Building2, Tag, Users, Package,
-  ShoppingCart, BarChart2, CreditCard, Globe, List, LogOut, Landmark,
+  ShoppingCart, BarChart2, CreditCard, Globe, List,
+  LogOut, Landmark, BookOpen, ClipboardList,
 } from "lucide-react";
 
 const items = [
-  { href: "/admin",               label: "Dashboard",     icon: LayoutDashboard },
-  { href: "/admin/companies",     label: "Empresas",      icon: Building2 },
-  { href: "/admin/brands",        label: "Marcas",        icon: Tag },
-  { href: "/admin/employees",     label: "Empleados",     icon: Users },
-  { href: "/admin/products",      label: "Productos",     icon: Package },
-  { href: "/admin/categories",    label: "Categorias",    icon: List },
-  { href: "/admin/website",       label: "Pagina web",    icon: Globe },
-  { href: "/admin/orders",        label: "Ordenes",       icon: ShoppingCart },
-  { href: "/admin/installments",  label: "Cuotas",        icon: Landmark },
-  { href: "/admin/results",       label: "Resultados",    icon: BarChart2 },
-  { href: "/admin/payments",      label: "Pagos",         icon: CreditCard },
+  { href: "/admin",                   label: "Dashboard",          icon: LayoutDashboard },
+  { href: "/admin/companies",         label: "Empresas",           icon: Building2 },
+  { href: "/admin/brands",            label: "Marcas",             icon: Tag },
+  { href: "/admin/employees",         label: "Empleados",          icon: Users },
+  { href: "/admin/products",          label: "Productos",          icon: Package },
+  { href: "/admin/categories",        label: "Categorias",         icon: List },
+  { href: "/admin/course-categories", label: "Cat. cursos",        icon: BookOpen },
+  { href: "/admin/website",           label: "Pagina web",         icon: Globe },
+  { href: "/admin/orders",            label: "Ordenes",            icon: ShoppingCart },
+  { href: "/admin/installments",      label: "Cuotas",             icon: Landmark },
+  { href: "/admin/course-orders",     label: "Cursos pendientes",  icon: ClipboardList },
+  { href: "/admin/results",           label: "Resultados",         icon: BarChart2 },
+  { href: "/admin/payments",          label: "Pagos",              icon: CreditCard },
 ];
 
 export default function AdminSidebar({ onNavigate }: { onNavigate?: () => void }) {
@@ -35,7 +38,6 @@ export default function AdminSidebar({ onNavigate }: { onNavigate?: () => void }
     <aside className="w-64 min-h-screen flex flex-col"
       style={{ backgroundColor: "var(--nomi-navy)", borderRight: "1px solid rgba(255,255,255,0.08)" }}>
 
-      {/* LOGO */}
       <div className="px-5 py-5" style={{ borderBottom: "1px solid rgba(255,255,255,0.08)" }}>
         <div className="flex items-center gap-1 mb-0.5">
           <span className="text-xl font-black text-white">N</span>
@@ -43,20 +45,16 @@ export default function AdminSidebar({ onNavigate }: { onNavigate?: () => void }
             style={{ borderColor: "var(--nomi-orange)", color: "var(--nomi-teal)" }}>$</span>
           <span className="text-xl font-black text-white">MI</span>
         </div>
-        <div className="text-xs font-semibold mt-0.5" style={{ color: "rgba(255,255,255,0.4)" }}>
-          Super Admin
-        </div>
+        <div className="text-xs font-semibold mt-0.5" style={{ color: "rgba(255,255,255,0.4)" }}>Super Admin</div>
       </div>
 
-      {/* NAV */}
       <nav className="flex-1 px-3 py-4 space-y-0.5 overflow-y-auto">
         {items.map((item) => {
           const Icon = item.icon;
           const active = pathname === item.href ||
             (item.href !== "/admin" && pathname.startsWith(item.href + "/"));
           return (
-            <Link key={item.href} href={item.href}
-              onClick={onNavigate}
+            <Link key={item.href} href={item.href} onClick={onNavigate}
               className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-semibold transition"
               style={active ? {
                 backgroundColor: "rgba(245,166,35,0.15)",
@@ -73,7 +71,6 @@ export default function AdminSidebar({ onNavigate }: { onNavigate?: () => void }
         })}
       </nav>
 
-      {/* FOOTER */}
       <div className="px-3 py-4" style={{ borderTop: "1px solid rgba(255,255,255,0.08)" }}>
         <Link href="/market" target="_blank" onClick={onNavigate}
           className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-semibold mb-1 transition"
