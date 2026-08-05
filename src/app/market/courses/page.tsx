@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useEffect, useMemo, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { supabase } from "@/lib/supabaseClient";
@@ -37,7 +37,7 @@ function CourseCatalogContent() {
       setLoading(true);
       let query = supabase
         .from("courses")
-        .select("id, name, description, price, discount_price, category, image_url", { count: "exact" })
+        .select("id, name, description, price, category, image_url", { count: "exact" })
         .eq("active", true);
 
       if (category) query = query.eq("category", category);
@@ -70,7 +70,6 @@ function CourseCatalogContent() {
         </p>
       </div>
 
-      {/* FILTROS */}
       <div className="flex flex-col md:flex-row gap-3">
         <input placeholder="Buscar cursos..."
           value={q} onChange={(e) => setQ(e.target.value)}
@@ -135,15 +134,8 @@ function CourseCatalogContent() {
                   {c.description && (
                     <p className="text-xs line-clamp-2" style={{ color: "var(--nomi-muted)" }}>{c.description}</p>
                   )}
-                  <div className="flex items-center gap-2 pt-1">
-                    {false ? (
-                      <>
-                        <span className="font-black text-base" style={{ color: "var(--nomi-orange)" }}>{money(c.discount_price)}</span>
-                        <span className="text-xs line-through" style={{ color: "var(--nomi-muted)" }}>{money(c.price)}</span>
-                      </>
-                    ) : (
-                      <span className="font-black text-base" style={{ color: "var(--nomi-navy)" }}>{money(c.price)}</span>
-                    )}
+                  <div className="pt-1">
+                    <span className="font-black text-base" style={{ color: "var(--nomi-navy)" }}>{money(c.price)}</span>
                   </div>
                   <div className="pt-1">
                     <div className="w-full py-2.5 rounded-xl text-sm font-black text-center"

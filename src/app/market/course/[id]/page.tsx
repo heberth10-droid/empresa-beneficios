@@ -31,11 +31,10 @@ export default function CourseDetailPage() {
 
   function addToCart() {
     if (!course) return;
-    const finalPrice = course.price;
     addItem({
       id: course.id,
       name: course.name,
-      price: finalPrice,
+      price: course.price,
       image: course.image_url || "",
       isCourse: true,
     });
@@ -49,8 +48,6 @@ export default function CourseDetailPage() {
     </div>
   );
 
-  const finalPrice = course.price;
-
   return (
     <div className="max-w-5xl mx-auto px-4 py-8 space-y-6">
 
@@ -62,7 +59,6 @@ export default function CourseDetailPage() {
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
 
-        {/* IMAGEN */}
         <div className="rounded-2xl overflow-hidden" style={{ border: "1.5px solid var(--nomi-border)", backgroundColor: "var(--nomi-gray)" }}>
           {course.image_url
             ? <img src={course.image_url} className="w-full object-cover" alt={course.name}
@@ -72,7 +68,6 @@ export default function CourseDetailPage() {
               </div>}
         </div>
 
-        {/* INFO */}
         <div className="space-y-5">
           {course.category && (
             <span className="text-xs font-bold px-3 py-1.5 rounded-full"
@@ -85,11 +80,8 @@ export default function CourseDetailPage() {
             <p className="text-sm leading-relaxed" style={{ color: "var(--nomi-muted)" }}>{course.description}</p>
           )}
 
-          <div className="flex items-center gap-3">
-            <span className="text-3xl font-black" style={{ color: "var(--nomi-navy)" }}>{money(finalPrice)}</span>
-            {false {course.discount_price && ({course.discount_price && ( (
-              <span className="text-lg line-through" style={{ color: "var(--nomi-muted)" }}>{money(course.price)}</span>
-            )}
+          <div>
+            <span className="text-3xl font-black" style={{ color: "var(--nomi-navy)" }}>{money(course.price)}</span>
           </div>
 
           <div className="rounded-xl p-4 space-y-2" style={{ backgroundColor: "var(--nomi-teal-bg)", border: "1.5px solid var(--nomi-teal)" }}>
@@ -109,7 +101,7 @@ export default function CourseDetailPage() {
           <button onClick={addToCart}
             className="w-full py-3.5 rounded-xl text-sm font-black cursor-pointer transition"
             style={{ backgroundColor: added ? "#16A34A" : "var(--nomi-orange)", color: "#fff" }}>
-            {added ? "✓ Agregado al carrito" : "Agregar al carrito"}
+            {added ? "Agregado al carrito" : "Agregar al carrito"}
           </button>
 
           <button onClick={() => { addToCart(); router.push("/market/checkout"); }}
