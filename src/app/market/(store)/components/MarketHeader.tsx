@@ -1,9 +1,10 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useRouter } from "next/navigation";
 import {
-  Building2, ChevronDown, ChevronRight, Rocket, ShoppingCart, User, LogOut,
+  Building2, ChevronDown, ChevronRight, Rocket,
+  ShoppingCart, User, LogOut, BookOpen,
 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
@@ -12,6 +13,7 @@ import { useCart } from "@/components/cart/CartProvider";
 type MarketCategory = { id: string; name: string };
 type MarketSubcategory = { id: string; category_name: string; name: string };
 type ProductBrand = { id: string; name: string; logo_url?: string | null };
+type CourseCategory = { id: string; name: string };
 
 function enc(value: string) { return encodeURIComponent(value); }
 
@@ -26,45 +28,38 @@ const trustItems = [
 
 export default function MarketHeader() {
   const router = useRouter();
-  const sp = useSearchParams();
   const { count } = useCart();
 
-  const initialQ = useMemo(() => sp.get("q") || "", [sp]);
   const [q, setQ] = useState("");
-
-  const [buyOpen, setBuyOpen] = useState(false);
+  const [productsOpen, setProductsOpen] = useState(false);
+  const [coursesOpen, setCoursesOpen] = useState(false);
   const [catsOpen, setCatsOpen] = useState(false);
   const [brandsOpen, setBrandsOpen] = useState(false);
+  const [courseCatsOpen, setCourseCatsOpen] = useState(false);
   const [openCategory, setOpenCategory] = useState<string | null>(null);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const [mobileBuyOpen, setMobileBuyOpen] = useState(false);
-  const [mobileCatsOpen, setMobileCatsOpen] = useState(false);
-  const [mobileBrandsOpen, setMobileBrandsOpen] = useState(false);
-  const [mobileOpenCategory, setMobileOpenCategory] = useState<string | null>(null);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
 
   const [categories, setCategories] = useState<MarketCategory[]>([]);
   const [subcategories, setSubcategories] = useState<MarketSubcategory[]>([]);
   const [productBrands, setProductBrands] = useState<ProductBrand[]>([]);
+  const [courseCategories, setCourseCategories] = useState<CourseCategory[]>([]);
 
   const [authUser, setAuthUser] = useState<any>(null);
   const [employeeName, setEmployeeName] = useState<string | null>(null);
 
-  useEffect(() => { setQ(initialQ); }, [initialQ]);
-
   useEffect(() => {
     async function loadMenuData() {
-      const [{ data: cats }, { data: subs }, { data: brands }] = await Promise.all([
-        supabase.from("market_categories").select("id,name").eq("active", true)
-          .order("sort_order", { ascending: true }).order("name", { ascending: true }),
-        supabase.from("market_subcategories").select("id,category_name,name").eq("active", true)
-          .order("sort_order", { ascending: true }).order("name", { ascending: true }),
-        supabase.from("product_brands").select("id,name,logo_url").eq("active", true)
-          .order("name", { ascending: true }),
+      const [{ data: cats }, { data: subs }, { data: brands }, { data: ccats }] = await Promise.all([
+        supabase.from("market_categories").select("id,name").eq("active", true).order("sort_order", { ascending: true }).order("name", { ascending: true }),
+        supabase.from("market_subcategories").select("id,category_name,name").eq("active", true).order("sort_order", { ascending: true }).order("name", { ascending: true }),
+        supabase.from("product_brands").select("id,name,logo_url").eq("active", true).order("name", { ascending: true }),
+        supabase.from("course_categories").select("id,name").eq("active", true).order("name", { ascending: true }),
       ]);
       setCategories((cats || []) as MarketCategory[]);
       setSubcategories((subs || []) as MarketSubcategory[]);
       setProductBrands((brands || []) as ProductBrand[]);
+      setCourseCategories((ccats || []) as CourseCategory[]);
     }
     loadMenuData();
   }, []);
@@ -73,27 +68,29 @@ export default function MarketHeader() {
     async function checkSession() {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) { setAuthUser(null); setEmployeeName(null); return; }
-
-      const { data: userRow } = await supabase.from("users").select("role, company_id").eq("auth_id", user.id).single();
+      const { data: userRow } = await supabase.from("users").select("role, company_id, employee_id").eq("auth_id", user.id).single();
       if (!userRow || userRow.role !== "EMPLOYEE") { setAuthUser(null); return; }
-
       setAuthUser(user);
-
-      const { data: emp } = await supabase.from("employees").select("name").eq("company_id", userRow.company_id).eq("email", user.email).single();
+      let emp: any = null;
+      if (userRow.employee_id) {
+        const { data } = await supabase.from("employees").select("name").eq("id", userRow.employee_id).single();
+        emp = data;
+      }
+      if (!emp && user.email) {
+        const { data } = await supabase.from("employees").select("name").eq("company_id", userRow.company_id).eq("email", user.email).single();
+        emp = data;
+      }
       setEmployeeName(emp?.name?.split(" ")[0] || user.email || "Mi cuenta");
     }
     checkSession();
-
     const { data: listener } = supabase.auth.onAuthStateChange(() => { checkSession(); });
     return () => listener.subscription.unsubscribe();
   }, []);
 
   async function logout() {
     await supabase.auth.signOut();
-    setAuthUser(null);
-    setEmployeeName(null);
-    setUserMenuOpen(false);
-    setMobileMenuOpen(false);
+    setAuthUser(null); setEmployeeName(null);
+    setUserMenuOpen(false); setMobileMenuOpen(false);
   }
 
   function goSearch() {
@@ -103,15 +100,26 @@ export default function MarketHeader() {
   }
 
   function subcatsFor(categoryName: string) {
-    return subcategories.filter(
-      (s) => s.category_name.trim().toLowerCase() === categoryName.trim().toLowerCase()
-    );
+    return subcategories.filter((s) => s.category_name.trim().toLowerCase() === categoryName.trim().toLowerCase());
   }
 
   function go(url: string) {
-    setBuyOpen(false); setMobileMenuOpen(false); setMobileBuyOpen(false);
+    setProductsOpen(false); setCoursesOpen(false);
+    setMobileMenuOpen(false);
     router.push(url);
   }
+
+  // Cerrar dropdowns al hacer clic fuera
+  useEffect(() => {
+    function handleClick(e: MouseEvent) {
+      const t = e.target as HTMLElement;
+      if (!t.closest("[data-menu]")) {
+        setProductsOpen(false); setCoursesOpen(false); setUserMenuOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClick);
+    return () => document.removeEventListener("mousedown", handleClick);
+  }, []);
 
   return (
     <header className="w-full sticky top-0 z-40 shadow-sm"
@@ -120,9 +128,7 @@ export default function MarketHeader() {
       {/* TRUST BAR desktop */}
       <div className="hidden md:flex items-center justify-center gap-6 py-1.5 text-xs font-semibold"
         style={{ backgroundColor: "var(--nomi-navy-dark)" }}>
-        {trustItems.map((txt) => (
-          <span key={txt} style={{ color: "var(--nomi-teal)" }}>{txt}</span>
-        ))}
+        {trustItems.map((txt) => <span key={txt} style={{ color: "var(--nomi-teal)" }}>{txt}</span>)}
       </div>
 
       {/* TRUST BAR mobile ticker */}
@@ -150,7 +156,7 @@ export default function MarketHeader() {
         <div className="hidden md:flex flex-1 relative">
           <input value={q} onChange={(e) => setQ(e.target.value)}
             onKeyDown={(e) => { if (e.key === "Enter") goSearch(); }}
-            placeholder="Buscar productos, marcas o categorias..."
+            placeholder="Buscar productos, cursos, marcas o categorias..."
             className="w-full rounded-full px-5 py-2.5 pr-24 text-sm bg-white text-slate-900 placeholder-slate-400 border-0 focus:outline-none focus:ring-2 focus:ring-orange-400" />
           <button onClick={goSearch}
             className="absolute right-1 top-1 bottom-1 px-5 rounded-full text-sm font-bold cursor-pointer"
@@ -174,16 +180,15 @@ export default function MarketHeader() {
             <Building2 className="w-3.5 h-3.5" /> Empleador
           </Link>
 
-          {/* COMPRAR dropdown */}
-          <div className="relative">
+          {/* MENU PRODUCTOS */}
+          <div className="relative" data-menu="products">
             <button type="button"
-              onClick={() => { setBuyOpen((v) => !v); setCatsOpen(false); setBrandsOpen(false); setOpenCategory(null); setUserMenuOpen(false); }}
+              onClick={() => { setProductsOpen((v) => !v); setCoursesOpen(false); setUserMenuOpen(false); }}
               className="inline-flex items-center gap-1.5 rounded-full px-4 py-1.5 text-sm font-bold cursor-pointer"
               style={{ backgroundColor: "var(--nomi-orange)", color: "#fff" }}>
-              Comprar <ChevronDown className="w-4 h-4" />
+              Productos <ChevronDown className="w-4 h-4" />
             </button>
-
-            {buyOpen && (
+            {productsOpen && (
               <div className="absolute right-0 mt-3 w-[310px] max-h-[70vh] overflow-y-auto rounded-2xl bg-white shadow-2xl border p-2 z-50"
                 style={{ borderColor: "var(--nomi-border)" }}>
                 <button onClick={() => go("/market/catalog")}
@@ -258,6 +263,45 @@ export default function MarketHeader() {
             )}
           </div>
 
+          {/* MENU CURSOS */}
+          <div className="relative" data-menu="courses">
+            <button type="button"
+              onClick={() => { setCoursesOpen((v) => !v); setProductsOpen(false); setUserMenuOpen(false); }}
+              className="inline-flex items-center gap-1.5 rounded-full px-4 py-1.5 text-sm font-bold cursor-pointer"
+              style={{ backgroundColor: "#8B5CF6", color: "#fff" }}>
+              <BookOpen className="w-4 h-4" /> Cursos <ChevronDown className="w-4 h-4" />
+            </button>
+            {coursesOpen && (
+              <div className="absolute right-0 mt-3 w-[260px] max-h-[70vh] overflow-y-auto rounded-2xl bg-white shadow-2xl border p-2 z-50"
+                style={{ borderColor: "var(--nomi-border)" }}>
+                <button onClick={() => go("/market/courses")}
+                  className="w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-sm font-bold hover:bg-slate-50 cursor-pointer text-slate-900">
+                  Ver todos los cursos <ChevronRight className="w-4 h-4 text-slate-400" />
+                </button>
+                {courseCategories.length > 0 && (
+                  <>
+                    <div className="border-t my-1.5" style={{ borderColor: "var(--nomi-border)" }} />
+                    <button onClick={() => setCourseCatsOpen((v) => !v)}
+                      className="w-full flex items-center justify-between px-3 py-2 rounded-xl text-sm font-bold hover:bg-slate-50 cursor-pointer text-slate-700">
+                      Categorias
+                      {courseCatsOpen ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
+                    </button>
+                    {courseCatsOpen && (
+                      <div className="space-y-0.5 ml-1">
+                        {courseCategories.map((cat) => (
+                          <button key={cat.id} onClick={() => go(`/market/courses?category=${enc(cat.name)}`)}
+                            className="w-full text-left px-4 py-2 text-sm hover:bg-slate-50 rounded-lg cursor-pointer text-slate-700">
+                            {cat.name}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </>
+                )}
+              </div>
+            )}
+          </div>
+
           {/* CARRITO */}
           <button onClick={() => router.push("/market/cart")}
             className="relative inline-flex items-center gap-2 text-sm font-semibold cursor-pointer"
@@ -273,8 +317,8 @@ export default function MarketHeader() {
 
           {/* SESION */}
           {authUser ? (
-            <div className="relative">
-              <button onClick={() => { setUserMenuOpen((v) => !v); setBuyOpen(false); }}
+            <div className="relative" data-menu="user">
+              <button onClick={() => { setUserMenuOpen((v) => !v); setProductsOpen(false); setCoursesOpen(false); }}
                 className="inline-flex items-center gap-2 rounded-full px-3 py-1.5 text-sm font-bold cursor-pointer"
                 style={{ backgroundColor: "rgba(255,255,255,0.1)", color: "#fff", border: "1px solid rgba(255,255,255,0.2)" }}>
                 <User className="w-4 h-4" style={{ color: "var(--nomi-teal)" }} />
@@ -342,7 +386,7 @@ export default function MarketHeader() {
         <div className="relative">
           <input value={q} onChange={(e) => setQ(e.target.value)}
             onKeyDown={(e) => { if (e.key === "Enter") goSearch(); }}
-            placeholder="Buscar productos..."
+            placeholder="Buscar productos y cursos..."
             className="w-full rounded-full px-4 py-2.5 pr-20 text-sm bg-white text-slate-900 placeholder-slate-400 border-0 focus:outline-none" />
           <button onClick={goSearch}
             className="absolute right-1 top-1 bottom-1 px-4 rounded-full text-xs font-bold cursor-pointer"
@@ -359,10 +403,8 @@ export default function MarketHeader() {
 
           {/* SESION MOBILE */}
           {authUser ? (
-            <div className="rounded-2xl overflow-hidden mb-2"
-              style={{ border: "1px solid rgba(255,255,255,0.12)" }}>
-              <div className="flex items-center gap-2 px-4 py-3"
-                style={{ backgroundColor: "rgba(255,255,255,0.06)" }}>
+            <div className="rounded-2xl overflow-hidden mb-2" style={{ border: "1px solid rgba(255,255,255,0.12)" }}>
+              <div className="flex items-center gap-2 px-4 py-3" style={{ backgroundColor: "rgba(255,255,255,0.06)" }}>
                 <User className="w-4 h-4" style={{ color: "var(--nomi-teal)" }} />
                 <span className="text-sm font-bold text-white">{employeeName}</span>
               </div>
@@ -376,11 +418,6 @@ export default function MarketHeader() {
                 style={{ color: "rgba(255,255,255,0.8)", borderTop: "1px solid rgba(255,255,255,0.08)" }}>
                 Mis ordenes
               </Link>
-              <Link href="/employee/installments" onClick={() => setMobileMenuOpen(false)}
-                className="flex items-center px-4 py-2.5 text-sm font-semibold"
-                style={{ color: "rgba(255,255,255,0.8)", borderTop: "1px solid rgba(255,255,255,0.08)" }}>
-                Mis cuotas
-              </Link>
               <button onClick={logout}
                 className="w-full flex items-center gap-2 px-4 py-2.5 text-sm font-semibold cursor-pointer"
                 style={{ color: "#F87171", borderTop: "1px solid rgba(255,255,255,0.08)" }}>
@@ -389,92 +426,51 @@ export default function MarketHeader() {
             </div>
           ) : (
             <Link href="/login" onClick={() => setMobileMenuOpen(false)}
-              className="block text-sm font-black py-3 px-3 rounded-xl text-center"
+              className="block text-sm font-black py-3 px-3 rounded-xl text-center mb-2"
               style={{ backgroundColor: "var(--nomi-orange)", color: "#fff" }}>
               Iniciar sesion
             </Link>
           )}
 
-          <button type="button"
-            onClick={() => { setMobileBuyOpen((v) => !v); setMobileCatsOpen(false); setMobileBrandsOpen(false); setMobileOpenCategory(null); }}
-            className="w-full flex items-center justify-between text-sm font-bold py-2.5 px-3 rounded-xl cursor-pointer"
-            style={{ backgroundColor: mobileBuyOpen ? "rgba(255,255,255,0.1)" : "transparent", color: "#fff" }}>
-            <span style={{ color: "var(--nomi-orange)" }}>Ver catalogo</span>
-            {mobileBuyOpen ? <ChevronDown className="w-4 h-4 text-white" /> : <ChevronRight className="w-4 h-4 text-white" />}
-          </button>
-
-          {mobileBuyOpen && (
-            <div className="ml-2 rounded-2xl overflow-hidden" style={{ border: "1px solid rgba(255,255,255,0.12)" }}>
-              <button onClick={() => go("/market/catalog")}
-                className="w-full flex items-center justify-between px-4 py-3 text-sm font-bold cursor-pointer"
-                style={{ backgroundColor: "rgba(255,255,255,0.06)", color: "#fff", borderBottom: "1px solid rgba(255,255,255,0.08)" }}>
-                Ver todos los productos <ChevronRight className="w-4 h-4" />
-              </button>
-              <button onClick={() => setMobileCatsOpen((v) => !v)}
-                className="w-full flex items-center justify-between px-4 py-3 text-sm font-semibold cursor-pointer"
-                style={{ backgroundColor: "rgba(255,255,255,0.04)", color: "rgba(255,255,255,0.8)", borderBottom: "1px solid rgba(255,255,255,0.08)" }}>
-                Categorias
-                {mobileCatsOpen ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
-              </button>
-              {mobileCatsOpen && (
-                <div style={{ backgroundColor: "rgba(0,0,0,0.2)" }}>
-                  {categories.map((cat) => {
-                    const subs = subcatsFor(cat.name);
-                    const isOpen = mobileOpenCategory === cat.name;
-                    return (
-                      <div key={cat.id}>
-                        <div className="flex items-center" style={{ borderBottom: "1px solid rgba(255,255,255,0.05)" }}>
-                          <button onClick={() => go(`/market/category/${enc(cat.name)}`)}
-                            className="flex-1 text-left px-6 py-2.5 text-sm cursor-pointer"
-                            style={{ color: "rgba(255,255,255,0.7)" }}>
-                            {cat.name}
-                          </button>
-                          {subs.length > 0 && (
-                            <button onClick={() => setMobileOpenCategory(isOpen ? null : cat.name)}
-                              className="px-3 cursor-pointer" style={{ color: "rgba(255,255,255,0.5)" }}>
-                              {isOpen ? <ChevronDown className="w-3.5 h-3.5" /> : <ChevronRight className="w-3.5 h-3.5" />}
-                            </button>
-                          )}
-                        </div>
-                        {isOpen && subs.map((sub) => (
-                          <button key={sub.id} onClick={() => go(`/market/subcategory/${enc(sub.name)}`)}
-                            className="block w-full text-left px-10 py-2 text-xs cursor-pointer"
-                            style={{ color: "rgba(255,255,255,0.5)", borderBottom: "1px solid rgba(255,255,255,0.04)" }}>
-                            {sub.name}
-                          </button>
-                        ))}
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
-              <button onClick={() => setMobileBrandsOpen((v) => !v)}
-                className="w-full flex items-center justify-between px-4 py-3 text-sm font-semibold cursor-pointer"
-                style={{ backgroundColor: "rgba(255,255,255,0.04)", color: "rgba(255,255,255,0.8)" }}>
-                Marcas
-                {mobileBrandsOpen ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
-              </button>
-              {mobileBrandsOpen && (
-                <div style={{ backgroundColor: "rgba(0,0,0,0.2)" }}>
-                  {productBrands.map((b) => (
-                    <button key={b.id} onClick={() => go(`/market/brand/${b.id}`)}
-                      className="flex items-center gap-3 w-full text-left px-6 py-2.5 cursor-pointer"
-                      style={{ borderBottom: "1px solid rgba(255,255,255,0.05)" }}>
-                      {b.logo_url ? (
-                        <img src={b.logo_url} className="w-5 h-5 object-contain rounded bg-white" alt={b.name} />
-                      ) : (
-                        <span className="w-5 h-5 rounded-full flex items-center justify-center text-xs font-black text-white"
-                          style={{ backgroundColor: "var(--nomi-navy)" }}>
-                          {(b.name || "M").charAt(0).toUpperCase()}
-                        </span>
-                      )}
-                      <span className="text-sm" style={{ color: "rgba(255,255,255,0.7)" }}>{b.name}</span>
-                    </button>
-                  ))}
-                </div>
-              )}
+          {/* PRODUCTOS MOBILE */}
+          <div className="rounded-2xl overflow-hidden mb-2" style={{ border: "1px solid rgba(255,255,255,0.12)" }}>
+            <div className="px-4 py-2.5 text-xs font-bold uppercase tracking-widest"
+              style={{ backgroundColor: "rgba(245,166,35,0.15)", color: "var(--nomi-orange)" }}>
+              Productos
             </div>
-          )}
+            <button onClick={() => go("/market/catalog")}
+              className="w-full flex items-center justify-between px-4 py-3 text-sm font-semibold cursor-pointer"
+              style={{ color: "rgba(255,255,255,0.8)", borderTop: "1px solid rgba(255,255,255,0.08)" }}>
+              Ver todos <ChevronRight className="w-4 h-4" />
+            </button>
+            {categories.slice(0, 6).map((cat) => (
+              <button key={cat.id} onClick={() => go(`/market/category/${enc(cat.name)}`)}
+                className="w-full flex items-center justify-between px-4 py-2.5 text-sm cursor-pointer"
+                style={{ color: "rgba(255,255,255,0.6)", borderTop: "1px solid rgba(255,255,255,0.06)" }}>
+                {cat.name}
+              </button>
+            ))}
+          </div>
+
+          {/* CURSOS MOBILE */}
+          <div className="rounded-2xl overflow-hidden mb-2" style={{ border: "1px solid rgba(255,255,255,0.12)" }}>
+            <div className="px-4 py-2.5 text-xs font-bold uppercase tracking-widest"
+              style={{ backgroundColor: "rgba(139,92,246,0.2)", color: "#A78BFA" }}>
+              Cursos
+            </div>
+            <button onClick={() => go("/market/courses")}
+              className="w-full flex items-center justify-between px-4 py-3 text-sm font-semibold cursor-pointer"
+              style={{ color: "rgba(255,255,255,0.8)", borderTop: "1px solid rgba(255,255,255,0.08)" }}>
+              Ver todos <ChevronRight className="w-4 h-4" />
+            </button>
+            {courseCategories.map((cat) => (
+              <button key={cat.id} onClick={() => go(`/market/courses?category=${enc(cat.name)}`)}
+                className="w-full flex items-center justify-between px-4 py-2.5 text-sm cursor-pointer"
+                style={{ color: "rgba(255,255,255,0.6)", borderTop: "1px solid rgba(255,255,255,0.06)" }}>
+                {cat.name}
+              </button>
+            ))}
+          </div>
 
           <Link href="/brand" onClick={() => setMobileMenuOpen(false)}
             className="flex items-center gap-2 text-sm font-semibold py-2.5 px-3 rounded-xl"

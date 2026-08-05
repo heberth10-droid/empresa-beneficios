@@ -153,10 +153,10 @@ function CheckoutPageContent() {
     setErrorMsg(null);
     if (!documentNumber.trim()) return setErrorMsg("Debes ingresar tu numero de documento.");
     if (!shippingName.trim()) return setErrorMsg("Falta el nombre para el envio.");
-    if (!shippingPhone.trim()) return setErrorMsg("Falta el telefono para el envio.");
-    if (!shippingAddress.trim()) return setErrorMsg("Falta la direccion.");
-    if (!shippingCity.trim()) return setErrorMsg("Falta la ciudad.");
-    if (!shippingDepartment.trim()) return setErrorMsg("Falta el departamento.");
+    if (hasProducts && !shippingPhone.trim()) return setErrorMsg("Falta el telefono para el envio.");
+    if (hasProducts && !shippingAddress.trim()) return setErrorMsg("Falta la direccion.");
+    if (hasProducts && !shippingCity.trim()) return setErrorMsg("Falta la ciudad.");
+    if (hasProducts && !shippingDepartment.trim()) return setErrorMsg("Falta el departamento.");
     if (!employeeInfo) return setErrorMsg("Valida tu documento antes de continuar.");
     if (employeeInfo.active === false) return setErrorMsg("Empleado inactivo. Contacta a tu empresa.");
     if (exceedsLimit) return setErrorMsg("La cuota supera el cupo disponible.");

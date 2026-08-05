@@ -8,6 +8,7 @@ export type CartItem = {
   price: number;
   image?: string | null;
   qty: number;
+  isCourse?: boolean;
 };
 
 type CartContextType = {
@@ -21,15 +22,10 @@ type CartContextType = {
 };
 
 const CartContext = createContext<CartContextType | null>(null);
-
 const STORAGE_KEY = "nova_cart_v1";
 
 function safeParse(json: string | null) {
-  try {
-    return json ? JSON.parse(json) : null;
-  } catch {
-    return null;
-  }
+  try { return json ? JSON.parse(json) : null; } catch { return null; }
 }
 
 export function CartProvider({ children }: { children: React.ReactNode }) {
@@ -39,17 +35,14 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
     const raw = typeof window !== "undefined" ? localStorage.getItem(STORAGE_KEY) : null;
     const parsed = safeParse(raw);
     if (Array.isArray(parsed)) {
-      setItems(
-        parsed
-          .filter((x) => x && typeof x.id === "string")
-          .map((x) => ({
-            id: String(x.id),
-            name: String(x.name ?? ""),
-            price: Number(x.price ?? 0),
-            image: x.image ? String(x.image) : null,
-            qty: Math.max(1, Number(x.qty ?? 1)),
-          }))
-      );
+      setItems(parsed.filter((x) => x && typeof x.id === "string").map((x) => ({
+        id: String(x.id),
+        name: String(x.name ?? ""),
+        price: Number(x.price ?? 0),
+        image: x.image ? String(x.image) : null,
+        qty: Math.max(1, Number(x.qty ?? 1)),
+        isCourse: !!x.isCourse,
+      })));
     }
   }, []);
 
@@ -60,32 +53,29 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
 
   const addItem: CartContextType["addItem"] = (item, qty = 1) => {
     const q = Math.max(1, Number(qty || 1));
+    // Los cursos siempre qty 1
+    const finalQty = item.isCourse ? 1 : q;
     setItems((prev) => {
       const found = prev.find((p) => p.id === item.id);
-      if (found) {
-        return prev.map((p) => (p.id === item.id ? { ...p, qty: p.qty + q } : p));
-      }
-      return [...prev, { ...item, qty: q }];
+      if (found) return prev.map((p) => (p.id === item.id ? { ...p, qty: item.isCourse ? 1 : p.qty + finalQty } : p));
+      return [...prev, { ...item, qty: finalQty }];
     });
   };
 
-  const removeItem: CartContextType["removeItem"] = (id) => {
-    setItems((prev) => prev.filter((p) => p.id !== id));
-  };
+  const removeItem: CartContextType["removeItem"] = (id) => setItems((prev) => prev.filter((p) => p.id !== id));
 
   const setQty: CartContextType["setQty"] = (id, qty) => {
+    const item = items.find(p => p.id === id);
+    if (item?.isCourse) return; // cursos no cambian qty
     const q = Math.max(1, Number(qty || 1));
     setItems((prev) => prev.map((p) => (p.id === id ? { ...p, qty: q } : p)));
   };
 
   const clear = () => setItems([]);
-
   const count = useMemo(() => items.reduce((acc, it) => acc + it.qty, 0), [items]);
   const subtotal = useMemo(() => items.reduce((acc, it) => acc + it.price * it.qty, 0), [items]);
 
-  const value: CartContextType = { items, addItem, removeItem, setQty, clear, count, subtotal };
-
-  return <CartContext.Provider value={value}>{children}</CartContext.Provider>;
+  return <CartContext.Provider value={{ items, addItem, removeItem, setQty, clear, count, subtotal }}>{children}</CartContext.Provider>;
 }
 
 export function useCart() {
