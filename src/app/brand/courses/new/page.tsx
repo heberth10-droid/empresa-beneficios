@@ -182,7 +182,7 @@ export default function NewCoursePage() {
 
   function parseCSV(file: File) {
     setBulkParsing(true); setBulkFileName(file.name); setBulkRows([]);
-    Papa.parse(file, {
+    Papa.parse(file, { encoding: "UTF-8",
       header: true, skipEmptyLines: true,
       complete: (results: any) => {
         const rawRows = results.data || [];

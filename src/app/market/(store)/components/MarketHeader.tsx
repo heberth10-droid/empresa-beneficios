@@ -6,7 +6,7 @@ import {
   Building2, ChevronDown, ChevronRight, Rocket,
   ShoppingCart, User, LogOut, BookOpen,
 } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
 import { useCart } from "@/components/cart/CartProvider";
 
@@ -39,6 +39,14 @@ export default function MarketHeader() {
   const [openCategory, setOpenCategory] = useState<string | null>(null);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
+
+  // Mobile submenus
+  const [mobileProdOpen, setMobileProdOpen] = useState(false);
+  const [mobileProdCatsOpen, setMobileProdCatsOpen] = useState(false);
+  const [mobileProdBrandsOpen, setMobileProdBrandsOpen] = useState(false);
+  const [mobileOpenCat, setMobileOpenCat] = useState<string | null>(null);
+  const [mobileCourseOpen, setMobileCourseOpen] = useState(false);
+  const [mobileCourseCatsOpen, setMobileCourseCatsOpen] = useState(false);
 
   const [categories, setCategories] = useState<MarketCategory[]>([]);
   const [subcategories, setSubcategories] = useState<MarketSubcategory[]>([]);
@@ -109,7 +117,6 @@ export default function MarketHeader() {
     router.push(url);
   }
 
-  // Cerrar dropdowns al hacer clic fuera
   useEffect(() => {
     function handleClick(e: MouseEvent) {
       const t = e.target as HTMLElement;
@@ -131,7 +138,7 @@ export default function MarketHeader() {
         {trustItems.map((txt) => <span key={txt} style={{ color: "var(--nomi-teal)" }}>{txt}</span>)}
       </div>
 
-      {/* TRUST BAR mobile ticker */}
+      {/* TRUST BAR mobile */}
       <div className="md:hidden overflow-hidden py-1.5"
         style={{ backgroundColor: "var(--nomi-navy-dark)", borderBottom: "1px solid rgba(255,255,255,0.08)" }}>
         <div className="trust-ticker">
@@ -180,7 +187,7 @@ export default function MarketHeader() {
             <Building2 className="w-3.5 h-3.5" /> Empleador
           </Link>
 
-          {/* MENU PRODUCTOS */}
+          {/* MENU PRODUCTOS desktop */}
           <div className="relative" data-menu="products">
             <button type="button"
               onClick={() => { setProductsOpen((v) => !v); setCoursesOpen(false); setUserMenuOpen(false); }}
@@ -263,7 +270,7 @@ export default function MarketHeader() {
             )}
           </div>
 
-          {/* MENU CURSOS */}
+          {/* MENU CURSOS desktop */}
           <div className="relative" data-menu="courses">
             <button type="button"
               onClick={() => { setCoursesOpen((v) => !v); setProductsOpen(false); setUserMenuOpen(false); }}
@@ -315,7 +322,7 @@ export default function MarketHeader() {
             )}
           </button>
 
-          {/* SESION */}
+          {/* SESION desktop */}
           {authUser ? (
             <div className="relative" data-menu="user">
               <button onClick={() => { setUserMenuOpen((v) => !v); setProductsOpen(false); setCoursesOpen(false); }}
@@ -398,12 +405,12 @@ export default function MarketHeader() {
 
       {/* MOBILE MENU */}
       {mobileMenuOpen && (
-        <div className="md:hidden border-t px-4 py-3 space-y-1"
+        <div className="md:hidden border-t px-4 py-3 space-y-2 max-h-[80vh] overflow-y-auto"
           style={{ backgroundColor: "var(--nomi-navy-dark)", borderColor: "rgba(255,255,255,0.08)" }}>
 
           {/* SESION MOBILE */}
           {authUser ? (
-            <div className="rounded-2xl overflow-hidden mb-2" style={{ border: "1px solid rgba(255,255,255,0.12)" }}>
+            <div className="rounded-2xl overflow-hidden" style={{ border: "1px solid rgba(255,255,255,0.12)" }}>
               <div className="flex items-center gap-2 px-4 py-3" style={{ backgroundColor: "rgba(255,255,255,0.06)" }}>
                 <User className="w-4 h-4" style={{ color: "var(--nomi-teal)" }} />
                 <span className="text-sm font-bold text-white">{employeeName}</span>
@@ -426,50 +433,139 @@ export default function MarketHeader() {
             </div>
           ) : (
             <Link href="/login" onClick={() => setMobileMenuOpen(false)}
-              className="block text-sm font-black py-3 px-3 rounded-xl text-center mb-2"
+              className="block text-sm font-black py-3 px-3 rounded-xl text-center"
               style={{ backgroundColor: "var(--nomi-orange)", color: "#fff" }}>
               Iniciar sesion
             </Link>
           )}
 
           {/* PRODUCTOS MOBILE */}
-          <div className="rounded-2xl overflow-hidden mb-2" style={{ border: "1px solid rgba(255,255,255,0.12)" }}>
-            <div className="px-4 py-2.5 text-xs font-bold uppercase tracking-widest"
+          <div className="rounded-2xl overflow-hidden" style={{ border: "1px solid rgba(255,255,255,0.12)" }}>
+            <button onClick={() => setMobileProdOpen((v) => !v)}
+              className="w-full flex items-center justify-between px-4 py-3 text-sm font-bold cursor-pointer"
               style={{ backgroundColor: "rgba(245,166,35,0.15)", color: "var(--nomi-orange)" }}>
               Productos
-            </div>
-            <button onClick={() => go("/market/catalog")}
-              className="w-full flex items-center justify-between px-4 py-3 text-sm font-semibold cursor-pointer"
-              style={{ color: "rgba(255,255,255,0.8)", borderTop: "1px solid rgba(255,255,255,0.08)" }}>
-              Ver todos <ChevronRight className="w-4 h-4" />
+              {mobileProdOpen ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
             </button>
-            {categories.slice(0, 6).map((cat) => (
-              <button key={cat.id} onClick={() => go(`/market/category/${enc(cat.name)}`)}
-                className="w-full flex items-center justify-between px-4 py-2.5 text-sm cursor-pointer"
-                style={{ color: "rgba(255,255,255,0.6)", borderTop: "1px solid rgba(255,255,255,0.06)" }}>
-                {cat.name}
-              </button>
-            ))}
+
+            {mobileProdOpen && (
+              <div>
+                <button onClick={() => go("/market/catalog")}
+                  className="w-full flex items-center justify-between px-4 py-3 text-sm font-semibold cursor-pointer"
+                  style={{ color: "rgba(255,255,255,0.9)", borderTop: "1px solid rgba(255,255,255,0.08)", backgroundColor: "rgba(255,255,255,0.04)" }}>
+                  Ver todos los productos <ChevronRight className="w-4 h-4" />
+                </button>
+
+                {/* CATEGORIAS */}
+                <button onClick={() => setMobileProdCatsOpen((v) => !v)}
+                  className="w-full flex items-center justify-between px-4 py-2.5 text-sm font-semibold cursor-pointer"
+                  style={{ color: "rgba(255,255,255,0.8)", borderTop: "1px solid rgba(255,255,255,0.06)" }}>
+                  Categorias
+                  {mobileProdCatsOpen ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
+                </button>
+                {mobileProdCatsOpen && (
+                  <div style={{ backgroundColor: "rgba(0,0,0,0.15)" }}>
+                    {categories.map((cat) => {
+                      const subs = subcatsFor(cat.name);
+                      const isOpen = mobileOpenCat === cat.name;
+                      return (
+                        <div key={cat.id}>
+                          <div className="flex items-center" style={{ borderTop: "1px solid rgba(255,255,255,0.05)" }}>
+                            <button onClick={() => go(`/market/category/${enc(cat.name)}`)}
+                              className="flex-1 text-left px-6 py-2.5 text-sm cursor-pointer"
+                              style={{ color: "rgba(255,255,255,0.75)" }}>
+                              {cat.name}
+                            </button>
+                            {subs.length > 0 && (
+                              <button onClick={() => setMobileOpenCat(isOpen ? null : cat.name)}
+                                className="px-3 py-2.5 cursor-pointer" style={{ color: "rgba(255,255,255,0.4)" }}>
+                                {isOpen ? <ChevronDown className="w-3.5 h-3.5" /> : <ChevronRight className="w-3.5 h-3.5" />}
+                              </button>
+                            )}
+                          </div>
+                          {isOpen && subs.map((sub) => (
+                            <button key={sub.id} onClick={() => go(`/market/subcategory/${enc(sub.name)}`)}
+                              className="block w-full text-left px-10 py-2 text-xs cursor-pointer"
+                              style={{ color: "rgba(255,255,255,0.5)", borderTop: "1px solid rgba(255,255,255,0.04)" }}>
+                              {sub.name}
+                            </button>
+                          ))}
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+
+                {/* MARCAS */}
+                <button onClick={() => setMobileProdBrandsOpen((v) => !v)}
+                  className="w-full flex items-center justify-between px-4 py-2.5 text-sm font-semibold cursor-pointer"
+                  style={{ color: "rgba(255,255,255,0.8)", borderTop: "1px solid rgba(255,255,255,0.06)" }}>
+                  Marcas
+                  {mobileProdBrandsOpen ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
+                </button>
+                {mobileProdBrandsOpen && (
+                  <div style={{ backgroundColor: "rgba(0,0,0,0.15)" }}>
+                    {productBrands.map((b) => (
+                      <button key={b.id} onClick={() => go(`/market/brand/${b.id}`)}
+                        className="flex items-center gap-3 w-full text-left px-6 py-2.5 cursor-pointer"
+                        style={{ borderTop: "1px solid rgba(255,255,255,0.05)" }}>
+                        {b.logo_url ? (
+                          <img src={b.logo_url} className="w-5 h-5 object-contain rounded bg-white" alt={b.name} />
+                        ) : (
+                          <span className="w-5 h-5 rounded-full flex items-center justify-center text-xs font-black text-white shrink-0"
+                            style={{ backgroundColor: "var(--nomi-navy)" }}>
+                            {(b.name || "M").charAt(0).toUpperCase()}
+                          </span>
+                        )}
+                        <span className="text-sm" style={{ color: "rgba(255,255,255,0.75)" }}>{b.name}</span>
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
           </div>
 
           {/* CURSOS MOBILE */}
-          <div className="rounded-2xl overflow-hidden mb-2" style={{ border: "1px solid rgba(255,255,255,0.12)" }}>
-            <div className="px-4 py-2.5 text-xs font-bold uppercase tracking-widest"
+          <div className="rounded-2xl overflow-hidden" style={{ border: "1px solid rgba(255,255,255,0.12)" }}>
+            <button onClick={() => setMobileCourseOpen((v) => !v)}
+              className="w-full flex items-center justify-between px-4 py-3 text-sm font-bold cursor-pointer"
               style={{ backgroundColor: "rgba(139,92,246,0.2)", color: "#A78BFA" }}>
               Cursos
-            </div>
-            <button onClick={() => go("/market/courses")}
-              className="w-full flex items-center justify-between px-4 py-3 text-sm font-semibold cursor-pointer"
-              style={{ color: "rgba(255,255,255,0.8)", borderTop: "1px solid rgba(255,255,255,0.08)" }}>
-              Ver todos <ChevronRight className="w-4 h-4" />
+              {mobileCourseOpen ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
             </button>
-            {courseCategories.map((cat) => (
-              <button key={cat.id} onClick={() => go(`/market/courses?category=${enc(cat.name)}`)}
-                className="w-full flex items-center justify-between px-4 py-2.5 text-sm cursor-pointer"
-                style={{ color: "rgba(255,255,255,0.6)", borderTop: "1px solid rgba(255,255,255,0.06)" }}>
-                {cat.name}
-              </button>
-            ))}
+
+            {mobileCourseOpen && (
+              <div>
+                <button onClick={() => go("/market/courses")}
+                  className="w-full flex items-center justify-between px-4 py-3 text-sm font-semibold cursor-pointer"
+                  style={{ color: "rgba(255,255,255,0.9)", borderTop: "1px solid rgba(255,255,255,0.08)", backgroundColor: "rgba(255,255,255,0.04)" }}>
+                  Ver todos los cursos <ChevronRight className="w-4 h-4" />
+                </button>
+
+                {courseCategories.length > 0 && (
+                  <>
+                    <button onClick={() => setMobileCourseCatsOpen((v) => !v)}
+                      className="w-full flex items-center justify-between px-4 py-2.5 text-sm font-semibold cursor-pointer"
+                      style={{ color: "rgba(255,255,255,0.8)", borderTop: "1px solid rgba(255,255,255,0.06)" }}>
+                      Categorias
+                      {mobileCourseCatsOpen ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
+                    </button>
+                    {mobileCourseCatsOpen && (
+                      <div style={{ backgroundColor: "rgba(0,0,0,0.15)" }}>
+                        {courseCategories.map((cat) => (
+                          <button key={cat.id} onClick={() => go(`/market/courses?category=${enc(cat.name)}`)}
+                            className="block w-full text-left px-6 py-2.5 text-sm cursor-pointer"
+                            style={{ color: "rgba(255,255,255,0.7)", borderTop: "1px solid rgba(255,255,255,0.05)" }}>
+                            {cat.name}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </>
+                )}
+              </div>
+            )}
           </div>
 
           <Link href="/brand" onClick={() => setMobileMenuOpen(false)}
