@@ -20,6 +20,7 @@ function parseMoney(v: any) {
 type BulkCourseRow = {
   rowNumber: number;
   name: string;
+  sku: string;
   category: string;
   description: string;
   price: number;
@@ -44,6 +45,7 @@ export default function NewCoursePage() {
   const [showCatSuggestions, setShowCatSuggestions] = useState(false);
 
   const [name, setName] = useState("");
+  const [sku, setSku] = useState("");
   const [description, setDescription] = useState("");
   const [price, setPrice] = useState("");
   const [discount, setDiscount] = useState("");
@@ -142,6 +144,7 @@ export default function NewCoursePage() {
     const { error } = await supabase.from("courses").insert({
       brand_id: brandId,
       name: name.trim(),
+      sku: sku.trim() || null,
       description: description.trim() || null,
       price: Number(price),
       discount_price: discount ? Number(discount) : null,
@@ -161,6 +164,7 @@ export default function NewCoursePage() {
     for (const key of Object.keys(raw || {})) clean[normalizeHeader(key)] = raw[key];
     const errors: string[] = [];
     const name = String(clean.name || "").trim();
+    const sku = String(clean.sku || "").trim();
     const category = String(clean.category || clean.categoria || "").trim();
     const description = String(clean.description || clean.descripcion || "").trim();
     const image_url = String(clean.image_url || clean.imagen || clean.image || "").trim();
@@ -169,7 +173,7 @@ export default function NewCoursePage() {
     if (!name) errors.push("Falta nombre");
     if (!category) errors.push("Falta categoria");
     if (!Number.isFinite(price) || price <= 0) errors.push("Precio invalido");
-    return { rowNumber: index + 2, name, category, description, price, discount_price, image_url, errors };
+    return { rowNumber: index + 2, name, sku, category, description, price, discount_price, image_url, errors };
   }
 
   function validateColumns(rows: any[]) {
@@ -182,20 +186,23 @@ export default function NewCoursePage() {
 
   function parseCSV(file: File) {
     setBulkParsing(true); setBulkFileName(file.name); setBulkRows([]);
-    Papa.parse(file, { encoding: "UTF-8",
-      header: true, skipEmptyLines: true,
+    Papa.parse(file, {
+      header: true,
+      skipEmptyLines: true,
+      encoding: "UTF-8",
+      delimitersToGuess: [",", ";", "\t"],
       complete: (results: any) => {
         const rawRows = results.data || [];
         const colErrors = validateColumns(rawRows);
         if (colErrors.length > 0) {
-          setBulkRows([{ rowNumber: 1, name: "", category: "", description: "", price: 0, discount_price: null, image_url: "", errors: colErrors }]);
+          setBulkRows([{ rowNumber: 1, name: "", sku: "", category: "", description: "", price: 0, discount_price: null, image_url: "", errors: colErrors }]);
           setBulkParsing(false); return;
         }
         setBulkRows(rawRows.map((r: any, i: number) => normalizeBulkRow(r, i)));
         setBulkParsing(false);
       },
       error: (error: any) => {
-        setBulkRows([{ rowNumber: 1, name: "", category: "", description: "", price: 0, discount_price: null, image_url: "", errors: [error.message] }]);
+        setBulkRows([{ rowNumber: 1, name: "", sku: "", category: "", description: "", price: 0, discount_price: null, image_url: "", errors: [error.message] }]);
         setBulkParsing(false);
       },
     });
@@ -208,27 +215,51 @@ export default function NewCoursePage() {
     if (!brandId) return;
     if (bulkInvalidRows.length > 0) { alert("Corrige los errores antes de confirmar."); return; }
     if (bulkValidRows.length === 0) { alert("No hay cursos validos para cargar."); return; }
-    if (!confirm(`Se cargaran ${bulkValidRows.length} cursos.\n\nConfirmar?`)) return;
+    if (!confirm(`Se cargaran ${bulkValidRows.length} cursos.\nSi el SKU ya existe se actualizara. Si no existe se creara.\n\nConfirmar?`)) return;
     setBulkSaving(true);
     try {
       const uniqueCats = Array.from(new Set(bulkValidRows.map((r) => r.category.trim()).filter(Boolean)));
       for (const cat of uniqueCats) await ensureCategory(cat);
-      let created = 0;
+
+      // Obtener cursos existentes por SKU
+      const { data: existing } = await supabase.from("courses").select("id, sku").eq("brand_id", brandId);
+      const existingBySku = new Map<string, string>();
+      for (const c of existing || []) { if (c.sku) existingBySku.set(c.sku.toLowerCase(), c.id); }
+
+      let created = 0; let updated = 0;
       for (const row of bulkValidRows) {
         let finalImageUrl: string | null = row.image_url || null;
         if (finalImageUrl && finalImageUrl.startsWith("http")) {
           const imported = await uploadImageFromUrl(finalImageUrl, brandId, row.name);
           if (imported) finalImageUrl = imported;
         }
-        const { error } = await supabase.from("courses").insert({
-          brand_id: brandId, name: row.name, description: row.description || null,
-          price: row.price, discount_price: row.discount_price || null,
-          category: row.category || null, image_url: finalImageUrl, active: true,
-        });
-        if (error) throw new Error(`Error creando "${row.name}": ${error.message}`);
-        created++;
+
+        const payload = {
+          brand_id: brandId,
+          name: row.name,
+          sku: row.sku || null,
+          description: row.description || null,
+          price: row.price,
+          discount_price: row.discount_price || null,
+          category: row.category || null,
+          image_url: finalImageUrl,
+          active: true,
+        };
+
+        const existingId = row.sku ? existingBySku.get(row.sku.toLowerCase()) : null;
+
+        if (existingId) {
+          const { error } = await supabase.from("courses").update(payload).eq("id", existingId);
+          if (error) throw new Error(`Error actualizando SKU ${row.sku}: ${error.message}`);
+          updated++;
+        } else {
+          const { error } = await supabase.from("courses").insert(payload);
+          if (error) throw new Error(`Error creando "${row.name}": ${error.message}`);
+          created++;
+        }
       }
-      alert(`Carga completada. Creados: ${created}`);
+
+      alert(`Carga completada.\nCreados: ${created}\nActualizados: ${updated}`);
       setBulkRows([]); setBulkFileName("");
       router.push("/brand/courses");
     } catch (e: any) {
@@ -237,9 +268,10 @@ export default function NewCoursePage() {
   }
 
   function downloadTemplateCSV() {
-    const csv = "name,category,description,price,discount_price,image_url\n" +
-      '"Marketing Digital Avanzado",Marketing,"Aprende estrategias de marketing digital",350000,299000,https://imagen-del-curso.jpg\n';
-    const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
+    const csv = "name,sku,category,description,price,discount_price,image_url\n" +
+      '"Marketing Digital Avanzado",MKTDIG-001,Marketing,"Aprende estrategias de marketing digital",350000,299000,https://imagen-del-curso.jpg\n' +
+      '"Finanzas Personales",FIN-002,Finanzas,"Controla tus finanzas",150000,,https://imagen-curso2.jpg\n';
+    const blob = new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url; a.download = "plantilla-cursos.csv"; a.click();
@@ -269,13 +301,17 @@ export default function NewCoursePage() {
         <div className="flex items-center justify-between">
           <div>
             <p className="text-xs font-bold uppercase tracking-widest" style={{ color: "var(--nomi-teal)" }}>Carga masiva CSV</p>
-            <p className="text-sm mt-1" style={{ color: "var(--nomi-muted)" }}>Sube un CSV con multiples cursos</p>
+            <p className="text-sm mt-1" style={{ color: "var(--nomi-muted)" }}>Si el SKU ya existe actualiza el curso, si no lo crea</p>
           </div>
           <button onClick={downloadTemplateCSV}
             className="px-4 py-2 rounded-xl text-sm font-bold cursor-pointer"
             style={{ backgroundColor: "var(--nomi-gray)", color: "var(--nomi-navy)", border: "1.5px solid var(--nomi-border)" }}>
             Descargar plantilla
           </button>
+        </div>
+
+        <div className="px-4 py-3 rounded-xl text-xs" style={{ backgroundColor: "var(--nomi-orange-bg)", border: "1px solid var(--nomi-orange)", color: "var(--nomi-navy)" }}>
+          <b>Importante:</b> Guarda el archivo desde Excel como <b>"CSV UTF-8 (delimitado por comas)"</b> para que los acentos y caracteres especiales se lean correctamente.
         </div>
 
         <div className="rounded-xl p-4 cursor-pointer"
@@ -287,7 +323,7 @@ export default function NewCoursePage() {
             {bulkParsing ? "Leyendo archivo..." : bulkFileName ? `Archivo: ${bulkFileName}` : "Haz clic para subir un CSV"}
           </p>
           <p className="text-xs text-center mt-1" style={{ color: "var(--nomi-muted)" }}>
-            Columnas requeridas: <b>name, category, price</b> · Opcionales: description, discount_price, image_url
+            Requeridos: <b>name, category, price</b> · Opcionales: sku, description, discount_price, image_url
           </p>
         </div>
 
@@ -315,7 +351,7 @@ export default function NewCoursePage() {
               <table className="w-full text-sm">
                 <thead style={{ backgroundColor: "var(--nomi-gray)", borderBottom: "1px solid var(--nomi-border)" }}>
                   <tr>
-                    {["Fila", "Nombre", "Categoria", "Precio", "Estado"].map(h => (
+                    {["Fila", "SKU", "Nombre", "Categoria", "Precio", "Estado"].map(h => (
                       <th key={h} className="px-3 py-2.5 text-left text-xs font-bold uppercase tracking-wide" style={{ color: "var(--nomi-muted)" }}>{h}</th>
                     ))}
                   </tr>
@@ -324,6 +360,7 @@ export default function NewCoursePage() {
                   {bulkRows.slice(0, 50).map((r) => (
                     <tr key={r.rowNumber} style={{ borderBottom: "1px solid var(--nomi-border)", backgroundColor: r.errors.length > 0 ? "#FEF2F2" : "#fff" }}>
                       <td className="px-3 py-2 text-xs" style={{ color: "var(--nomi-muted)" }}>{r.rowNumber}</td>
+                      <td className="px-3 py-2 text-xs" style={{ color: "var(--nomi-muted)" }}>{r.sku || "—"}</td>
                       <td className="px-3 py-2 text-xs font-semibold" style={{ color: "var(--nomi-navy)" }}>{r.name || "—"}</td>
                       <td className="px-3 py-2 text-xs" style={{ color: "var(--nomi-muted)" }}>{r.category || "—"}</td>
                       <td className="px-3 py-2 text-xs font-bold" style={{ color: "var(--nomi-navy)" }}>{Number.isFinite(r.price) ? money(r.price) : "—"}</td>
@@ -349,6 +386,12 @@ export default function NewCoursePage() {
           <div className="md:col-span-2">
             <label className="block text-xs font-bold mb-1.5 uppercase tracking-wide" style={{ color: "var(--nomi-navy)" }}>Nombre del curso *</label>
             <input style={IS} value={name} onChange={(e) => setName(e.target.value)} placeholder="Ej: Marketing digital avanzado" />
+          </div>
+
+          <div>
+            <label className="block text-xs font-bold mb-1.5 uppercase tracking-wide" style={{ color: "var(--nomi-navy)" }}>SKU</label>
+            <input style={IS} value={sku} onChange={(e) => setSku(e.target.value)} placeholder="Ej: MKTDIG-001" />
+            <p className="text-xs mt-1" style={{ color: "var(--nomi-muted)" }}>Identificador unico para actualizaciones futuras</p>
           </div>
 
           <div className="relative">
