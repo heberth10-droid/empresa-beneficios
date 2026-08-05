@@ -71,6 +71,9 @@ function CheckoutPageContent() {
   const [loggedEmployee, setLoggedEmployee] = useState<any>(null);
   const [sessionLoading, setSessionLoading] = useState(true);
 
+  const hasProducts = useMemo(() => (items || []).some((it) => !it.isCourse), [items]);
+  const hasCourses = useMemo(() => (items || []).some((it) => it.isCourse), [items]);
+
   useEffect(() => {
     async function checkSession() {
       const { data: u } = await supabase.auth.getUser();
@@ -152,7 +155,7 @@ function CheckoutPageContent() {
   async function confirmOrder() {
     setErrorMsg(null);
     if (!documentNumber.trim()) return setErrorMsg("Debes ingresar tu numero de documento.");
-    if (!shippingName.trim()) return setErrorMsg("Falta el nombre para el envio.");
+    if (hasProducts && !shippingName.trim()) return setErrorMsg("Falta el nombre para el envio.");
     if (hasProducts && !shippingPhone.trim()) return setErrorMsg("Falta el telefono para el envio.");
     if (hasProducts && !shippingAddress.trim()) return setErrorMsg("Falta la direccion.");
     if (hasProducts && !shippingCity.trim()) return setErrorMsg("Falta la ciudad.");
@@ -161,21 +164,42 @@ function CheckoutPageContent() {
     if (employeeInfo.active === false) return setErrorMsg("Empleado inactivo. Contacta a tu empresa.");
     if (exceedsLimit) return setErrorMsg("La cuota supera el cupo disponible.");
     if (installments > maxInstallments) return setErrorMsg("Numero de cuotas no permitido.");
+
     setLoading(true);
+
+    const productItems = (items || []).filter((it) => !it.isCourse);
+    const courseItems = (items || []).filter((it) => it.isCourse);
+
     const { data: orderId, error } = await supabase.rpc("create_order_by_document", {
       p_document_type: documentType,
       p_document_number: documentNumber.trim(),
       p_installments: installments,
-      p_cart: (items || []).map((it) => ({ product_id: it.id, name: it.name, price: it.price, qty: it.qty })),
-      p_shipping_name: shippingName.trim(),
-      p_shipping_phone: shippingPhone.trim(),
-      p_shipping_address: shippingAddress.trim(),
-      p_shipping_city: shippingCity.trim(),
-      p_shipping_department: shippingDepartment.trim(),
+      p_cart: productItems.length > 0
+        ? productItems.map((it) => ({ product_id: it.id, name: it.name, price: it.price, qty: it.qty }))
+        : courseItems.map((it) => ({ product_id: it.id, name: it.name, price: it.price, qty: it.qty })),
+      p_shipping_name: shippingName.trim() || "N/A",
+      p_shipping_phone: shippingPhone.trim() || "N/A",
+      p_shipping_address: shippingAddress.trim() || "N/A",
+      p_shipping_city: shippingCity.trim() || "N/A",
+      p_shipping_department: shippingDepartment.trim() || "N/A",
       p_shipping_notes: shippingNotes.trim(),
     });
+
+    if (error || !orderId) {
+      setLoading(false);
+      setErrorMsg(error?.message || "No se pudo confirmar la compra.");
+      return;
+    }
+
+    if (courseItems.length > 0 && employeeInfo?.id) {
+      await supabase.rpc("register_course_orders", {
+        p_order_id: orderId,
+        p_employee_id: employeeInfo.id,
+        p_company_id: employeeInfo.company_id,
+      });
+    }
+
     setLoading(false);
-    if (error || !orderId) { setErrorMsg(error?.message || "No se pudo confirmar la compra."); return; }
     setJustConfirmed(true);
     router.push(`/market/order/${orderId}`);
     setTimeout(() => clear(), 50);
@@ -203,6 +227,12 @@ function CheckoutPageContent() {
 
       {errorMsg && (
         <div className="px-4 py-3 rounded-xl text-sm font-semibold" style={{ backgroundColor: "#FEE2E2", color: "#DC2626" }}>{errorMsg}</div>
+      )}
+
+      {hasCourses && !hasProducts && (
+        <div className="px-4 py-3 rounded-xl text-sm font-semibold" style={{ backgroundColor: "#EDE9FE", color: "#8B5CF6" }}>
+          Tu carrito solo tiene cursos. Recibirás el acceso en los siguientes 8 dias por correo electronico.
+        </div>
       )}
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -313,40 +343,42 @@ function CheckoutPageContent() {
             </div>
           )}
 
-          {/* ENVIO */}
-          <div className="bg-white rounded-2xl p-5 space-y-4" style={{ border: "1.5px solid var(--nomi-border)" }}>
-            <h2 className="font-black text-base" style={{ color: "var(--nomi-navy)" }}>Direccion de envio</h2>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-              <div>
-                <label className="block text-xs font-bold mb-1.5 uppercase tracking-wide" style={{ color: "var(--nomi-navy)" }}>Nombre completo</label>
-                <input value={shippingName} onChange={(e) => setShippingName(e.target.value)} placeholder="Nombre y apellido" style={IS} />
+          {/* ENVIO — solo si hay productos */}
+          {hasProducts && (
+            <div className="bg-white rounded-2xl p-5 space-y-4" style={{ border: "1.5px solid var(--nomi-border)" }}>
+              <h2 className="font-black text-base" style={{ color: "var(--nomi-navy)" }}>Direccion de envio</h2>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-bold mb-1.5 uppercase tracking-wide" style={{ color: "var(--nomi-navy)" }}>Nombre completo</label>
+                  <input value={shippingName} onChange={(e) => setShippingName(e.target.value)} placeholder="Nombre y apellido" style={IS} />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold mb-1.5 uppercase tracking-wide" style={{ color: "var(--nomi-navy)" }}>Telefono</label>
+                  <input value={shippingPhone} onChange={(e) => setShippingPhone(e.target.value)} placeholder="3001234567" style={IS} />
+                </div>
               </div>
               <div>
-                <label className="block text-xs font-bold mb-1.5 uppercase tracking-wide" style={{ color: "var(--nomi-navy)" }}>Telefono</label>
-                <input value={shippingPhone} onChange={(e) => setShippingPhone(e.target.value)} placeholder="3001234567" style={IS} />
+                <label className="block text-xs font-bold mb-1.5 uppercase tracking-wide" style={{ color: "var(--nomi-navy)" }}>Direccion</label>
+                <input value={shippingAddress} onChange={(e) => setShippingAddress(e.target.value)} placeholder="Calle, carrera, #, apto..." style={IS} />
               </div>
-            </div>
-            <div>
-              <label className="block text-xs font-bold mb-1.5 uppercase tracking-wide" style={{ color: "var(--nomi-navy)" }}>Direccion</label>
-              <input value={shippingAddress} onChange={(e) => setShippingAddress(e.target.value)} placeholder="Calle, carrera, #, apto..." style={IS} />
-            </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-bold mb-1.5 uppercase tracking-wide" style={{ color: "var(--nomi-navy)" }}>Ciudad</label>
+                  <input value={shippingCity} onChange={(e) => setShippingCity(e.target.value)} placeholder="Ej: Cali" style={IS} />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold mb-1.5 uppercase tracking-wide" style={{ color: "var(--nomi-navy)" }}>Departamento</label>
+                  <input value={shippingDepartment} onChange={(e) => setShippingDepartment(e.target.value)} placeholder="Ej: Valle del Cauca" style={IS} />
+                </div>
+              </div>
               <div>
-                <label className="block text-xs font-bold mb-1.5 uppercase tracking-wide" style={{ color: "var(--nomi-navy)" }}>Ciudad</label>
-                <input value={shippingCity} onChange={(e) => setShippingCity(e.target.value)} placeholder="Ej: Cali" style={IS} />
-              </div>
-              <div>
-                <label className="block text-xs font-bold mb-1.5 uppercase tracking-wide" style={{ color: "var(--nomi-navy)" }}>Departamento</label>
-                <input value={shippingDepartment} onChange={(e) => setShippingDepartment(e.target.value)} placeholder="Ej: Valle del Cauca" style={IS} />
+                <label className="block text-xs font-bold mb-1.5 uppercase tracking-wide" style={{ color: "var(--nomi-navy)" }}>Notas (opcional)</label>
+                <textarea value={shippingNotes} onChange={(e) => setShippingNotes(e.target.value)}
+                  rows={3} placeholder="Indicaciones para el mensajero..."
+                  style={{ ...IS, resize: "none" }} />
               </div>
             </div>
-            <div>
-              <label className="block text-xs font-bold mb-1.5 uppercase tracking-wide" style={{ color: "var(--nomi-navy)" }}>Notas (opcional)</label>
-              <textarea value={shippingNotes} onChange={(e) => setShippingNotes(e.target.value)}
-                rows={3} placeholder="Indicaciones para el mensajero..."
-                style={{ ...IS, resize: "none" }} />
-            </div>
-          </div>
+          )}
         </div>
 
         {/* RESUMEN */}
@@ -357,7 +389,9 @@ function CheckoutPageContent() {
               {(items || []).map((it) => (
                 <div key={it.id} className="flex items-center justify-between gap-3">
                   <div className="text-sm flex-1" style={{ color: "var(--nomi-navy)" }}>
-                    {it.name} <span style={{ color: "var(--nomi-muted)" }}>x{it.qty}</span>
+                    {it.name}
+                    {it.isCourse && <span className="ml-1 text-xs font-bold px-1.5 py-0.5 rounded-full" style={{ backgroundColor: "#EDE9FE", color: "#8B5CF6" }}>Curso</span>}
+                    {!it.isCourse && <span style={{ color: "var(--nomi-muted)" }}> x{it.qty}</span>}
                   </div>
                   <div className="font-semibold text-sm shrink-0" style={{ color: "var(--nomi-navy)" }}>
                     {money(Number(it.price) * Number(it.qty))}
@@ -381,7 +415,7 @@ function CheckoutPageContent() {
             )}
             <div className="text-xs text-center space-y-1" style={{ color: "var(--nomi-muted)" }}>
               <p>✓ 0% intereses · Descuento automatico por nomina</p>
-              <p>✓ Sin estudio de credito · Aprobacion inmediata</p>
+              {hasCourses && <p>✓ Cursos: acceso en 8 dias por correo</p>}
             </div>
           </div>
         </div>
