@@ -54,7 +54,7 @@ export default function LoginPage() {
       <div className="w-full py-4 px-6 flex items-center justify-between"
         style={{ backgroundColor: "var(--nomi-navy)" }}>
         <Link href="/market">
-          <NomiLogo size="md" />
+          <NomiLogo height={30} />
         </Link>
         <Link href="/market" className="text-xs font-semibold"
           style={{ color: "rgba(255,255,255,0.6)" }}>
@@ -66,9 +66,9 @@ export default function LoginPage() {
         <div className="w-full max-w-md">
 
           <div className="text-center mb-8">
-            <div className="inline-flex items-center justify-center w-20 h-20 rounded-2xl mb-4"
+            <div className="inline-flex items-center justify-center w-40 h-20 rounded-2xl mb-4"
               style={{ backgroundColor: "var(--nomi-navy)" }}>
-              <NomiLogo size="lg" />
+              <NomiLogo height={40} />
             </div>
             <h1 className="text-2xl font-black mb-1" style={{ color: "var(--nomi-navy)" }}>
               Bienvenido de vuelta
@@ -91,9 +91,7 @@ export default function LoginPage() {
             <form onSubmit={handleLogin} className="space-y-4">
               <div>
                 <label className="block text-xs font-bold mb-1.5 uppercase tracking-wide"
-                  style={{ color: "var(--nomi-navy)" }}>
-                  Correo electronico
-                </label>
+                  style={{ color: "var(--nomi-navy)" }}>Correo electronico</label>
                 <input type="email" placeholder="tu@correo.com"
                   value={email} onChange={(e) => setEmail(e.target.value)} required
                   className="w-full px-4 py-3 rounded-xl text-sm outline-none transition"
@@ -102,9 +100,7 @@ export default function LoginPage() {
 
               <div>
                 <label className="block text-xs font-bold mb-1.5 uppercase tracking-wide"
-                  style={{ color: "var(--nomi-navy)" }}>
-                  Contrasena
-                </label>
+                  style={{ color: "var(--nomi-navy)" }}>Contrasena</label>
                 <div className="relative">
                   <input type={showPass ? "text" : "password"} placeholder="••••••••"
                     value={password} onChange={(e) => setPassword(e.target.value)} required

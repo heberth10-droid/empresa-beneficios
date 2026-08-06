@@ -27,8 +27,8 @@ export default function CompanySidebar({ onNavigate }: { onNavigate?: () => void
       style={{ backgroundColor: "var(--nomi-navy)", borderRight: "1px solid rgba(255,255,255,0.08)" }}>
 
       <div className="px-5 py-5" style={{ borderBottom: "1px solid rgba(255,255,255,0.08)" }}>
-        <NomiLogo size="md" />
-        <div className="text-xs font-semibold mt-1" style={{ color: "rgba(255,255,255,0.4)" }}>Panel de Empresa</div>
+        <NomiLogo height={28} />
+        <div className="text-xs font-semibold mt-2" style={{ color: "rgba(255,255,255,0.4)" }}>Panel de Empresa</div>
       </div>
 
       <nav className="flex-1 px-3 py-4 space-y-0.5 overflow-y-auto">

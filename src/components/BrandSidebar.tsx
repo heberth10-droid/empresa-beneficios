@@ -56,8 +56,8 @@ export default function BrandSidebar({ onNavigate }: { onNavigate?: () => void }
       style={{ backgroundColor: "var(--nomi-navy)", borderRight: "1px solid rgba(255,255,255,0.08)" }}>
 
       <div className="px-5 py-5" style={{ borderBottom: "1px solid rgba(255,255,255,0.08)" }}>
-        <NomiLogo size="md" />
-        <div className="text-xs font-semibold mt-1" style={{ color: "rgba(255,255,255,0.4)" }}>
+        <NomiLogo height={28} />
+        <div className="text-xs font-semibold mt-2" style={{ color: "rgba(255,255,255,0.4)" }}>
           {brandType === "COURSES" ? "Panel de Cursos" : "Panel de Proveedor"}
         </div>
       </div>

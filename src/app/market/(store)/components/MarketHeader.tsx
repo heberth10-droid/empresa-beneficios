@@ -149,7 +149,7 @@ export default function MarketHeader() {
 
         {/* LOGO */}
         <Link href="/market" className="shrink-0 mr-3">
-          <img src="/nomi-logo.jpg" alt="NOMI" className="h-8 object-contain rounded" />
+          <img src="/nomi-logo.png" alt="NOMI" style={{ height: '28px', width: 'auto' }} />
         </Link>
 
         {/* SEARCH desktop */}

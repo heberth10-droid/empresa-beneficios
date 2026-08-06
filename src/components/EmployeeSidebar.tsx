@@ -54,13 +54,12 @@ export default function EmployeeSidebar({ onNavigate }: { onNavigate?: () => voi
 
   return (
     <>
-      {/* SIDEBAR DESKTOP */}
       <aside className="hidden md:flex w-64 min-h-screen flex-col"
         style={{ backgroundColor: "var(--nomi-navy)", borderRight: "1px solid rgba(255,255,255,0.08)" }}>
 
         <div className="px-5 py-5" style={{ borderBottom: "1px solid rgba(255,255,255,0.08)" }}>
-          <NomiLogo size="md" />
-          <div className="text-xs font-semibold mt-1" style={{ color: "rgba(255,255,255,0.4)" }}>Mi portal</div>
+          <NomiLogo height={28} />
+          <div className="text-xs font-semibold mt-2" style={{ color: "rgba(255,255,255,0.4)" }}>Mi portal</div>
         </div>
 
         <nav className="flex-1 px-3 py-4 space-y-0.5 overflow-y-auto">
@@ -83,11 +82,10 @@ export default function EmployeeSidebar({ onNavigate }: { onNavigate?: () => voi
         </div>
       </aside>
 
-      {/* HEADER MOBILE */}
       <div className="md:hidden w-full sticky top-0 z-40"
         style={{ backgroundColor: "var(--nomi-navy)", borderBottom: "1px solid rgba(255,255,255,0.08)" }}>
         <div className="flex items-center justify-between px-4 py-3">
-          <NomiLogo size="sm" />
+          <NomiLogo height={22} />
           <div className="flex items-center gap-3">
             <Link href="/market"
               className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold"
