@@ -278,7 +278,8 @@ export default function BrandProductsPage() {
     for (const key of Object.keys(raw || {})) clean[normalizeHeader(key)] = raw[key];
     const errors: string[] = [];
     const productName = String(clean.name || "").trim();
-    const productSku = String(clean.sku || "").trim();
+    const productSkuRaw = String(clean.sku || "").trim();
+    const productSku = /[0-9]+[eE][+][0-9]+/.test(productSkuRaw) ? String(Math.round(Number(productSkuRaw))) : productSkuRaw;
     const productCategory = String(clean.category || "").trim();
     const productSubcategory = String(clean.subcategory || "").trim();
     const productBrand = String(clean.product_brand || "").trim();
