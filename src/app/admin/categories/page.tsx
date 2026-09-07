@@ -53,6 +53,15 @@ export default function AdminCategoriesPage() {
     load();
   }
 
+  async function deleteCat(id: string, name: string) {
+    if (!confirm(`Eliminar la categoria "${name}" y todas sus subcategorias?\n\nEsta accion no se puede deshacer.`)) return;
+    await supabase.from("market_subcategories").delete().eq("category_name", name);
+    const { error } = await supabase.from("market_categories").delete().eq("id", id);
+    if (error) { flash("Error: " + error.message, false); return; }
+    flash(`Categoria "${name}" eliminada`, true);
+    load();
+  }
+
   async function addSub(catName: string, catId: string) {
     const name = (newSub[catId] || "").trim();
     if (!name) return;
@@ -75,15 +84,6 @@ export default function AdminCategoriesPage() {
     if (error) { flash("Error: " + error.message, false); return; }
     flash("Subcategoria actualizada", true);
     setEditingSub(null);
-    load();
-  }
-
-  async function deleteCat(id: string, name: string) {
-    if (!confirm(`Eliminar categoria "${name}" y todas sus subcategorias?\n\nEsta accion no se puede deshacer.`)) return;
-    await supabase.from("market_subcategories").delete().eq("category_name", name);
-    const { error } = await supabase.from("market_categories").delete().eq("id", id);
-    if (error) { flash("Error: " + error.message, false); return; }
-    flash(`Categoria "${name}" eliminada`, true);
     load();
   }
 
@@ -141,7 +141,6 @@ export default function AdminCategoriesPage() {
             <div key={cat.id} className="bg-white rounded-2xl overflow-hidden"
               style={{ border: "1.5px solid var(--nomi-border)" }}>
 
-              {/* HEADER */}
               <div className="flex items-center gap-3 px-5 py-4">
                 <button onClick={() => setExpanded(isExpanded ? null : cat.id)}
                   className="cursor-pointer shrink-0" style={{ color: "var(--nomi-muted)" }}>
@@ -189,21 +188,24 @@ export default function AdminCategoriesPage() {
                       </button>
                     </>
                   ) : (
-                    <button onClick={() => deleteCat(cat.id, cat.name)}
-                      className="w-7 h-7 flex items-center justify-center rounded-xl cursor-pointer ml-1"
-                      style={{ backgroundColor: "#FEE2E2" }}>
-                      <Trash2 className="w-3.5 h-3.5" style={{ color: "#DC2626" }} />
-                    </button>
-                    <button onClick={() => { setEditingCat(cat.id); setEditCatData({ name: cat.name || "", image_url: cat.image_url || "" }); setExpanded(cat.id); }}
-                      className="text-xs font-bold px-3 py-1.5 rounded-xl cursor-pointer"
-                      style={{ backgroundColor: "var(--nomi-orange-bg)", color: "var(--nomi-orange)", border: "1px solid rgba(245,166,35,0.3)" }}>
-                      Editar
-                    </button>
+                    <>
+                      <button
+                        onClick={() => { setEditingCat(cat.id); setEditCatData({ name: cat.name || "", image_url: cat.image_url || "" }); setExpanded(cat.id); }}
+                        className="text-xs font-bold px-3 py-1.5 rounded-xl cursor-pointer"
+                        style={{ backgroundColor: "var(--nomi-orange-bg)", color: "var(--nomi-orange)", border: "1px solid rgba(245,166,35,0.3)" }}>
+                        Editar
+                      </button>
+                      <button
+                        onClick={() => deleteCat(cat.id, cat.name)}
+                        className="w-7 h-7 flex items-center justify-center rounded-xl cursor-pointer"
+                        style={{ backgroundColor: "#FEE2E2" }}>
+                        <Trash2 className="w-3.5 h-3.5" style={{ color: "#DC2626" }} />
+                      </button>
+                    </>
                   )}
                 </div>
               </div>
 
-              {/* SUBCATEGORIAS */}
               {isExpanded && (
                 <div style={{ borderTop: "1px solid var(--nomi-border)" }}>
                   {subs.length > 0 && (
@@ -263,7 +265,6 @@ export default function AdminCategoriesPage() {
                     </div>
                   )}
 
-                  {/* AGREGAR SUBCATEGORIA */}
                   <div className="px-5 py-3 flex gap-2" style={{ backgroundColor: "var(--nomi-gray)" }}>
                     <input
                       value={newSub[cat.id] || ""}
