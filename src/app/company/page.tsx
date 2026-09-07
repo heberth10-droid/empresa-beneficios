@@ -14,6 +14,7 @@ type Company = {
   pay_days: number[];
   pay_timezone: string;
   pay_reminder_days: number;
+  min_installments: number;
 };
 
 function parseDays(input: string): number[] {
@@ -47,6 +48,7 @@ export default function CompanyConfigPage() {
   const [payDaysInput, setPayDaysInput] = useState("30");
   const [payTimezone, setPayTimezone] = useState("America/Bogota");
   const [payReminderDays, setPayReminderDays] = useState<number>(2);
+  const [minInstallments, setMinInstallments] = useState<number>(1);
 
   const parsedDays = useMemo(() => parseDays(payDaysInput), [payDaysInput]);
   const daysValid = useMemo(() => isValidDays(parsedDays), [parsedDays]);
@@ -62,7 +64,7 @@ export default function CompanyConfigPage() {
       if (u.role !== "COMPANY_ADMIN") { router.push("/login"); return; }
       if (!u.company_id) { setErrorMsg("Tu usuario no tiene company_id asignado."); setLoading(false); return; }
       const { data: c, error: cErr } = await supabase.from("companies")
-        .select("id, name, nit, sector, pay_frequency, pay_days, pay_timezone, pay_reminder_days")
+        .select("id, name, nit, sector, pay_frequency, pay_days, pay_timezone, pay_reminder_days, min_installments")
         .eq("id", u.company_id).single();
       if (cErr || !c) { setErrorMsg("No se pudo cargar la empresa: " + (cErr?.message || "")); setLoading(false); return; }
       const comp = c as Company;
@@ -71,6 +73,7 @@ export default function CompanyConfigPage() {
       setPayDaysInput((comp.pay_days && comp.pay_days.length > 0 ? comp.pay_days : [30]).join(","));
       setPayTimezone(comp.pay_timezone || "America/Bogota");
       setPayReminderDays(clampInt((comp as any).pay_reminder_days ?? 2, 0, 30));
+      setMinInstallments(clampInt((comp as any).min_installments ?? 1, 1, 12));
       setLoading(false);
     }
     boot();
@@ -83,14 +86,16 @@ export default function CompanyConfigPage() {
     if (payFrequency === "MONTHLY" && parsedDays.length !== 1) { setErrorMsg("Para pago mensual pon 1 solo dia. Ej: 30"); return; }
     if (payFrequency === "BIWEEKLY" && parsedDays.length !== 2) { setErrorMsg("Para pago quincenal pon 2 dias. Ej: 15,30"); return; }
     const reminderDaysSafe = clampInt(payReminderDays, 0, 30);
+    const minInst = clampInt(minInstallments, 1, 12);
     setSaving(true);
     const { error } = await supabase.from("companies").update({
       pay_frequency: payFrequency, pay_days: parsedDays,
       pay_timezone: payTimezone, pay_reminder_days: reminderDaysSafe,
+      min_installments: minInst,
     }).eq("id", company.id);
     setSaving(false);
     if (error) { setErrorMsg("No se pudo guardar: " + error.message); return; }
-    setCompany({ ...company, pay_frequency: payFrequency, pay_days: parsedDays, pay_timezone: payTimezone, pay_reminder_days: reminderDaysSafe });
+    setCompany({ ...company, pay_frequency: payFrequency, pay_days: parsedDays, pay_timezone: payTimezone, pay_reminder_days: reminderDaysSafe, min_installments: minInst });
     setOkMsg("Configuracion guardada correctamente.");
   }
 
@@ -174,6 +179,26 @@ export default function CompanyConfigPage() {
           </div>
         </div>
 
+        {/* CUOTAS */}
+        <div className="pt-4 space-y-4" style={{ borderTop: "1px solid var(--nomi-border)" }}>
+          <div>
+            <h3 className="font-black text-sm" style={{ color: "var(--nomi-navy)" }}>Politica de cuotas</h3>
+            <p className="text-sm mt-1" style={{ color: "var(--nomi-muted)" }}>
+              Define el minimo de cuotas que deben usar los empleados al comprar
+            </p>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-xs font-bold mb-1.5 uppercase tracking-wide" style={{ color: "var(--nomi-navy)" }}>Cuotas minimas por defecto</label>
+              <input type="number" min={1} max={12} style={IS} value={minInstallments}
+                onChange={(e) => setMinInstallments(clampInt(Number(e.target.value), 1, 12))} />
+              <p className="text-xs mt-1" style={{ color: "var(--nomi-muted)" }}>
+                Los empleados no podran comprar con menos de {minInstallments} cuota{minInstallments !== 1 ? "s" : ""}. Se puede ajustar por empleado.
+              </p>
+            </div>
+          </div>
+        </div>
+
         {/* NOTIFICACIONES */}
         <div className="pt-4 space-y-4" style={{ borderTop: "1px solid var(--nomi-border)" }}>
           <div>
@@ -199,15 +224,13 @@ export default function CompanyConfigPage() {
           </div>
         </div>
 
-        {/* VISTA PREVIA + GUARDAR */}
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3 pt-4"
           style={{ borderTop: "1px solid var(--nomi-border)" }}>
           <p className="text-sm" style={{ color: "var(--nomi-muted)" }}>
             <b style={{ color: "var(--nomi-navy)" }}>Vista previa:</b>{" "}
             {payFrequency === "MONTHLY" ? "Mensual" : "Quincenal"} · Dias:{" "}
             <span className="font-bold" style={{ color: "var(--nomi-teal)" }}>{parsedDays.join(", ") || "—"}</span>{" "}
-            · TZ: <span className="font-bold" style={{ color: "var(--nomi-teal)" }}>{payTimezone}</span>{" "}
-            · Aviso: <span className="font-bold" style={{ color: "var(--nomi-teal)" }}>{payReminderDays}</span> dias antes
+            · Cuotas min: <span className="font-bold" style={{ color: "var(--nomi-teal)" }}>{minInstallments}</span>
           </p>
           <button onClick={save} disabled={saving}
             className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-black cursor-pointer disabled:opacity-60 shrink-0"
@@ -219,7 +242,7 @@ export default function CompanyConfigPage() {
       </div>
 
       <p className="text-xs" style={{ color: "var(--nomi-muted)" }}>
-        Esta regla afecta <b>ordenes nuevas</b>. Las alertas usan <b>pay_reminder_days</b> y se calculan sobre cuotas pendientes.
+        La politica de cuotas minimas afecta <b>ordenes nuevas</b>. Puedes ajustar el minimo por empleado desde la seccion de Empleados.
       </p>
     </div>
   );
