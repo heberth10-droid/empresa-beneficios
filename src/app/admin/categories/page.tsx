@@ -78,6 +78,15 @@ export default function AdminCategoriesPage() {
     load();
   }
 
+  async function deleteCat(id: string, name: string) {
+    if (!confirm(`Eliminar categoria "${name}" y todas sus subcategorias?\n\nEsta accion no se puede deshacer.`)) return;
+    await supabase.from("market_subcategories").delete().eq("category_name", name);
+    const { error } = await supabase.from("market_categories").delete().eq("id", id);
+    if (error) { flash("Error: " + error.message, false); return; }
+    flash(`Categoria "${name}" eliminada`, true);
+    load();
+  }
+
   async function deleteSub(id: string, name: string) {
     if (!confirm(`Eliminar subcategoria "${name}"?`)) return;
     const { error } = await supabase.from("market_subcategories").delete().eq("id", id);
@@ -180,6 +189,11 @@ export default function AdminCategoriesPage() {
                       </button>
                     </>
                   ) : (
+                    <button onClick={() => deleteCat(cat.id, cat.name)}
+                      className="w-7 h-7 flex items-center justify-center rounded-xl cursor-pointer ml-1"
+                      style={{ backgroundColor: "#FEE2E2" }}>
+                      <Trash2 className="w-3.5 h-3.5" style={{ color: "#DC2626" }} />
+                    </button>
                     <button onClick={() => { setEditingCat(cat.id); setEditCatData({ name: cat.name || "", image_url: cat.image_url || "" }); setExpanded(cat.id); }}
                       className="text-xs font-bold px-3 py-1.5 rounded-xl cursor-pointer"
                       style={{ backgroundColor: "var(--nomi-orange-bg)", color: "var(--nomi-orange)", border: "1px solid rgba(245,166,35,0.3)" }}>
