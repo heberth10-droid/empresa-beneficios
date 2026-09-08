@@ -61,8 +61,15 @@ function CheckoutPageContent() {
   const [shippingCity, setShippingCity] = useState("");
   const [shippingDepartment, setShippingDepartment] = useState("");
   const [shippingNotes, setShippingNotes] = useState("");
+
+  // Empleado seleccionado
   const [employeeInfo, setEmployeeInfo] = useState<any>(null);
   const [companyPayConfig, setCompanyPayConfig] = useState<any>(null);
+
+  // Múltiples empresas
+  const [employeeOptions, setEmployeeOptions] = useState<any[]>([]);
+  const [selectedEmployeeId, setSelectedEmployeeId] = useState<string | null>(null);
+
   const [loading, setLoading] = useState(false);
   const [validating, setValidating] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
@@ -74,6 +81,22 @@ function CheckoutPageContent() {
   const hasProducts = useMemo(() => (items || []).some((it) => !it.isCourse), [items]);
   const hasCourses = useMemo(() => (items || []).some((it) => it.isCourse), [items]);
 
+  // Cargar config de empresa cuando cambia employeeInfo
+  async function loadCompanyConfig(companyId: string) {
+    const { data: comp } = await supabase.from("companies")
+      .select("id, pay_frequency, pay_days").eq("id", companyId).single();
+    if (comp) setCompanyPayConfig(comp);
+  }
+
+  // Seleccionar empresa del empleado logueado o validado
+  function applyEmployeeOption(emp: any) {
+    setEmployeeInfo(emp);
+    setSelectedEmployeeId(emp.id);
+    const minInst = Number(emp.min_installments || 1);
+    setInstallments(minInst);
+    if (emp.company_id) loadCompanyConfig(emp.company_id);
+  }
+
   useEffect(() => {
     async function checkSession() {
       const { data: u } = await supabase.auth.getUser();
@@ -81,15 +104,21 @@ function CheckoutPageContent() {
       if (!user) { setSessionLoading(false); return; }
       const { data: userRow } = await supabase.from("users").select("role, company_id, employee_id").eq("auth_id", user.id).single();
       if (!userRow || userRow.role !== "EMPLOYEE") { setSessionLoading(false); return; }
+
       let emp: any = null;
       if (userRow.employee_id) {
-        const { data } = await supabase.from("employees").select("id, name, document_type, document_number, phone, address, city, active, credit_limit, credit_used, max_installments, company_id").eq("id", userRow.employee_id).single();
+        const { data } = await supabase.from("employees")
+          .select("id, name, document_type, document_number, phone, address, city, active, credit_limit, credit_used, max_installments, min_installments_override, company_id")
+          .eq("id", userRow.employee_id).single();
         emp = data;
       }
       if (!emp && user.email) {
-        const { data } = await supabase.from("employees").select("id, name, document_type, document_number, phone, address, city, active, credit_limit, credit_used, max_installments, company_id").eq("company_id", userRow.company_id).eq("email", user.email).single();
+        const { data } = await supabase.from("employees")
+          .select("id, name, document_type, document_number, phone, address, city, active, credit_limit, credit_used, max_installments, min_installments_override, company_id")
+          .eq("company_id", userRow.company_id).eq("email", user.email).single();
         emp = data;
       }
+
       if (emp) {
         setLoggedEmployee(emp);
         setDocumentType(emp.document_type || "CC");
@@ -98,10 +127,18 @@ function CheckoutPageContent() {
         setShippingPhone(emp.phone || "");
         setShippingAddress(emp.address || "");
         setShippingCity(emp.city || "");
-        setEmployeeInfo(emp);
-        if (emp.company_id) {
-          const { data: comp } = await supabase.from("companies").select("id, pay_frequency, pay_days").eq("id", emp.company_id).single();
-          if (comp) setCompanyPayConfig(comp);
+
+        // Buscar todas las empresas del empleado por documento
+        const { data: empRows } = await supabase.rpc("get_employee_by_document", {
+          p_document_type: emp.document_type,
+          p_document_number: emp.document_number,
+        });
+
+        if (empRows && empRows.length > 1) {
+          setEmployeeOptions(empRows);
+          // No preseleccionar — dejar que el empleado elija
+        } else {
+          applyEmployeeOption({ ...emp, min_installments: emp.min_installments_override || 1 });
         }
       }
       setSessionLoading(false);
@@ -113,6 +150,8 @@ function CheckoutPageContent() {
     setDocError(null);
     setEmployeeInfo(null);
     setCompanyPayConfig(null);
+    setEmployeeOptions([]);
+    setSelectedEmployeeId(null);
     const doc = documentNumber.trim();
     if (!doc) { setDocError("Ingresa tu numero de documento."); return; }
     setValidating(true);
@@ -121,26 +160,44 @@ function CheckoutPageContent() {
       p_document_number: doc,
     });
     setValidating(false);
-    const emp = empRows?.[0] ?? null;
-    if (error || !emp) {
+
+    if (error || !empRows || empRows.length === 0) {
       setDocError("Este documento no esta registrado. Consulta con el administrador de tu empresa.");
       return;
     }
-    setEmployeeInfo(emp);
-    const mi = Number(emp.max_installments || 1);
-    if (Number.isFinite(mi) && installments > mi) setInstallments(mi);
-    if (emp.company_id) {
-      const { data: comp } = await supabase.from("companies").select("id, pay_frequency, pay_days").eq("id", emp.company_id).single();
-      if (comp) setCompanyPayConfig(comp);
+
+    if (empRows.length === 1) {
+      applyEmployeeOption(empRows[0]);
+    } else {
+      // Múltiples empresas — mostrar selector
+      setEmployeeOptions(empRows);
     }
   }
 
+  function selectCompany(emp: any) {
+    applyEmployeeOption(emp);
+  }
+
+  const minInstallments = useMemo(() => {
+    const m = Number(employeeInfo?.min_installments || 1);
+    return Number.isFinite(m) && m > 0 ? m : 1;
+  }, [employeeInfo]);
+
+  const maxInstallments = useMemo(() => {
+    const m = Number(employeeInfo?.max_installments);
+    return Number.isFinite(m) && m > 0 ? m : 1;
+  }, [employeeInfo]);
+
   const installmentAmount = useMemo(() => Math.round(Number(subtotal || 0) / Math.max(1, Number(installments || 1))), [subtotal, installments]);
-  const maxInstallments = useMemo(() => { const m = Number(employeeInfo?.max_installments); return Number.isFinite(m) && m > 0 ? m : 1; }, [employeeInfo]);
   const creditLimit = useMemo(() => { const c = Number(employeeInfo?.credit_limit); return Number.isFinite(c) ? c : 0; }, [employeeInfo]);
   const creditUsed = useMemo(() => { const c = Number(employeeInfo?.credit_used); return Number.isFinite(c) ? c : 0; }, [employeeInfo]);
   const creditAvailable = useMemo(() => Math.max(0, creditLimit - creditUsed), [creditLimit, creditUsed]);
   const exceedsLimit = creditLimit > 0 && installmentAmount > creditAvailable;
+
+  // Asegurar que installments nunca baje del mínimo
+  useEffect(() => {
+    if (installments < minInstallments) setInstallments(minInstallments);
+  }, [minInstallments]);
 
   const scheduleDates = useMemo(() => buildInstallmentDates({
     count: Math.max(1, Number(installments || 1)),
@@ -161,12 +218,13 @@ function CheckoutPageContent() {
     if (hasProducts && !shippingCity.trim()) return setErrorMsg("Falta la ciudad.");
     if (hasProducts && !shippingDepartment.trim()) return setErrorMsg("Falta el departamento.");
     if (!employeeInfo) return setErrorMsg("Valida tu documento antes de continuar.");
+    if (employeeOptions.length > 1 && !selectedEmployeeId) return setErrorMsg("Selecciona con cual empresa deseas comprar.");
     if (employeeInfo.active === false) return setErrorMsg("Empleado inactivo. Contacta a tu empresa.");
     if (exceedsLimit) return setErrorMsg("La cuota supera el cupo disponible.");
     if (installments > maxInstallments) return setErrorMsg("Numero de cuotas no permitido.");
+    if (installments < minInstallments) return setErrorMsg(`El minimo de cuotas para esta empresa es ${minInstallments}.`);
 
     setLoading(true);
-
     const productItems = (items || []).filter((it) => !it.isCourse);
     const courseItems = (items || []).filter((it) => it.isCourse);
 
@@ -231,7 +289,7 @@ function CheckoutPageContent() {
 
       {hasCourses && !hasProducts && (
         <div className="px-4 py-3 rounded-xl text-sm font-semibold" style={{ backgroundColor: "#EDE9FE", color: "#8B5CF6" }}>
-          Tu carrito solo tiene cursos. Recibirás el acceso en los siguientes 8 dias por correo electronico.
+          Tu carrito solo tiene cursos. Recibiras el acceso en los siguientes 8 dias por correo electronico.
         </div>
       )}
 
@@ -249,7 +307,7 @@ function CheckoutPageContent() {
               <div style={{ width: "100px" }}>
                 <label className="block text-xs font-bold mb-1.5 uppercase tracking-wide" style={{ color: "var(--nomi-navy)" }}>Tipo</label>
                 <select value={documentType}
-                  onChange={(e) => { setDocumentType(e.target.value); setEmployeeInfo(null); setDocError(null); }}
+                  onChange={(e) => { setDocumentType(e.target.value); setEmployeeInfo(null); setDocError(null); setEmployeeOptions([]); }}
                   disabled={!!loggedEmployee} style={loggedEmployee ? IS_DISABLED : IS}>
                   <option value="CC">CC</option>
                   <option value="CE">CE</option>
@@ -259,7 +317,7 @@ function CheckoutPageContent() {
                 <label className="block text-xs font-bold mb-1.5 uppercase tracking-wide" style={{ color: "var(--nomi-navy)" }}>Numero de documento</label>
                 <div className="flex gap-2">
                   <input value={documentNumber}
-                    onChange={(e) => { setDocumentNumber(e.target.value); if (!loggedEmployee) { setEmployeeInfo(null); setDocError(null); } }}
+                    onChange={(e) => { setDocumentNumber(e.target.value); if (!loggedEmployee) { setEmployeeInfo(null); setDocError(null); setEmployeeOptions([]); } }}
                     onKeyDown={(e) => { if (e.key === "Enter" && !loggedEmployee) validateDocument(); }}
                     disabled={!!loggedEmployee}
                     placeholder="Ej: 1020304050"
@@ -272,7 +330,7 @@ function CheckoutPageContent() {
                     </button>
                   )}
                 </div>
-                {!loggedEmployee && !employeeInfo && !docError && (
+                {!loggedEmployee && !employeeInfo && !docError && employeeOptions.length === 0 && (
                   <p className="text-xs mt-1.5" style={{ color: "var(--nomi-muted)" }}>Ingresa tu documento y presiona Validar</p>
                 )}
               </div>
@@ -282,9 +340,42 @@ function CheckoutPageContent() {
               <div className="px-4 py-3 rounded-xl text-sm font-semibold" style={{ backgroundColor: "#FEE2E2", color: "#DC2626" }}>{docError}</div>
             )}
 
+            {/* SELECTOR DE EMPRESA — cuando tiene más de una */}
+            {employeeOptions.length > 1 && (
+              <div className="space-y-3">
+                <div className="px-4 py-3 rounded-xl text-sm font-semibold" style={{ backgroundColor: "var(--nomi-orange-bg)", color: "var(--nomi-orange)", border: "1px solid rgba(245,166,35,0.3)" }}>
+                  Tienes cupo en varias empresas. Selecciona con cual deseas comprar:
+                </div>
+                <div className="space-y-2">
+                  {employeeOptions.map((emp) => {
+                    const avail = Math.max(0, Number(emp.credit_limit || 0) - Number(emp.credit_used || 0));
+                    const isSelected = selectedEmployeeId === emp.id;
+                    return (
+                      <button key={emp.id} onClick={() => selectCompany(emp)}
+                        className="w-full text-left px-4 py-3.5 rounded-xl transition cursor-pointer"
+                        style={{
+                          border: isSelected ? "2px solid var(--nomi-teal)" : "1.5px solid var(--nomi-border)",
+                          backgroundColor: isSelected ? "var(--nomi-teal-bg)" : "#fff",
+                        }}>
+                        <div className="font-black text-sm" style={{ color: "var(--nomi-navy)" }}>{emp.company_name}</div>
+                        <div className="flex gap-4 mt-1 text-xs" style={{ color: "var(--nomi-muted)" }}>
+                          <span>Cupo disponible: <b style={{ color: "#16A34A" }}>{money(avail)}</b></span>
+                          <span>Max cuotas: <b style={{ color: "var(--nomi-navy)" }}>{emp.max_installments}</b></span>
+                          {emp.min_installments > 1 && <span>Min cuotas: <b style={{ color: "var(--nomi-navy)" }}>{emp.min_installments}</b></span>}
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
+            {/* INFO CUPO */}
             {employeeInfo && (
               <div className="rounded-xl p-4 space-y-3" style={{ backgroundColor: "var(--nomi-teal-bg)", border: "1.5px solid var(--nomi-teal)" }}>
-                <p className="text-xs font-bold uppercase tracking-wide" style={{ color: "var(--nomi-teal)" }}>Cupo habilitado por cuota</p>
+                <p className="text-xs font-bold uppercase tracking-wide" style={{ color: "var(--nomi-teal)" }}>
+                  Cupo habilitado por cuota {employeeOptions.length > 1 ? `— ${employeeInfo.company_name}` : ""}
+                </p>
                 <div className="grid grid-cols-3 gap-3">
                   <div>
                     <p className="text-xs" style={{ color: "var(--nomi-muted)" }}>Cupo por cuota</p>
@@ -299,19 +390,29 @@ function CheckoutPageContent() {
                     <p className="font-black text-sm" style={{ color: "#16A34A" }}>{money(creditAvailable)}</p>
                   </div>
                 </div>
-                <p className="text-xs" style={{ color: "var(--nomi-muted)" }}>Cuotas habilitadas: <b style={{ color: "var(--nomi-navy)" }}>{maxInstallments}</b></p>
+                <div className="flex gap-4 text-xs" style={{ color: "var(--nomi-muted)" }}>
+                  <span>Cuotas maximas: <b style={{ color: "var(--nomi-navy)" }}>{maxInstallments}</b></span>
+                  {minInstallments > 1 && <span>Cuotas minimas: <b style={{ color: "var(--nomi-navy)" }}>{minInstallments}</b></span>}
+                </div>
               </div>
             )}
 
+            {/* SELECTOR DE CUOTAS */}
             {employeeInfo && (
               <div>
                 <label className="block text-xs font-bold mb-1.5 uppercase tracking-wide" style={{ color: "var(--nomi-navy)" }}>Numero de cuotas</label>
                 <select value={installments} onChange={(e) => setInstallments(Number(e.target.value))} style={IS}>
-                  {Array.from({ length: Math.max(1, Math.min(12, maxInstallments)) }).map((_, i) => {
-                    const v = i + 1;
-                    return <option key={v} value={v}>{v} {v === 1 ? "cuota" : "cuotas"}</option>;
-                  })}
+                  {Array.from({ length: Math.max(1, maxInstallments - minInstallments + 1) }, (_, i) => i + minInstallments)
+                    .filter(v => v <= maxInstallments)
+                    .map((v) => (
+                      <option key={v} value={v}>{v} {v === 1 ? "cuota" : "cuotas"}</option>
+                    ))}
                 </select>
+                {minInstallments > 1 && (
+                  <p className="text-xs mt-1" style={{ color: "var(--nomi-muted)" }}>
+                    Esta empresa requiere minimo {minInstallments} cuotas.
+                  </p>
+                )}
                 <div className="mt-2 flex items-center justify-between text-sm">
                   <span style={{ color: "var(--nomi-muted)" }}>Valor por cuota:</span>
                   <span className="font-black" style={{ color: exceedsLimit ? "#DC2626" : "var(--nomi-navy)" }}>
@@ -343,7 +444,7 @@ function CheckoutPageContent() {
             </div>
           )}
 
-          {/* ENVIO — solo si hay productos */}
+          {/* ENVIO */}
           {hasProducts && (
             <div className="bg-white rounded-2xl p-5 space-y-4" style={{ border: "1.5px solid var(--nomi-border)" }}>
               <h2 className="font-black text-base" style={{ color: "var(--nomi-navy)" }}>Direccion de envio</h2>
@@ -403,14 +504,19 @@ function CheckoutPageContent() {
               <span className="text-sm font-bold" style={{ color: "var(--nomi-muted)" }}>Total</span>
               <span className="font-black text-xl" style={{ color: "var(--nomi-navy)" }}>{money(subtotal)}</span>
             </div>
-            <button onClick={confirmOrder} disabled={loading || !employeeInfo || exceedsLimit}
+            <button onClick={confirmOrder} disabled={loading || !employeeInfo || exceedsLimit || (employeeOptions.length > 1 && !selectedEmployeeId)}
               className="w-full py-3.5 rounded-xl text-sm font-black cursor-pointer disabled:opacity-50 transition"
               style={{ backgroundColor: "var(--nomi-orange)", color: "#fff" }}>
               {loading ? "Confirmando..." : "Confirmar compra"}
             </button>
-            {!employeeInfo && (
+            {!employeeInfo && employeeOptions.length === 0 && (
               <p className="text-xs text-center" style={{ color: "var(--nomi-muted)" }}>
                 {loggedEmployee ? "Cargando tu informacion..." : "Valida tu documento para continuar"}
+              </p>
+            )}
+            {employeeOptions.length > 1 && !selectedEmployeeId && (
+              <p className="text-xs text-center font-semibold" style={{ color: "var(--nomi-orange)" }}>
+                Selecciona una empresa para continuar
               </p>
             )}
             <div className="text-xs text-center space-y-1" style={{ color: "var(--nomi-muted)" }}>
