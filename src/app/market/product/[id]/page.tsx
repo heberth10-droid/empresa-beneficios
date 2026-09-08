@@ -46,15 +46,9 @@ function StarRating({ rating, max = 5, size = 20, interactive = false, onChange 
             onMouseEnter={() => interactive && setHover(val)}
             onMouseLeave={() => interactive && setHover(0)}
             onClick={() => interactive && onChange?.(val)}>
-            {/* Fondo vacío */}
             <Star size={size} style={{ color: "var(--nomi-border)", fill: "var(--nomi-border)", position: "absolute", top: 0, left: 0 }} />
-            {/* Relleno parcial o completo */}
             {(filled || half) && (
-              <span style={{
-                position: "absolute", top: 0, left: 0,
-                width: filled ? "100%" : "50%",
-                overflow: "hidden", display: "inline-block",
-              }}>
+              <span style={{ position: "absolute", top: 0, left: 0, width: filled ? "100%" : "50%", overflow: "hidden", display: "inline-block" }}>
                 <Star size={size} style={{ color: "var(--nomi-orange)", fill: "var(--nomi-orange)" }} />
               </span>
             )}
@@ -76,7 +70,6 @@ export default function ProductView() {
   const [cartPreviewOpen, setCartPreviewOpen] = useState(false);
   const [selectedImg, setSelectedImg] = useState(0);
 
-  // Reseñas
   const [reviews, setReviews] = useState<any[]>([]);
   const [reviewsLoading, setReviewsLoading] = useState(true);
   const [loggedEmployee, setLoggedEmployee] = useState<any>(null);
@@ -122,7 +115,10 @@ export default function ProductView() {
         const { data } = await supabase.from("employees").select("id, name").eq("company_id", userRow.company_id).eq("email", u.user.email).single();
         emp = data;
       }
-      if (emp) { setLoggedEmployee(emp); setMyName(emp.name?.split(" ")[0] || ""); }
+      if (emp) {
+        setLoggedEmployee(emp);
+        setMyName(emp.name?.split(" ")[0] || "");
+      }
     }
     checkSession();
   }, []);
@@ -191,7 +187,6 @@ export default function ProductView() {
 
   return (
     <>
-      {/* CART PREVIEW */}
       {cartPreviewOpen && (
         <div className="fixed top-0 right-0 h-full w-[360px] max-w-[90vw] bg-white z-[70] shadow-2xl p-5"
           style={{ borderLeft: "1.5px solid var(--nomi-border)" }}>
@@ -200,7 +195,7 @@ export default function ProductView() {
               <h2 className="text-lg font-black" style={{ color: "var(--nomi-navy)" }}>Carrito</h2>
               <p className="text-sm" style={{ color: "var(--nomi-muted)" }}>{items.length} producto(s)</p>
             </div>
-            <button onClick={() => setCartPreviewOpen(false)} className="text-2xl cursor-pointer" style={{ color: "var(--nomi-muted)" }}>×</button>
+            <button onClick={() => setCartPreviewOpen(false)} className="text-2xl cursor-pointer" style={{ color: "var(--nomi-muted)" }}>x</button>
           </div>
           <div className="space-y-3 max-h-[60vh] overflow-y-auto">
             {items.slice(-4).reverse().map((it) => (
@@ -233,18 +228,20 @@ export default function ProductView() {
 
       <div className="max-w-5xl mx-auto px-4 py-8 space-y-10">
 
-        {/* BREADCRUMB */}
         <div className="flex items-center gap-2 text-sm" style={{ color: "var(--nomi-muted)" }}>
           <Link href="/market" style={{ color: "var(--nomi-orange)" }}>Inicio</Link>
           <span>/</span>
-          {product.category && <><Link href={`/market/category/${encodeURIComponent(product.category)}`} style={{ color: "var(--nomi-orange)" }}>{product.category}</Link><span>/</span></>}
+          {product.category && (
+            <>
+              <Link href={`/market/category/${encodeURIComponent(product.category)}`} style={{ color: "var(--nomi-orange)" }}>{product.category}</Link>
+              <span>/</span>
+            </>
+          )}
           <span className="truncate">{product.name}</span>
         </div>
 
-        {/* PRODUCTO */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
 
-          {/* IMÁGENES */}
           <div className="space-y-3">
             <div className="rounded-2xl overflow-hidden aspect-square"
               style={{ border: "1.5px solid var(--nomi-border)", backgroundColor: "var(--nomi-gray)" }}>
@@ -256,7 +253,7 @@ export default function ProductView() {
               <div className="flex gap-2 overflow-x-auto pb-1">
                 {images.map((img, idx) => (
                   <button key={idx} onClick={() => setSelectedImg(idx)}
-                    className="w-16 h-16 rounded-xl overflow-hidden shrink-0 cursor-pointer transition"
+                    className="w-16 h-16 rounded-xl overflow-hidden shrink-0 cursor-pointer"
                     style={{
                       border: selectedImg === idx ? "2px solid var(--nomi-orange)" : "1.5px solid var(--nomi-border)",
                       backgroundColor: "var(--nomi-gray)",
@@ -269,7 +266,6 @@ export default function ProductView() {
             )}
           </div>
 
-          {/* INFO */}
           <div className="space-y-5">
             {product.category && (
               <span className="text-xs font-bold px-3 py-1 rounded-full"
@@ -280,7 +276,6 @@ export default function ProductView() {
 
             <h1 className="text-2xl md:text-3xl font-black" style={{ color: "var(--nomi-navy)" }}>{product.name}</h1>
 
-            {/* ESTRELLAS Y RESEÑAS */}
             {reviews.length > 0 && (
               <div className="flex items-center gap-2">
                 <StarRating rating={avgRating} size={18} />
@@ -289,14 +284,12 @@ export default function ProductView() {
               </div>
             )}
 
-            {/* PRECIO */}
             <div className="space-y-2">
               {hasDiscount ? (
                 <div className="flex items-center gap-3">
                   <span className="text-3xl font-black" style={{ color: "var(--nomi-navy)" }}>{formatCOP(finalPrice)}</span>
                   <span className="text-lg line-through" style={{ color: "var(--nomi-muted)" }}>{formatCOP(basePrice)}</span>
-                  <span className="text-xs font-bold px-2 py-1 rounded-full"
-                    style={{ backgroundColor: "#DCFCE7", color: "#16A34A" }}>
+                  <span className="text-xs font-bold px-2 py-1 rounded-full" style={{ backgroundColor: "#DCFCE7", color: "#16A34A" }}>
                     -{Math.round((1 - finalPrice / basePrice) * 100)}%
                   </span>
                 </div>
@@ -304,7 +297,6 @@ export default function ProductView() {
                 <span className="text-3xl font-black" style={{ color: "var(--nomi-navy)" }}>{formatCOP(finalPrice)}</span>
               )}
 
-              {/* CUOTAS + 0% INTERESES */}
               <div className="rounded-xl px-4 py-3 space-y-1"
                 style={{ backgroundColor: "var(--nomi-teal-bg)", border: "1.5px solid var(--nomi-teal)" }}>
                 <div className="flex items-center gap-2 flex-wrap">
@@ -340,28 +332,26 @@ export default function ProductView() {
             </div>
 
             <div className="flex gap-4 text-xs" style={{ color: "var(--nomi-muted)" }}>
-              <span>✓ Sin intereses</span>
-              <span>✓ Descuento por nomina</span>
-              <span>✓ Aprobacion inmediata</span>
+              <span>Sin intereses</span>
+              <span>Descuento por nomina</span>
+              <span>Aprobacion inmediata</span>
             </div>
           </div>
         </div>
 
         {/* RESEÑAS */}
         <div className="space-y-6">
-          <div className="flex items-center justify-between">
-            <div>
-              <h2 className="text-xl font-black" style={{ color: "var(--nomi-navy)" }}>Resenas y calificaciones</h2>
-              {reviews.length > 0 && (
-                <div className="flex items-center gap-3 mt-2">
-                  <span className="text-4xl font-black" style={{ color: "var(--nomi-navy)" }}>{avgRating.toFixed(1)}</span>
-                  <div>
-                    <StarRating rating={avgRating} size={22} />
-                    <p className="text-xs mt-1" style={{ color: "var(--nomi-muted)" }}>{reviews.length} {reviews.length === 1 ? "resena" : "resenas"}</p>
-                  </div>
+          <div>
+            <h2 className="text-xl font-black" style={{ color: "var(--nomi-navy)" }}>Resenas y calificaciones</h2>
+            {reviews.length > 0 && (
+              <div className="flex items-center gap-3 mt-2">
+                <span className="text-4xl font-black" style={{ color: "var(--nomi-navy)" }}>{avgRating.toFixed(1)}</span>
+                <div>
+                  <StarRating rating={avgRating} size={22} />
+                  <p className="text-xs mt-1" style={{ color: "var(--nomi-muted)" }}>{reviews.length} {reviews.length === 1 ? "resena" : "resenas"}</p>
                 </div>
-              )}
-            </div>
+              </div>
+            )}
           </div>
 
           {/* FORMULARIO */}
@@ -386,22 +376,32 @@ export default function ProductView() {
                 )}
               </div>
 
-              {!loggedEmployee && (
-                <div>
-                  <label className="block text-xs font-bold mb-1.5 uppercase tracking-wide" style={{ color: "var(--nomi-navy)" }}>Tu nombre *</label>
-                  <input value={myName} onChange={(e) => setMyName(e.target.value)}
-                    placeholder="Como quieres aparecer"
-                    className="w-full px-4 py-2.5 rounded-xl text-sm outline-none"
-                    style={{ border: "1.5px solid var(--nomi-border)", color: "var(--nomi-navy)", backgroundColor: "var(--nomi-gray)" }} />
-                </div>
-              )}
+              <div>
+                <label className="block text-xs font-bold mb-1.5 uppercase tracking-wide" style={{ color: "var(--nomi-navy)" }}>
+                  Tu nombre (opcional)
+                </label>
+                <input value={myName} onChange={(e) => setMyName(e.target.value)}
+                  placeholder={loggedEmployee ? loggedEmployee.name : "Como quieres aparecer — si no lo pones seras Anonimo"}
+                  disabled={!!loggedEmployee}
+                  className="w-full px-4 py-2.5 rounded-xl text-sm outline-none"
+                  style={{
+                    border: "1.5px solid var(--nomi-border)",
+                    color: "var(--nomi-navy)",
+                    backgroundColor: loggedEmployee ? "var(--nomi-gray)" : "#fff",
+                  }} />
+                {loggedEmployee && (
+                  <p className="text-xs mt-1" style={{ color: "var(--nomi-teal)" }}>
+                    Publicando como {loggedEmployee.name}
+                  </p>
+                )}
+              </div>
 
               <div>
-                <label className="block text-xs font-bold mb-1.5 uppercase tracking-wide" style={{ color: "var(--nomi-navy)" }}>Comentario (opcional)</label>
+                <label className="block text-xs font-bold mb-1.5 uppercase tracking-wide" style={{ color: "var(--nomi-navy)" }}>Comentario *</label>
                 <textarea value={myComment} onChange={(e) => setMyComment(e.target.value)}
-                  rows={3} placeholder="Cuéntanos tu experiencia con este producto..."
+                  rows={3} placeholder="Cuentanos tu experiencia con este producto..."
                   className="w-full px-4 py-2.5 rounded-xl text-sm outline-none resize-none"
-                  style={{ border: "1.5px solid var(--nomi-border)", color: "var(--nomi-navy)", backgroundColor: "var(--nomi-gray)" }} />
+                  style={{ border: "1.5px solid var(--nomi-border)", color: "var(--nomi-navy)", backgroundColor: "#fff" }} />
               </div>
 
               <button onClick={submitReview} disabled={submitting || !myRating || !myComment.trim()}
