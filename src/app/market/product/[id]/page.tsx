@@ -157,14 +157,14 @@ export default function ProductView() {
 
   async function submitReview() {
     if (!myRating) { setSubmitMsg({ ok: false, text: "Selecciona una calificacion." }); return; }
-    if (!myName.trim()) { setSubmitMsg({ ok: false, text: "Ingresa tu nombre." }); return; }
+    if (!myComment.trim()) { setSubmitMsg({ ok: false, text: "El comentario es obligatorio." }); return; }
     setSubmitting(true);
     const { error } = await supabase.from("product_reviews").insert({
       product_id: id,
       employee_id: loggedEmployee?.id || null,
-      author_name: myName.trim(),
+      author_name: myName.trim() || "Anonimo",
       rating: myRating,
-      comment: myComment.trim() || null,
+      comment: myComment.trim(),
     });
     setSubmitting(false);
     if (error) { setSubmitMsg({ ok: false, text: "Error al enviar: " + error.message }); return; }
@@ -404,7 +404,7 @@ export default function ProductView() {
                   style={{ border: "1.5px solid var(--nomi-border)", color: "var(--nomi-navy)", backgroundColor: "var(--nomi-gray)" }} />
               </div>
 
-              <button onClick={submitReview} disabled={submitting || !myRating}
+              <button onClick={submitReview} disabled={submitting || !myRating || !myComment.trim()}
                 className="px-6 py-2.5 rounded-xl text-sm font-black cursor-pointer disabled:opacity-50"
                 style={{ backgroundColor: "var(--nomi-orange)", color: "#fff" }}>
                 {submitting ? "Enviando..." : "Publicar resena"}
