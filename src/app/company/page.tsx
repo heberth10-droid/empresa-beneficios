@@ -1,9 +1,9 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
-import { Save } from "lucide-react";
+import { Save, FileText, Upload, ExternalLink, Trash2 } from "lucide-react";
 
 type Company = {
   id: string;
@@ -15,6 +15,7 @@ type Company = {
   pay_timezone: string;
   pay_reminder_days: number;
   min_installments: number;
+  terms_pdf_url?: string | null;
 };
 
 function parseDays(input: string): number[] {
@@ -39,8 +40,11 @@ const IS = {
 
 export default function CompanyConfigPage() {
   const router = useRouter();
+  const pdfInputRef = useRef<HTMLInputElement>(null);
+
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [uploadingPdf, setUploadingPdf] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [okMsg, setOkMsg] = useState<string | null>(null);
   const [company, setCompany] = useState<Company | null>(null);
@@ -49,6 +53,7 @@ export default function CompanyConfigPage() {
   const [payTimezone, setPayTimezone] = useState("America/Bogota");
   const [payReminderDays, setPayReminderDays] = useState<number>(2);
   const [minInstallments, setMinInstallments] = useState<number>(1);
+  const [termsPdfUrl, setTermsPdfUrl] = useState<string | null>(null);
 
   const parsedDays = useMemo(() => parseDays(payDaysInput), [payDaysInput]);
   const daysValid = useMemo(() => isValidDays(parsedDays), [parsedDays]);
@@ -64,7 +69,7 @@ export default function CompanyConfigPage() {
       if (u.role !== "COMPANY_ADMIN") { router.push("/login"); return; }
       if (!u.company_id) { setErrorMsg("Tu usuario no tiene company_id asignado."); setLoading(false); return; }
       const { data: c, error: cErr } = await supabase.from("companies")
-        .select("id, name, nit, sector, pay_frequency, pay_days, pay_timezone, pay_reminder_days, min_installments")
+        .select("id, name, nit, sector, pay_frequency, pay_days, pay_timezone, pay_reminder_days, min_installments, terms_pdf_url")
         .eq("id", u.company_id).single();
       if (cErr || !c) { setErrorMsg("No se pudo cargar la empresa: " + (cErr?.message || "")); setLoading(false); return; }
       const comp = c as Company;
@@ -74,10 +79,54 @@ export default function CompanyConfigPage() {
       setPayTimezone(comp.pay_timezone || "America/Bogota");
       setPayReminderDays(clampInt((comp as any).pay_reminder_days ?? 2, 0, 30));
       setMinInstallments(clampInt((comp as any).min_installments ?? 1, 1, 12));
+      setTermsPdfUrl(comp.terms_pdf_url || null);
       setLoading(false);
     }
     boot();
   }, [router]);
+
+  async function uploadPdf(file: File) {
+    if (!company) return;
+    if (!file.name.toLowerCase().endsWith(".pdf")) {
+      setErrorMsg("Solo se aceptan archivos PDF.");
+      return;
+    }
+    setUploadingPdf(true);
+    setErrorMsg(null);
+    const filePath = `${company.id}/terminos-${Date.now()}.pdf`;
+    const { error: uploadError } = await supabase.storage
+      .from("terms-docs")
+      .upload(filePath, file, { contentType: "application/pdf", upsert: true });
+    if (uploadError) {
+      setErrorMsg("Error subiendo PDF: " + uploadError.message);
+      setUploadingPdf(false);
+      return;
+    }
+    const { data: urlData } = supabase.storage.from("terms-docs").getPublicUrl(filePath);
+    const publicUrl = urlData.publicUrl;
+    const { error: updateError } = await supabase.from("companies")
+      .update({ terms_pdf_url: publicUrl }).eq("id", company.id);
+    if (updateError) {
+      setErrorMsg("PDF subido pero no se pudo guardar la URL: " + updateError.message);
+      setUploadingPdf(false);
+      return;
+    }
+    setTermsPdfUrl(publicUrl);
+    setCompany({ ...company, terms_pdf_url: publicUrl });
+    setOkMsg("Terminos y condiciones actualizados correctamente.");
+    setUploadingPdf(false);
+  }
+
+  async function removePdf() {
+    if (!company) return;
+    if (!confirm("Eliminar el documento de terminos y condiciones?")) return;
+    const { error } = await supabase.from("companies")
+      .update({ terms_pdf_url: null }).eq("id", company.id);
+    if (error) { setErrorMsg("Error eliminando: " + error.message); return; }
+    setTermsPdfUrl(null);
+    setCompany({ ...company, terms_pdf_url: null });
+    setOkMsg("Documento eliminado.");
+  }
 
   async function save() {
     setErrorMsg(null); setOkMsg(null);
@@ -132,6 +181,63 @@ export default function CompanyConfigPage() {
         </div>
       )}
 
+      {/* TÉRMINOS Y CONDICIONES */}
+      <div className="bg-white rounded-2xl p-6 space-y-4" style={{ border: "1.5px solid var(--nomi-border)" }}>
+        <div>
+          <h2 className="font-black text-base" style={{ color: "var(--nomi-navy)" }}>Terminos y condiciones</h2>
+          <p className="text-sm mt-1" style={{ color: "var(--nomi-muted)" }}>
+            Sube el documento PDF que los empleados deben aceptar antes de cada compra.
+          </p>
+        </div>
+
+        {termsPdfUrl ? (
+          <div className="rounded-xl p-4 space-y-3" style={{ backgroundColor: "var(--nomi-teal-bg)", border: "1.5px solid var(--nomi-teal)" }}>
+            <div className="flex items-center gap-3">
+              <FileText className="w-8 h-8 shrink-0" style={{ color: "var(--nomi-teal)" }} />
+              <div className="flex-1 min-w-0">
+                <p className="font-bold text-sm" style={{ color: "var(--nomi-navy)" }}>Documento cargado</p>
+                <p className="text-xs truncate mt-0.5" style={{ color: "var(--nomi-muted)" }}>{termsPdfUrl}</p>
+              </div>
+            </div>
+            <div className="flex gap-2">
+              <a href={termsPdfUrl} target="_blank" rel="noopener noreferrer"
+                className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-bold cursor-pointer"
+                style={{ backgroundColor: "var(--nomi-teal)", color: "#fff" }}>
+                <ExternalLink className="w-3.5 h-3.5" />
+                Ver PDF
+              </a>
+              <label className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-bold cursor-pointer"
+                style={{ backgroundColor: "var(--nomi-gray)", color: "var(--nomi-navy)", border: "1.5px solid var(--nomi-border)" }}>
+                <Upload className="w-3.5 h-3.5" />
+                {uploadingPdf ? "Subiendo..." : "Reemplazar"}
+                <input ref={pdfInputRef} type="file" accept=".pdf" className="hidden"
+                  onChange={(e) => { const f = e.target.files?.[0]; if (f) uploadPdf(f); }} />
+              </label>
+              <button onClick={removePdf}
+                className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-sm font-bold cursor-pointer"
+                style={{ backgroundColor: "#FEE2E2", color: "#DC2626" }}>
+                <Trash2 className="w-3.5 h-3.5" />
+              </button>
+            </div>
+          </div>
+        ) : (
+          <div>
+            <label className="flex flex-col items-center justify-center gap-3 px-6 py-8 rounded-xl cursor-pointer transition"
+              style={{ border: "1.5px dashed var(--nomi-teal)", backgroundColor: "var(--nomi-teal-bg)" }}>
+              <FileText className="w-10 h-10" style={{ color: "var(--nomi-teal)" }} />
+              <div className="text-center">
+                <p className="font-bold text-sm" style={{ color: "var(--nomi-teal)" }}>
+                  {uploadingPdf ? "Subiendo PDF..." : "Haz clic para subir el PDF"}
+                </p>
+                <p className="text-xs mt-1" style={{ color: "var(--nomi-muted)" }}>Solo archivos PDF · Max 10MB</p>
+              </div>
+              <input type="file" accept=".pdf" className="hidden"
+                onChange={(e) => { const f = e.target.files?.[0]; if (f) uploadPdf(f); }} />
+            </label>
+          </div>
+        )}
+      </div>
+
       {/* REGLA DE NOMINA */}
       <div className="bg-white rounded-2xl p-6 space-y-5" style={{ border: "1.5px solid var(--nomi-border)" }}>
         <div>
@@ -155,37 +261,27 @@ export default function CompanyConfigPage() {
               <option value="BIWEEKLY">Quincenal</option>
             </select>
           </div>
-
           <div>
             <label className="block text-xs font-bold mb-1.5 uppercase tracking-wide" style={{ color: "var(--nomi-navy)" }}>Dias de pago</label>
-            <input style={IS} value={payDaysInput}
-              onChange={(e) => setPayDaysInput(e.target.value)}
+            <input style={IS} value={payDaysInput} onChange={(e) => setPayDaysInput(e.target.value)}
               placeholder={payFrequency === "MONTHLY" ? "Ej: 30" : "Ej: 15,30"} />
             <p className="text-xs mt-1" style={{ color: "var(--nomi-muted)" }}>
               {payFrequency === "MONTHLY" ? "Mensual: 1 dia (1-31)" : "Quincenal: 2 dias (1-31)"}
             </p>
             {!daysValid && payDaysInput && (
-              <p className="text-xs mt-1 font-semibold" style={{ color: "#DC2626" }}>
-                Dias invalidos. Deben ser enteros entre 1 y 31.
-              </p>
+              <p className="text-xs mt-1 font-semibold" style={{ color: "#DC2626" }}>Dias invalidos.</p>
             )}
           </div>
-
           <div>
             <label className="block text-xs font-bold mb-1.5 uppercase tracking-wide" style={{ color: "var(--nomi-navy)" }}>Zona horaria</label>
-            <input style={IS} value={payTimezone}
-              onChange={(e) => setPayTimezone(e.target.value)} placeholder="America/Bogota" />
-            <p className="text-xs mt-1" style={{ color: "var(--nomi-muted)" }}>Recomendado: America/Bogota</p>
+            <input style={IS} value={payTimezone} onChange={(e) => setPayTimezone(e.target.value)} placeholder="America/Bogota" />
           </div>
         </div>
 
-        {/* CUOTAS */}
         <div className="pt-4 space-y-4" style={{ borderTop: "1px solid var(--nomi-border)" }}>
           <div>
             <h3 className="font-black text-sm" style={{ color: "var(--nomi-navy)" }}>Politica de cuotas</h3>
-            <p className="text-sm mt-1" style={{ color: "var(--nomi-muted)" }}>
-              Define el minimo de cuotas que deben usar los empleados al comprar
-            </p>
+            <p className="text-sm mt-1" style={{ color: "var(--nomi-muted)" }}>Cuotas minimas que deben usar los empleados al comprar</p>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
@@ -199,13 +295,9 @@ export default function CompanyConfigPage() {
           </div>
         </div>
 
-        {/* NOTIFICACIONES */}
         <div className="pt-4 space-y-4" style={{ borderTop: "1px solid var(--nomi-border)" }}>
           <div>
             <h3 className="font-black text-sm" style={{ color: "var(--nomi-navy)" }}>Notificaciones de nomina</h3>
-            <p className="text-sm mt-1" style={{ color: "var(--nomi-muted)" }}>
-              Cuantos dias antes quieres recibir el aviso de descuentos proximos
-            </p>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-start">
             <div>
@@ -240,10 +332,6 @@ export default function CompanyConfigPage() {
           </button>
         </div>
       </div>
-
-      <p className="text-xs" style={{ color: "var(--nomi-muted)" }}>
-        La politica de cuotas minimas afecta <b>ordenes nuevas</b>. Puedes ajustar el minimo por empleado desde la seccion de Empleados.
-      </p>
     </div>
   );
 }

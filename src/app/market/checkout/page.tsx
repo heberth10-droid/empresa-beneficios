@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { supabase } from "@/lib/supabaseClient";
 import { useCart } from "@/components/cart/CartProvider";
+import { FileText, ExternalLink } from "lucide-react";
 
 function money(n: any) {
   return new Intl.NumberFormat("es-CO", { style: "currency", currency: "COP", maximumFractionDigits: 0 }).format(Number(n || 0));
@@ -62,13 +63,15 @@ function CheckoutPageContent() {
   const [shippingDepartment, setShippingDepartment] = useState("");
   const [shippingNotes, setShippingNotes] = useState("");
 
-  // Empleado seleccionado
   const [employeeInfo, setEmployeeInfo] = useState<any>(null);
   const [companyPayConfig, setCompanyPayConfig] = useState<any>(null);
+  const [termsPdfUrl, setTermsPdfUrl] = useState<string | null>(null);
 
-  // Múltiples empresas
   const [employeeOptions, setEmployeeOptions] = useState<any[]>([]);
   const [selectedEmployeeId, setSelectedEmployeeId] = useState<string | null>(null);
+
+  const [termsAccepted, setTermsAccepted] = useState(false);
+  const [dataAccepted, setDataAccepted] = useState(false);
 
   const [loading, setLoading] = useState(false);
   const [validating, setValidating] = useState(false);
@@ -81,17 +84,20 @@ function CheckoutPageContent() {
   const hasProducts = useMemo(() => (items || []).some((it) => !it.isCourse), [items]);
   const hasCourses = useMemo(() => (items || []).some((it) => it.isCourse), [items]);
 
-  // Cargar config de empresa cuando cambia employeeInfo
   async function loadCompanyConfig(companyId: string) {
     const { data: comp } = await supabase.from("companies")
-      .select("id, pay_frequency, pay_days").eq("id", companyId).single();
-    if (comp) setCompanyPayConfig(comp);
+      .select("id, pay_frequency, pay_days, terms_pdf_url").eq("id", companyId).single();
+    if (comp) {
+      setCompanyPayConfig(comp);
+      setTermsPdfUrl(comp.terms_pdf_url || null);
+    }
   }
 
-  // Seleccionar empresa del empleado logueado o validado
   function applyEmployeeOption(emp: any) {
     setEmployeeInfo(emp);
     setSelectedEmployeeId(emp.id);
+    setTermsAccepted(false);
+    setDataAccepted(false);
     const minInst = Number(emp.min_installments || 1);
     setInstallments(minInst);
     if (emp.company_id) loadCompanyConfig(emp.company_id);
@@ -104,7 +110,6 @@ function CheckoutPageContent() {
       if (!user) { setSessionLoading(false); return; }
       const { data: userRow } = await supabase.from("users").select("role, company_id, employee_id").eq("auth_id", user.id).single();
       if (!userRow || userRow.role !== "EMPLOYEE") { setSessionLoading(false); return; }
-
       let emp: any = null;
       if (userRow.employee_id) {
         const { data } = await supabase.from("employees")
@@ -118,7 +123,6 @@ function CheckoutPageContent() {
           .eq("company_id", userRow.company_id).eq("email", user.email).single();
         emp = data;
       }
-
       if (emp) {
         setLoggedEmployee(emp);
         setDocumentType(emp.document_type || "CC");
@@ -127,16 +131,12 @@ function CheckoutPageContent() {
         setShippingPhone(emp.phone || "");
         setShippingAddress(emp.address || "");
         setShippingCity(emp.city || "");
-
-        // Buscar todas las empresas del empleado por documento
         const { data: empRows } = await supabase.rpc("get_employee_by_document", {
           p_document_type: emp.document_type,
           p_document_number: emp.document_number,
         });
-
         if (empRows && empRows.length > 1) {
           setEmployeeOptions(empRows);
-          // No preseleccionar — dejar que el empleado elija
         } else {
           applyEmployeeOption({ ...emp, min_installments: emp.min_installments_override || 1 });
         }
@@ -150,8 +150,11 @@ function CheckoutPageContent() {
     setDocError(null);
     setEmployeeInfo(null);
     setCompanyPayConfig(null);
+    setTermsPdfUrl(null);
     setEmployeeOptions([]);
     setSelectedEmployeeId(null);
+    setTermsAccepted(false);
+    setDataAccepted(false);
     const doc = documentNumber.trim();
     if (!doc) { setDocError("Ingresa tu numero de documento."); return; }
     setValidating(true);
@@ -160,16 +163,13 @@ function CheckoutPageContent() {
       p_document_number: doc,
     });
     setValidating(false);
-
     if (error || !empRows || empRows.length === 0) {
       setDocError("Este documento no esta registrado. Consulta con el administrador de tu empresa.");
       return;
     }
-
     if (empRows.length === 1) {
       applyEmployeeOption(empRows[0]);
     } else {
-      // Múltiples empresas — mostrar selector
       setEmployeeOptions(empRows);
     }
   }
@@ -194,7 +194,6 @@ function CheckoutPageContent() {
   const creditAvailable = useMemo(() => Math.max(0, creditLimit - creditUsed), [creditLimit, creditUsed]);
   const exceedsLimit = creditLimit > 0 && installmentAmount > creditAvailable;
 
-  // Asegurar que installments nunca baje del mínimo
   useEffect(() => {
     if (installments < minInstallments) setInstallments(minInstallments);
   }, [minInstallments]);
@@ -208,6 +207,11 @@ function CheckoutPageContent() {
   useEffect(() => {
     if (!justConfirmed && items && items.length === 0) router.push("/market/cart");
   }, [items, justConfirmed, router]);
+
+  const canConfirm = useMemo(() => {
+    return !!employeeInfo && !exceedsLimit && termsAccepted && dataAccepted &&
+      !(employeeOptions.length > 1 && !selectedEmployeeId);
+  }, [employeeInfo, exceedsLimit, termsAccepted, dataAccepted, employeeOptions, selectedEmployeeId]);
 
   async function confirmOrder() {
     setErrorMsg(null);
@@ -223,6 +227,8 @@ function CheckoutPageContent() {
     if (exceedsLimit) return setErrorMsg("La cuota supera el cupo disponible.");
     if (installments > maxInstallments) return setErrorMsg("Numero de cuotas no permitido.");
     if (installments < minInstallments) return setErrorMsg(`El minimo de cuotas para esta empresa es ${minInstallments}.`);
+    if (!termsAccepted) return setErrorMsg("Debes aceptar los terminos y condiciones.");
+    if (!dataAccepted) return setErrorMsg("Debes aceptar el tratamiento de datos personales.");
 
     setLoading(true);
     const productItems = (items || []).filter((it) => !it.isCourse);
@@ -248,6 +254,17 @@ function CheckoutPageContent() {
       setErrorMsg(error?.message || "No se pudo confirmar la compra.");
       return;
     }
+
+    // Registrar aceptación de términos (firma digital)
+    await supabase.from("order_acceptances").insert({
+      order_id: orderId,
+      employee_id: employeeInfo.id,
+      company_id: employeeInfo.company_id,
+      terms_accepted: termsAccepted,
+      terms_pdf_url: termsPdfUrl || null,
+      data_policy_accepted: dataAccepted,
+      accepted_at: new Date().toISOString(),
+    });
 
     if (courseItems.length > 0 && employeeInfo?.id) {
       await supabase.rpc("register_course_orders", {
@@ -307,7 +324,7 @@ function CheckoutPageContent() {
               <div style={{ width: "100px" }}>
                 <label className="block text-xs font-bold mb-1.5 uppercase tracking-wide" style={{ color: "var(--nomi-navy)" }}>Tipo</label>
                 <select value={documentType}
-                  onChange={(e) => { setDocumentType(e.target.value); setEmployeeInfo(null); setDocError(null); setEmployeeOptions([]); }}
+                  onChange={(e) => { setDocumentType(e.target.value); setEmployeeInfo(null); setDocError(null); setEmployeeOptions([]); setTermsPdfUrl(null); }}
                   disabled={!!loggedEmployee} style={loggedEmployee ? IS_DISABLED : IS}>
                   <option value="CC">CC</option>
                   <option value="CE">CE</option>
@@ -317,7 +334,7 @@ function CheckoutPageContent() {
                 <label className="block text-xs font-bold mb-1.5 uppercase tracking-wide" style={{ color: "var(--nomi-navy)" }}>Numero de documento</label>
                 <div className="flex gap-2">
                   <input value={documentNumber}
-                    onChange={(e) => { setDocumentNumber(e.target.value); if (!loggedEmployee) { setEmployeeInfo(null); setDocError(null); setEmployeeOptions([]); } }}
+                    onChange={(e) => { setDocumentNumber(e.target.value); if (!loggedEmployee) { setEmployeeInfo(null); setDocError(null); setEmployeeOptions([]); setTermsPdfUrl(null); } }}
                     onKeyDown={(e) => { if (e.key === "Enter" && !loggedEmployee) validateDocument(); }}
                     disabled={!!loggedEmployee}
                     placeholder="Ej: 1020304050"
@@ -330,9 +347,6 @@ function CheckoutPageContent() {
                     </button>
                   )}
                 </div>
-                {!loggedEmployee && !employeeInfo && !docError && employeeOptions.length === 0 && (
-                  <p className="text-xs mt-1.5" style={{ color: "var(--nomi-muted)" }}>Ingresa tu documento y presiona Validar</p>
-                )}
               </div>
             </div>
 
@@ -340,7 +354,7 @@ function CheckoutPageContent() {
               <div className="px-4 py-3 rounded-xl text-sm font-semibold" style={{ backgroundColor: "#FEE2E2", color: "#DC2626" }}>{docError}</div>
             )}
 
-            {/* SELECTOR DE EMPRESA — cuando tiene más de una */}
+            {/* SELECTOR DE EMPRESA */}
             {employeeOptions.length > 1 && (
               <div className="space-y-3">
                 <div className="px-4 py-3 rounded-xl text-sm font-semibold" style={{ backgroundColor: "var(--nomi-orange-bg)", color: "var(--nomi-orange)", border: "1px solid rgba(245,166,35,0.3)" }}>
@@ -374,7 +388,7 @@ function CheckoutPageContent() {
             {employeeInfo && (
               <div className="rounded-xl p-4 space-y-3" style={{ backgroundColor: "var(--nomi-teal-bg)", border: "1.5px solid var(--nomi-teal)" }}>
                 <p className="text-xs font-bold uppercase tracking-wide" style={{ color: "var(--nomi-teal)" }}>
-                  Cupo habilitado por cuota {employeeOptions.length > 1 ? `— ${employeeInfo.company_name}` : ""}
+                  Cupo habilitado{employeeOptions.length > 1 ? ` — ${employeeInfo.company_name}` : ""}
                 </p>
                 <div className="grid grid-cols-3 gap-3">
                   <div>
@@ -390,14 +404,10 @@ function CheckoutPageContent() {
                     <p className="font-black text-sm" style={{ color: "#16A34A" }}>{money(creditAvailable)}</p>
                   </div>
                 </div>
-                <div className="flex gap-4 text-xs" style={{ color: "var(--nomi-muted)" }}>
-                  <span>Cuotas maximas: <b style={{ color: "var(--nomi-navy)" }}>{maxInstallments}</b></span>
-                  {minInstallments > 1 && <span>Cuotas minimas: <b style={{ color: "var(--nomi-navy)" }}>{minInstallments}</b></span>}
-                </div>
               </div>
             )}
 
-            {/* SELECTOR DE CUOTAS */}
+            {/* SELECTOR CUOTAS */}
             {employeeInfo && (
               <div>
                 <label className="block text-xs font-bold mb-1.5 uppercase tracking-wide" style={{ color: "var(--nomi-navy)" }}>Numero de cuotas</label>
@@ -409,9 +419,7 @@ function CheckoutPageContent() {
                     ))}
                 </select>
                 {minInstallments > 1 && (
-                  <p className="text-xs mt-1" style={{ color: "var(--nomi-muted)" }}>
-                    Esta empresa requiere minimo {minInstallments} cuotas.
-                  </p>
+                  <p className="text-xs mt-1" style={{ color: "var(--nomi-muted)" }}>Esta empresa requiere minimo {minInstallments} cuotas.</p>
                 )}
                 <div className="mt-2 flex items-center justify-between text-sm">
                   <span style={{ color: "var(--nomi-muted)" }}>Valor por cuota:</span>
@@ -480,6 +488,71 @@ function CheckoutPageContent() {
               </div>
             </div>
           )}
+
+          {/* TÉRMINOS Y CONDICIONES */}
+          {employeeInfo && (
+            <div className="bg-white rounded-2xl p-5 space-y-4" style={{ border: "1.5px solid var(--nomi-border)" }}>
+              <div>
+                <h2 className="font-black text-base" style={{ color: "var(--nomi-navy)" }}>Autorizaciones</h2>
+                <p className="text-xs mt-1" style={{ color: "var(--nomi-muted)" }}>
+                  Al marcar estas casillas, tu firma digital queda registrada en el sistema.
+                </p>
+              </div>
+
+              {/* TÉRMINOS DE LA EMPRESA */}
+              <div className="rounded-xl p-4 space-y-3" style={{ backgroundColor: "var(--nomi-gray)", border: "1.5px solid var(--nomi-border)" }}>
+                <div className="flex items-start gap-3">
+                  <div className="mt-0.5">
+                    <input type="checkbox" id="terms" checked={termsAccepted}
+                      onChange={(e) => setTermsAccepted(e.target.checked)}
+                      className="w-4 h-4 cursor-pointer accent-orange-500" />
+                  </div>
+                  <div className="flex-1">
+                    <label htmlFor="terms" className="text-sm font-semibold cursor-pointer" style={{ color: "var(--nomi-navy)" }}>
+                      He leido y acepto los terminos y condiciones
+                      {employeeInfo.company_name ? ` de ${employeeInfo.company_name}` : ""}
+                    </label>
+                    {termsPdfUrl ? (
+                      <a href={termsPdfUrl} target="_blank" rel="noopener noreferrer"
+                        className="flex items-center gap-1.5 mt-2 text-xs font-bold w-fit px-3 py-1.5 rounded-lg cursor-pointer"
+                        style={{ backgroundColor: "var(--nomi-teal-bg)", color: "var(--nomi-teal)", border: "1px solid var(--nomi-teal)" }}>
+                        <FileText className="w-3.5 h-3.5" />
+                        Ver documento PDF
+                        <ExternalLink className="w-3 h-3" />
+                      </a>
+                    ) : (
+                      <p className="text-xs mt-1" style={{ color: "var(--nomi-muted)" }}>
+                        Esta empresa no ha subido su documento de terminos aun.
+                      </p>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              {/* TRATAMIENTO DE DATOS NOMI */}
+              <div className="rounded-xl p-4 space-y-2" style={{ backgroundColor: "var(--nomi-gray)", border: "1.5px solid var(--nomi-border)" }}>
+                <div className="flex items-start gap-3">
+                  <div className="mt-0.5">
+                    <input type="checkbox" id="data" checked={dataAccepted}
+                      onChange={(e) => setDataAccepted(e.target.checked)}
+                      className="w-4 h-4 cursor-pointer accent-orange-500" />
+                  </div>
+                  <div className="flex-1">
+                    <label htmlFor="data" className="text-sm font-semibold cursor-pointer" style={{ color: "var(--nomi-navy)" }}>
+                      Acepto el tratamiento de mis datos personales por parte de NOMI
+                    </label>
+                    <a href="https://www.nomitienda.com/politica-datos" target="_blank" rel="noopener noreferrer"
+                      className="flex items-center gap-1.5 mt-2 text-xs font-bold w-fit px-3 py-1.5 rounded-lg cursor-pointer"
+                      style={{ backgroundColor: "var(--nomi-orange-bg)", color: "var(--nomi-orange)", border: "1px solid rgba(245,166,35,0.3)" }}>
+                      <FileText className="w-3.5 h-3.5" />
+                      Ver politica de datos NOMI
+                      <ExternalLink className="w-3 h-3" />
+                    </a>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
 
         {/* RESUMEN */}
@@ -504,14 +577,21 @@ function CheckoutPageContent() {
               <span className="text-sm font-bold" style={{ color: "var(--nomi-muted)" }}>Total</span>
               <span className="font-black text-xl" style={{ color: "var(--nomi-navy)" }}>{money(subtotal)}</span>
             </div>
-            <button onClick={confirmOrder} disabled={loading || !employeeInfo || exceedsLimit || (employeeOptions.length > 1 && !selectedEmployeeId)}
+
+            <button onClick={confirmOrder} disabled={loading || !canConfirm}
               className="w-full py-3.5 rounded-xl text-sm font-black cursor-pointer disabled:opacity-50 transition"
               style={{ backgroundColor: "var(--nomi-orange)", color: "#fff" }}>
               {loading ? "Confirmando..." : "Confirmar compra"}
             </button>
-            {!employeeInfo && employeeOptions.length === 0 && (
+
+            {!employeeInfo && (
               <p className="text-xs text-center" style={{ color: "var(--nomi-muted)" }}>
-                {loggedEmployee ? "Cargando tu informacion..." : "Valida tu documento para continuar"}
+                Valida tu documento para continuar
+              </p>
+            )}
+            {employeeInfo && (!termsAccepted || !dataAccepted) && (
+              <p className="text-xs text-center font-semibold" style={{ color: "var(--nomi-orange)" }}>
+                Acepta las autorizaciones para continuar
               </p>
             )}
             {employeeOptions.length > 1 && !selectedEmployeeId && (
