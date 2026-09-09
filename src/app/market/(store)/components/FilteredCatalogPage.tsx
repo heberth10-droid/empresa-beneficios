@@ -141,32 +141,10 @@ export default function FilteredCatalogPage({ filterType, filterValue, initialQ 
 
         if (error) { setErr(error.message); setProducts([]); setTotal(0); setLoading(false); return; }
 
-        // Cargar ratings desde product_reviews
-        const productIds = (data || []).map((p: any) => p.id);
-        let ratingsMap: Record<string, { avg_rating: number; review_count: number }> = {};
-        if (productIds.length > 0) {
-          const { data: revs, error: revErr } = await supabase
-            .from("product_reviews")
-            .select("product_id, rating")
-            .in("product_id", productIds);
-          console.log("REVIEWS QUERY:", { count: revs?.length, error: revErr, sample: revs?.slice(0, 3) });
-          for (const r of revs || []) {
-            if (!ratingsMap[r.product_id]) ratingsMap[r.product_id] = { avg_rating: 0, review_count: 0 };
-            ratingsMap[r.product_id].review_count += 1;
-            ratingsMap[r.product_id].avg_rating += Number(r.rating);
-          }
-          for (const pid of Object.keys(ratingsMap)) {
-            const e = ratingsMap[pid];
-            e.avg_rating = Math.round((e.avg_rating / e.review_count) * 10) / 10;
-          }
-          console.log("RATINGS MAP:", ratingsMap);
-        }
-
         const mapped = (data || []).map((p: any) => {
           const base = Number(p.price || 0);
           const disc = Number(p.discount_price || 0);
-          const rating = ratingsMap[p.id] || null;
-          return { ...p, main_image: getMainImage(p), price_fmt: formatCOP(base), discount_fmt: formatCOP(disc), description: p.description || "", price: base, discount_price: disc, stock: Number(p.stock || 0), avg_rating: rating?.avg_rating || 0, review_count: rating?.review_count || 0 };
+          return { ...p, main_image: getMainImage(p), price_fmt: formatCOP(base), discount_fmt: formatCOP(disc), description: p.description || "", price: base, discount_price: disc, stock: Number(p.stock || 0) };
         });
 
         setProducts(mapped);
