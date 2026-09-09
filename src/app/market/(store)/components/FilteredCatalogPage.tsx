@@ -124,15 +124,11 @@ export default function FilteredCatalogPage({ filterType, filterValue, initialQ 
         if (onlyAvailable) query = query.gt("stock", 0);
         if (onlyDiscount) query = query.gt("discount_price", 0);
 
-        // Busqueda por nombre, descripcion, categoria y subcategoria
         if (searchQ.trim()) {
           const q = searchQ.trim();
-          query = query.or(
-            `name.ilike.%${q}%,description.ilike.%${q}%,category.ilike.%${q}%,subcategory.ilike.%${q}%`
-          );
+          query = query.or(`name.ilike.%${q}%,description.ilike.%${q}%,category.ilike.%${q}%,subcategory.ilike.%${q}%`);
         }
 
-        // Orden — solo uno a la vez
         if (sort === "PRICE_ASC") query = query.order("price", { ascending: true });
         else if (sort === "PRICE_DESC") query = query.order("price", { ascending: false });
         else if (sort === "AZ") query = query.order("name", { ascending: true });
@@ -145,10 +141,30 @@ export default function FilteredCatalogPage({ filterType, filterValue, initialQ 
 
         if (error) { setErr(error.message); setProducts([]); setTotal(0); setLoading(false); return; }
 
+        // Cargar ratings en batch desde product_reviews directo
+        const productIds = (data || []).map((p: any) => p.id);
+        let ratingsMap: Record<string, { avg_rating: number; review_count: number }> = {};
+        if (productIds.length > 0) {
+          const { data: revs } = await supabase
+            .from("product_reviews")
+            .select("product_id, rating")
+            .in("product_id", productIds);
+          for (const r of revs || []) {
+            if (!ratingsMap[r.product_id]) ratingsMap[r.product_id] = { avg_rating: 0, review_count: 0 };
+            ratingsMap[r.product_id].review_count += 1;
+            ratingsMap[r.product_id].avg_rating += Number(r.rating);
+          }
+          for (const pid of Object.keys(ratingsMap)) {
+            const e = ratingsMap[pid];
+            e.avg_rating = Math.round((e.avg_rating / e.review_count) * 10) / 10;
+          }
+        }
+
         const mapped = (data || []).map((p: any) => {
           const base = Number(p.price || 0);
           const disc = Number(p.discount_price || 0);
-          return { ...p, main_image: getMainImage(p), price_fmt: formatCOP(base), discount_fmt: formatCOP(disc), description: p.description || "", price: base, discount_price: disc, stock: Number(p.stock || 0) };
+          const rating = ratingsMap[p.id] || null;
+          return { ...p, main_image: getMainImage(p), price_fmt: formatCOP(base), discount_fmt: formatCOP(disc), description: p.description || "", price: base, discount_price: disc, stock: Number(p.stock || 0), avg_rating: rating?.avg_rating || 0, review_count: rating?.review_count || 0 };
         });
 
         setProducts(mapped);
@@ -255,7 +271,6 @@ export default function FilteredCatalogPage({ filterType, filterValue, initialQ 
             className="w-full px-4 py-2.5 rounded-xl text-sm outline-none"
             style={{ border: "1.5px solid var(--nomi-border)", backgroundColor: "#fff", color: "var(--nomi-navy)" }} />
           <div className="flex gap-3">
-            {/* ORDENAR */}
             <div className="relative flex-1" data-dropdown="sort">
               <button onClick={() => { setSortOpen(!sortOpen); setFilterOpen(false); }}
                 className="w-full flex items-center justify-between gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold cursor-pointer transition"
@@ -283,7 +298,6 @@ export default function FilteredCatalogPage({ filterType, filterValue, initialQ 
               )}
             </div>
 
-            {/* FILTRAR */}
             <div className="relative flex-1" data-dropdown="filter">
               <button
                 onClick={() => {
