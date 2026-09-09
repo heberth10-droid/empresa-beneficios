@@ -51,6 +51,24 @@ function buildInstallmentDates(opts: { count: number; pay_frequency?: string | n
 
 const POLITICA_DATOS_URL = "https://www.nomitienda.com/politica-datos.pdf";
 
+function CustomCheckbox({ checked, onChange, id }: { checked: boolean; onChange: (v: boolean) => void; id: string }) {
+  return (
+    <button type="button" id={id} onClick={() => onChange(!checked)}
+      className="shrink-0 cursor-pointer flex items-center justify-center rounded-md transition-all mt-0.5"
+      style={{
+        width: 22, height: 22,
+        border: checked ? "2px solid var(--nomi-orange)" : "2px solid var(--nomi-border)",
+        backgroundColor: checked ? "var(--nomi-orange)" : "#fff",
+      }}>
+      {checked && (
+        <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
+          <path d="M2 6L5 9L10 3" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+        </svg>
+      )}
+    </button>
+  );
+}
+
 function CheckoutPageContent() {
   const router = useRouter();
   const { items, subtotal, clear } = useCart();
@@ -355,7 +373,6 @@ function CheckoutPageContent() {
               <div className="px-4 py-3 rounded-xl text-sm font-semibold" style={{ backgroundColor: "#FEE2E2", color: "#DC2626" }}>{docError}</div>
             )}
 
-            {/* SELECTOR DE EMPRESA */}
             {employeeOptions.length > 1 && (
               <div className="space-y-3">
                 <div className="px-4 py-3 rounded-xl text-sm font-semibold" style={{ backgroundColor: "var(--nomi-orange-bg)", color: "var(--nomi-orange)", border: "1px solid rgba(245,166,35,0.3)" }}>
@@ -382,7 +399,6 @@ function CheckoutPageContent() {
               </div>
             )}
 
-            {/* CUPO */}
             {employeeInfo && (
               <div className="rounded-xl p-4 space-y-3" style={{ backgroundColor: "var(--nomi-teal-bg)", border: "1.5px solid var(--nomi-teal)" }}>
                 <p className="text-xs font-bold uppercase tracking-wide" style={{ color: "var(--nomi-teal)" }}>
@@ -405,7 +421,6 @@ function CheckoutPageContent() {
               </div>
             )}
 
-            {/* CUOTAS */}
             {employeeInfo && (
               <div>
                 <label className="block text-xs font-bold mb-1.5 uppercase tracking-wide" style={{ color: "var(--nomi-navy)" }}>Numero de cuotas</label>
@@ -499,14 +514,12 @@ function CheckoutPageContent() {
               {/* TÉRMINOS EMPRESA */}
               <div className="rounded-xl p-4" style={{ backgroundColor: "var(--nomi-gray)", border: "1.5px solid var(--nomi-border)" }}>
                 <div className="flex items-start gap-3">
-                  <input type="checkbox" id="terms" checked={termsAccepted}
-                    onChange={(e) => setTermsAccepted(e.target.checked)}
-                    className="w-4 h-4 mt-0.5 cursor-pointer accent-orange-500" />
+                  <CustomCheckbox checked={termsAccepted} onChange={setTermsAccepted} id="terms" />
                   <div className="flex-1">
-                    <label htmlFor="terms" className="text-sm font-semibold cursor-pointer" style={{ color: "var(--nomi-navy)" }}>
+                    <p className="text-sm font-semibold" style={{ color: "var(--nomi-navy)" }}>
                       He leido y acepto los terminos y condiciones
                       {employeeInfo.company_name ? ` de ${employeeInfo.company_name}` : ""}
-                    </label>
+                    </p>
                     {termsPdfUrl ? (
                       <a href={termsPdfUrl} target="_blank" rel="noopener noreferrer"
                         className="inline-flex items-center gap-1.5 mt-2 text-xs font-bold px-3 py-1.5 rounded-lg"
@@ -527,13 +540,11 @@ function CheckoutPageContent() {
               {/* POLÍTICA DATOS NOMI */}
               <div className="rounded-xl p-4" style={{ backgroundColor: "var(--nomi-gray)", border: "1.5px solid var(--nomi-border)" }}>
                 <div className="flex items-start gap-3">
-                  <input type="checkbox" id="data" checked={dataAccepted}
-                    onChange={(e) => setDataAccepted(e.target.checked)}
-                    className="w-4 h-4 mt-0.5 cursor-pointer accent-orange-500" />
+                  <CustomCheckbox checked={dataAccepted} onChange={setDataAccepted} id="data" />
                   <div className="flex-1">
-                    <label htmlFor="data" className="text-sm font-semibold cursor-pointer" style={{ color: "var(--nomi-navy)" }}>
+                    <p className="text-sm font-semibold" style={{ color: "var(--nomi-navy)" }}>
                       Acepto el tratamiento de mis datos personales por parte de NOMI
-                    </label>
+                    </p>
                     <a href={POLITICA_DATOS_URL} target="_blank" rel="noopener noreferrer"
                       className="inline-flex items-center gap-1.5 mt-2 text-xs font-bold px-3 py-1.5 rounded-lg"
                       style={{ backgroundColor: "var(--nomi-orange-bg)", color: "var(--nomi-orange)", border: "1px solid rgba(245,166,35,0.3)" }}>
