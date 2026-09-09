@@ -1,12 +1,61 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useCart } from "@/components/cart/CartProvider";
+import { supabase } from "@/lib/supabaseClient";
+
+function MiniStars({ rating, count }: { rating: number; count: number }) {
+  if (!rating || count === 0) return null;
+  return (
+    <div className="flex items-center gap-1">
+      <div className="flex items-center gap-0.5">
+        {Array.from({ length: 5 }).map((_, i) => {
+          const val = i + 1;
+          const filled = rating >= val;
+          const half = !filled && rating >= val - 0.5;
+          return (
+            <span key={i} style={{ position: "relative", display: "inline-block", width: 12, height: 12 }}>
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="var(--nomi-border)" style={{ position: "absolute", top: 0, left: 0 }}>
+                <polygon points="12,2 15.09,8.26 22,9.27 17,14.14 18.18,21.02 12,17.77 5.82,21.02 7,14.14 2,9.27 8.91,8.26" stroke="none" />
+              </svg>
+              {(filled || half) && (
+                <span style={{ position: "absolute", top: 0, left: 0, width: filled ? "100%" : "50%", overflow: "hidden", display: "inline-block" }}>
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="var(--nomi-orange)">
+                    <polygon points="12,2 15.09,8.26 22,9.27 17,14.14 18.18,21.02 12,17.77 5.82,21.02 7,14.14 2,9.27 8.91,8.26" stroke="none" />
+                  </svg>
+                </span>
+              )}
+            </span>
+          );
+        })}
+      </div>
+      <span className="text-xs font-bold" style={{ color: "var(--nomi-navy)" }}>{rating.toFixed(1)}</span>
+      <span className="text-xs" style={{ color: "var(--nomi-muted)" }}>({count})</span>
+    </div>
+  );
+}
 
 export default function ProductCard({ product }: any) {
   const { addItem } = useCart();
   const [toast, setToast] = useState(false);
+  const [avgRating, setAvgRating] = useState<number>(0);
+  const [reviewCount, setReviewCount] = useState<number>(0);
+
+  useEffect(() => {
+    async function loadRating() {
+      const { data } = await supabase
+        .from("product_reviews")
+        .select("rating")
+        .eq("product_id", product.id);
+      if (data && data.length > 0) {
+        const avg = Math.round((data.reduce((acc, r) => acc + Number(r.rating), 0) / data.length) * 10) / 10;
+        setAvgRating(avg);
+        setReviewCount(data.length);
+      }
+    }
+    loadRating();
+  }, [product.id]);
 
   const base = Number(product.price || 0);
   const disc = Number(product.discount_price || 0);
@@ -35,7 +84,7 @@ export default function ProductCard({ product }: any) {
       {toast && (
         <div className="fixed top-5 right-5 z-[80] px-5 py-3 rounded-xl shadow-2xl font-bold text-sm text-white"
           style={{ backgroundColor: "var(--nomi-navy)" }}>
-          ✓ Producto agregado al carrito
+          Producto agregado al carrito
         </div>
       )}
 
@@ -44,7 +93,6 @@ export default function ProductCard({ product }: any) {
         className="group block rounded-2xl bg-white overflow-hidden transition hover:shadow-lg hover:-translate-y-0.5"
         style={{ border: "1.5px solid var(--nomi-border)" }}
       >
-        {/* IMAGEN */}
         <div className="relative aspect-square overflow-hidden" style={{ backgroundColor: "var(--nomi-gray)" }}>
           <img
             src={img}
@@ -53,7 +101,6 @@ export default function ProductCard({ product }: any) {
             onError={(e) => { (e.currentTarget as HTMLImageElement).src = "/no-image.png"; }}
           />
 
-          {/* BADGES TOP */}
           <div className="absolute top-2.5 left-2.5 flex gap-1.5">
             {isOut ? (
               <span className="text-xs px-2 py-0.5 rounded-full font-bold bg-red-100 text-red-600">
@@ -73,7 +120,6 @@ export default function ProductCard({ product }: any) {
             )}
           </div>
 
-          {/* BOTÓN AGREGAR */}
           <div className="absolute bottom-2.5 right-2.5">
             <button
               onClick={handleAdd}
@@ -89,17 +135,19 @@ export default function ProductCard({ product }: any) {
           </div>
         </div>
 
-        {/* INFO */}
         <div className="p-3.5 space-y-1.5">
           <div className="font-bold text-sm leading-tight truncate" style={{ color: "var(--nomi-navy)" }}>
             {product.name || "Producto"}
           </div>
 
+          {avgRating > 0 && (
+            <MiniStars rating={avgRating} count={reviewCount} />
+          )}
+
           <div className="text-xs leading-snug line-clamp-2" style={{ color: "var(--nomi-muted)", minHeight: "2.5rem" }}>
             {product.description || "—"}
           </div>
 
-          {/* PRECIO */}
           <div className="pt-1">
             {hasDiscount ? (
               <div className="flex items-baseline gap-2">
@@ -116,15 +164,14 @@ export default function ProductCard({ product }: any) {
               </span>
             )}
             <div className="text-xs mt-0.5 font-semibold" style={{ color: "var(--nomi-teal)" }}>
-              0% interés · pago por nómina
+              0% interes · pago por nomina
             </div>
           </div>
 
-          {/* VER DETALLE */}
           <div className="pt-1.5">
             <div className="w-full text-center text-xs font-bold rounded-xl py-2 transition"
               style={{ backgroundColor: "var(--nomi-gray)", color: "var(--nomi-navy)" }}>
-              Ver detalle →
+              Ver detalle
             </div>
           </div>
         </div>
