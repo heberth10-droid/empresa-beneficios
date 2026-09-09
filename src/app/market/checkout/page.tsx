@@ -49,6 +49,8 @@ function buildInstallmentDates(opts: { count: number; pay_frequency?: string | n
   return results.map((d) => d.toISOString().slice(0, 10));
 }
 
+const POLITICA_DATOS_URL = "https://www.nomitienda.com/politica-datos.pdf";
+
 function CheckoutPageContent() {
   const router = useRouter();
   const { items, subtotal, clear } = useCart();
@@ -255,7 +257,6 @@ function CheckoutPageContent() {
       return;
     }
 
-    // Registrar aceptación de términos (firma digital)
     await supabase.from("order_acceptances").insert({
       order_id: orderId,
       employee_id: employeeInfo.id,
@@ -367,10 +368,7 @@ function CheckoutPageContent() {
                     return (
                       <button key={emp.id} onClick={() => selectCompany(emp)}
                         className="w-full text-left px-4 py-3.5 rounded-xl transition cursor-pointer"
-                        style={{
-                          border: isSelected ? "2px solid var(--nomi-teal)" : "1.5px solid var(--nomi-border)",
-                          backgroundColor: isSelected ? "var(--nomi-teal-bg)" : "#fff",
-                        }}>
+                        style={{ border: isSelected ? "2px solid var(--nomi-teal)" : "1.5px solid var(--nomi-border)", backgroundColor: isSelected ? "var(--nomi-teal-bg)" : "#fff" }}>
                         <div className="font-black text-sm" style={{ color: "var(--nomi-navy)" }}>{emp.company_name}</div>
                         <div className="flex gap-4 mt-1 text-xs" style={{ color: "var(--nomi-muted)" }}>
                           <span>Cupo disponible: <b style={{ color: "#16A34A" }}>{money(avail)}</b></span>
@@ -384,7 +382,7 @@ function CheckoutPageContent() {
               </div>
             )}
 
-            {/* INFO CUPO */}
+            {/* CUPO */}
             {employeeInfo && (
               <div className="rounded-xl p-4 space-y-3" style={{ backgroundColor: "var(--nomi-teal-bg)", border: "1.5px solid var(--nomi-teal)" }}>
                 <p className="text-xs font-bold uppercase tracking-wide" style={{ color: "var(--nomi-teal)" }}>
@@ -407,7 +405,7 @@ function CheckoutPageContent() {
               </div>
             )}
 
-            {/* SELECTOR CUOTAS */}
+            {/* CUOTAS */}
             {employeeInfo && (
               <div>
                 <label className="block text-xs font-bold mb-1.5 uppercase tracking-wide" style={{ color: "var(--nomi-navy)" }}>Numero de cuotas</label>
@@ -483,30 +481,27 @@ function CheckoutPageContent() {
               <div>
                 <label className="block text-xs font-bold mb-1.5 uppercase tracking-wide" style={{ color: "var(--nomi-navy)" }}>Notas (opcional)</label>
                 <textarea value={shippingNotes} onChange={(e) => setShippingNotes(e.target.value)}
-                  rows={3} placeholder="Indicaciones para el mensajero..."
-                  style={{ ...IS, resize: "none" }} />
+                  rows={3} placeholder="Indicaciones para el mensajero..." style={{ ...IS, resize: "none" }} />
               </div>
             </div>
           )}
 
-          {/* TÉRMINOS Y CONDICIONES */}
+          {/* AUTORIZACIONES */}
           {employeeInfo && (
             <div className="bg-white rounded-2xl p-5 space-y-4" style={{ border: "1.5px solid var(--nomi-border)" }}>
               <div>
                 <h2 className="font-black text-base" style={{ color: "var(--nomi-navy)" }}>Autorizaciones</h2>
                 <p className="text-xs mt-1" style={{ color: "var(--nomi-muted)" }}>
-                  Al marcar estas casillas, tu firma digital queda registrada en el sistema.
+                  Al marcar estas casillas, tu firma digital queda registrada con fecha, hora y numero de orden.
                 </p>
               </div>
 
-              {/* TÉRMINOS DE LA EMPRESA */}
-              <div className="rounded-xl p-4 space-y-3" style={{ backgroundColor: "var(--nomi-gray)", border: "1.5px solid var(--nomi-border)" }}>
+              {/* TÉRMINOS EMPRESA */}
+              <div className="rounded-xl p-4" style={{ backgroundColor: "var(--nomi-gray)", border: "1.5px solid var(--nomi-border)" }}>
                 <div className="flex items-start gap-3">
-                  <div className="mt-0.5">
-                    <input type="checkbox" id="terms" checked={termsAccepted}
-                      onChange={(e) => setTermsAccepted(e.target.checked)}
-                      className="w-4 h-4 cursor-pointer accent-orange-500" />
-                  </div>
+                  <input type="checkbox" id="terms" checked={termsAccepted}
+                    onChange={(e) => setTermsAccepted(e.target.checked)}
+                    className="w-4 h-4 mt-0.5 cursor-pointer accent-orange-500" />
                   <div className="flex-1">
                     <label htmlFor="terms" className="text-sm font-semibold cursor-pointer" style={{ color: "var(--nomi-navy)" }}>
                       He leido y acepto los terminos y condiciones
@@ -514,38 +509,36 @@ function CheckoutPageContent() {
                     </label>
                     {termsPdfUrl ? (
                       <a href={termsPdfUrl} target="_blank" rel="noopener noreferrer"
-                        className="flex items-center gap-1.5 mt-2 text-xs font-bold w-fit px-3 py-1.5 rounded-lg cursor-pointer"
+                        className="inline-flex items-center gap-1.5 mt-2 text-xs font-bold px-3 py-1.5 rounded-lg"
                         style={{ backgroundColor: "var(--nomi-teal-bg)", color: "var(--nomi-teal)", border: "1px solid var(--nomi-teal)" }}>
                         <FileText className="w-3.5 h-3.5" />
-                        Ver documento PDF
+                        Ver terminos y condiciones (PDF)
                         <ExternalLink className="w-3 h-3" />
                       </a>
                     ) : (
-                      <p className="text-xs mt-1" style={{ color: "var(--nomi-muted)" }}>
-                        Esta empresa no ha subido su documento de terminos aun.
+                      <p className="text-xs mt-1.5" style={{ color: "var(--nomi-muted)" }}>
+                        Esta empresa aun no ha subido su documento de terminos y condiciones.
                       </p>
                     )}
                   </div>
                 </div>
               </div>
 
-              {/* TRATAMIENTO DE DATOS NOMI */}
-              <div className="rounded-xl p-4 space-y-2" style={{ backgroundColor: "var(--nomi-gray)", border: "1.5px solid var(--nomi-border)" }}>
+              {/* POLÍTICA DATOS NOMI */}
+              <div className="rounded-xl p-4" style={{ backgroundColor: "var(--nomi-gray)", border: "1.5px solid var(--nomi-border)" }}>
                 <div className="flex items-start gap-3">
-                  <div className="mt-0.5">
-                    <input type="checkbox" id="data" checked={dataAccepted}
-                      onChange={(e) => setDataAccepted(e.target.checked)}
-                      className="w-4 h-4 cursor-pointer accent-orange-500" />
-                  </div>
+                  <input type="checkbox" id="data" checked={dataAccepted}
+                    onChange={(e) => setDataAccepted(e.target.checked)}
+                    className="w-4 h-4 mt-0.5 cursor-pointer accent-orange-500" />
                   <div className="flex-1">
                     <label htmlFor="data" className="text-sm font-semibold cursor-pointer" style={{ color: "var(--nomi-navy)" }}>
                       Acepto el tratamiento de mis datos personales por parte de NOMI
                     </label>
-                    <a href="https://www.nomitienda.com/politica-datos" target="_blank" rel="noopener noreferrer"
-                      className="flex items-center gap-1.5 mt-2 text-xs font-bold w-fit px-3 py-1.5 rounded-lg cursor-pointer"
+                    <a href={POLITICA_DATOS_URL} target="_blank" rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1.5 mt-2 text-xs font-bold px-3 py-1.5 rounded-lg"
                       style={{ backgroundColor: "var(--nomi-orange-bg)", color: "var(--nomi-orange)", border: "1px solid rgba(245,166,35,0.3)" }}>
                       <FileText className="w-3.5 h-3.5" />
-                      Ver politica de datos NOMI
+                      Ver politica de tratamiento de datos NOMI (PDF)
                       <ExternalLink className="w-3 h-3" />
                     </a>
                   </div>
@@ -591,7 +584,7 @@ function CheckoutPageContent() {
             )}
             {employeeInfo && (!termsAccepted || !dataAccepted) && (
               <p className="text-xs text-center font-semibold" style={{ color: "var(--nomi-orange)" }}>
-                Acepta las autorizaciones para continuar
+                Acepta las autorizaciones para habilitar el boton de compra
               </p>
             )}
             {employeeOptions.length > 1 && !selectedEmployeeId && (
