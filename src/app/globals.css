@@ -39,7 +39,7 @@ body {
 .brands-track {
   display: flex;
   gap: 14px;
-  animation: scrollBrands 80s linear infinite;
+  animation: scrollBrands 150s linear infinite;
   width: max-content;
 }
 
