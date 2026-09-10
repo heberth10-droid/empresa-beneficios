@@ -1,8 +1,10 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
-import { Plus, Save, X, ChevronDown, ChevronRight, Trash2 } from "lucide-react";
+import { Plus, Save, X, ChevronDown, ChevronRight, Trash2, Upload } from "lucide-react";
+
+const IMAGE_BUCKET = "product-images";
 
 export default function AdminCategoriesPage() {
   const [categories, setCategories] = useState<any[]>([]);
@@ -16,7 +18,9 @@ export default function AdminCategoriesPage() {
   const [newSub, setNewSub] = useState<Record<string, string>>({});
   const [savingCat, setSavingCat] = useState(false);
   const [savingSub, setSavingSub] = useState<string | null>(null);
+  const [uploadingImg, setUploadingImg] = useState(false);
   const [msg, setMsg] = useState<{ text: string; ok: boolean } | null>(null);
+  const imgInputRef = useRef<HTMLInputElement>(null);
 
   async function load() {
     const [cats, subs] = await Promise.all([
@@ -39,6 +43,23 @@ export default function AdminCategoriesPage() {
     return subcategories.filter(
       s => (s.category_name || "").toLowerCase() === (catName || "").toLowerCase()
     );
+  }
+
+  async function uploadCatImage(file: File): Promise<string | null> {
+    setUploadingImg(true);
+    const ext = file.name.split(".").pop() || "jpg";
+    const fileName = `categories/${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`;
+    const { error } = await supabase.storage.from(IMAGE_BUCKET).upload(fileName, file, {
+      contentType: file.type, cacheControl: "3600", upsert: true,
+    });
+    setUploadingImg(false);
+    if (error) { flash("Error subiendo imagen: " + error.message, false); return null; }
+    return supabase.storage.from(IMAGE_BUCKET).getPublicUrl(fileName).data.publicUrl;
+  }
+
+  async function handleImageFile(file: File) {
+    const url = await uploadCatImage(file);
+    if (url) setEditCatData(p => ({ ...p, image_url: url }));
   }
 
   async function saveCat(id: string) {
@@ -147,21 +168,45 @@ export default function AdminCategoriesPage() {
                   {isExpanded ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
                 </button>
 
-                <div className="w-12 h-12 rounded-xl overflow-hidden shrink-0"
+                {/* IMAGEN — clic para cambiar cuando está editando */}
+                <div className="w-12 h-12 rounded-xl overflow-hidden shrink-0 relative group"
                   style={{ backgroundColor: "var(--nomi-gray)", border: "1px solid var(--nomi-border)" }}>
-                  {cat.image_url
-                    ? <img src={cat.image_url} className="w-full h-full object-cover" alt={cat.name} />
-                    : <div className="w-full h-full flex items-center justify-center text-lg">📁</div>}
+                  {editCatData.image_url && isEditingCat
+                    ? <img src={editCatData.image_url} className="w-full h-full object-cover" alt={cat.name} />
+                    : cat.image_url
+                      ? <img src={cat.image_url} className="w-full h-full object-cover" alt={cat.name} />
+                      : <div className="w-full h-full flex items-center justify-center text-lg">📁</div>}
+                  {isEditingCat && (
+                    <label className="absolute inset-0 flex items-center justify-center cursor-pointer opacity-0 group-hover:opacity-100 transition"
+                      style={{ backgroundColor: "rgba(0,0,0,0.5)" }}
+                      title="Subir imagen desde archivo">
+                      <Upload className="w-4 h-4 text-white" />
+                      <input type="file" accept="image/*" className="hidden"
+                        onChange={(e) => { const f = e.target.files?.[0]; if (f) handleImageFile(f); }} />
+                    </label>
+                  )}
                 </div>
 
                 {isEditingCat ? (
-                  <div className="flex-1 grid grid-cols-2 gap-2">
+                  <div className="flex-1 space-y-2">
                     <input value={editCatData.name}
                       onChange={(e) => setEditCatData(p => ({ ...p, name: e.target.value }))}
                       placeholder="Nombre" style={inputStyle} />
-                    <input value={editCatData.image_url}
-                      onChange={(e) => setEditCatData(p => ({ ...p, image_url: e.target.value }))}
-                      placeholder="URL imagen" style={inputStyle} />
+                    <div className="flex gap-2">
+                      <input value={editCatData.image_url}
+                        onChange={(e) => setEditCatData(p => ({ ...p, image_url: e.target.value }))}
+                        placeholder="URL de imagen (o sube un archivo haciendo clic en la imagen)"
+                        style={{ ...inputStyle, flex: 1 }} />
+                      <label className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold cursor-pointer shrink-0"
+                        style={{ backgroundColor: "var(--nomi-teal-bg)", color: "var(--nomi-teal)", border: "1px solid var(--nomi-teal)" }}>
+                        {uploadingImg ? "..." : <><Upload className="w-3.5 h-3.5" /> Subir</>}
+                        <input type="file" accept="image/*" className="hidden"
+                          onChange={(e) => { const f = e.target.files?.[0]; if (f) handleImageFile(f); }} />
+                      </label>
+                    </div>
+                    {uploadingImg && (
+                      <p className="text-xs" style={{ color: "var(--nomi-teal)" }}>Subiendo imagen...</p>
+                    )}
                   </div>
                 ) : (
                   <div className="flex-1">
@@ -175,7 +220,7 @@ export default function AdminCategoriesPage() {
                 <div className="flex items-center gap-2 shrink-0">
                   {isEditingCat ? (
                     <>
-                      <button onClick={() => saveCat(cat.id)} disabled={savingCat}
+                      <button onClick={() => saveCat(cat.id)} disabled={savingCat || uploadingImg}
                         className="flex items-center gap-1 px-3 py-1.5 rounded-xl text-xs font-bold cursor-pointer disabled:opacity-60"
                         style={{ backgroundColor: "var(--nomi-orange)", color: "#fff" }}>
                         <Save className="w-3 h-3" />
