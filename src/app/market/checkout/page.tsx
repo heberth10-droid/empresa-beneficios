@@ -82,6 +82,7 @@ function CheckoutPageContent() {
   const [shippingCity, setShippingCity] = useState("");
   const [shippingDepartment, setShippingDepartment] = useState("");
   const [shippingNotes, setShippingNotes] = useState("");
+  const [shippingEmail, setShippingEmail] = useState("");
 
   const [employeeInfo, setEmployeeInfo] = useState<any>(null);
   const [companyPayConfig, setCompanyPayConfig] = useState<any>(null);
@@ -241,6 +242,7 @@ function CheckoutPageContent() {
     if (hasProducts && !shippingAddress.trim()) return setErrorMsg("Falta la direccion.");
     if (hasProducts && !shippingCity.trim()) return setErrorMsg("Falta la ciudad.");
     if (hasProducts && !shippingDepartment.trim()) return setErrorMsg("Falta el departamento.");
+    if (hasProducts && !shippingEmail.trim()) return setErrorMsg("Falta el correo electronico para el envio.");
     if (!employeeInfo) return setErrorMsg("Valida tu documento antes de continuar.");
     if (employeeOptions.length > 1 && !selectedEmployeeId) return setErrorMsg("Selecciona con cual empresa deseas comprar.");
     if (employeeInfo.active === false) return setErrorMsg("Empleado inactivo. Contacta a tu empresa.");
@@ -267,6 +269,7 @@ function CheckoutPageContent() {
       p_shipping_city: shippingCity.trim() || "N/A",
       p_shipping_department: shippingDepartment.trim() || "N/A",
       p_shipping_notes: shippingNotes.trim(),
+      p_shipping_email: shippingEmail.trim() || "N/A",
     });
 
     if (error || !orderId) {
@@ -478,6 +481,10 @@ function CheckoutPageContent() {
                   <label className="block text-xs font-bold mb-1.5 uppercase tracking-wide" style={{ color: "var(--nomi-navy)" }}>Telefono</label>
                   <input value={shippingPhone} onChange={(e) => setShippingPhone(e.target.value)} placeholder="3001234567" style={IS} />
                 </div>
+              </div>
+              <div>
+                <label className="block text-xs font-bold mb-1.5 uppercase tracking-wide" style={{ color: "var(--nomi-navy)" }}>Correo electronico</label>
+                <input type="email" value={shippingEmail} onChange={(e) => setShippingEmail(e.target.value)} placeholder="tu@correo.com" style={IS} />
               </div>
               <div>
                 <label className="block text-xs font-bold mb-1.5 uppercase tracking-wide" style={{ color: "var(--nomi-navy)" }}>Direccion</label>

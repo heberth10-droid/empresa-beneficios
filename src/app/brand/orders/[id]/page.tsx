@@ -98,7 +98,7 @@ export default function BrandOrderDetailPage() {
 
     const { data: o, error: oErr } = await supabase
       .from("orders")
-      .select("id, created_at, status, brand_status, employee_id, shipping_name, shipping_phone, shipping_address, shipping_city, shipping_department, shipping_notes")
+      .select("id, created_at, status, brand_status, employee_id, shipping_name, shipping_phone, shipping_email, shipping_address, shipping_city, shipping_department, shipping_notes")
       .eq("id", id).single();
 
     if (oErr || !o) { setErrorMsg(oErr?.message || "No se pudo cargar la orden."); setLoading(false); return; }
@@ -109,10 +109,8 @@ export default function BrandOrderDetailPage() {
     }
     setOrder(o);
 
-    if ((o as any).employee_id) {
-      const { data: emp } = await supabase
-        .from("employees").select("email").eq("id", (o as any).employee_id).single();
-      if (emp?.email) setDestinationEmail(emp.email);
+    if ((o as any).shipping_email && (o as any).shipping_email !== "N/A") {
+      setDestinationEmail((o as any).shipping_email);
     }
 
     const { data: prods, error: pErr } = await supabase
