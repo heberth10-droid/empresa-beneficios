@@ -100,6 +100,7 @@ async function handleShip(body: any) {
           package_content: packageContent,
           package_type: packageType,
           declared_amount: String(declaredAmount),
+          declared_value: String(declaredAmount),
         },
       ],
     },
