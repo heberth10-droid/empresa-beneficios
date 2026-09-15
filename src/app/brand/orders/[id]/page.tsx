@@ -254,6 +254,10 @@ export default function BrandOrderDetailPage() {
           packageType,
           packageContent: packageContent.trim(),
           declaredAmount: totalBrand,
+          parcel: {
+            weight: Number(parcel.weight), length: Number(parcel.length),
+            width: Number(parcel.width), height: Number(parcel.height),
+          },
         }),
       });
       const data = await res.json();

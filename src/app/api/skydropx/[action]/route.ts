@@ -73,13 +73,12 @@ async function handleQuote(body: any) {
 }
 
 async function handleShip(body: any) {
-  const { quotationId, rateId, warehouse, destination, packageType, packageContent, declaredAmount } = body;
+  const { quotationId, rateId, warehouse, destination, packageType, packageContent, declaredAmount, parcel } = body;
 
   const shipmentBody = {
     shipment: {
       quotation_id: quotationId,
       rate_id: rateId,
-      declared_amount: declaredAmount,
       address_from: {
         name: warehouse.contact_name,
         phone: warehouse.contact_phone,
@@ -101,8 +100,21 @@ async function handleShip(body: any) {
         area_level1: destination.state,
         area_level2: destination.city,
       },
+      parcels: [
+        {
+          weight: parcel?.weight,
+          length: parcel?.length,
+          width: parcel?.width,
+          height: parcel?.height,
+          quantity: 1,
+          package_type: packageType,
+          package_content: packageContent,
+          declared_amount: declaredAmount,
+        },
+      ],
       package_type: packageType,
       package_content: packageContent,
+      declared_amount: declaredAmount,
     },
   };
 
