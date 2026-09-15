@@ -110,11 +110,13 @@ async function handleShip(body: any) {
           package_type: packageType,
           package_content: packageContent,
           declared_amount: declaredAmount,
+          declared_value: declaredAmount,
         },
       ],
       package_type: packageType,
       package_content: packageContent,
       declared_amount: declaredAmount,
+      declared_value: declaredAmount,
     },
   };
 

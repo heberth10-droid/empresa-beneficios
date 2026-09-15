@@ -82,6 +82,9 @@ export default function BrandOrderDetailPage() {
     return items.reduce((acc, it) => acc + Number(it.price_snapshot || 0) * Number(it.qty || 0), 0);
   }, [items]);
 
+  // Skydropx exige un valor declarado minimo de $10.000 COP
+  const declaredAmountForShipping = Math.max(totalBrand, 10000);
+
   async function load() {
     setLoading(true);
     setErrorMsg(null);
@@ -198,7 +201,7 @@ export default function BrandOrderDetailPage() {
             weight: Number(parcel.weight), length: Number(parcel.length),
             width: Number(parcel.width), height: Number(parcel.height),
           },
-          declaredAmount: totalBrand,
+          declaredAmount: declaredAmountForShipping,
         }),
       });
       const data = await res.json();
@@ -253,7 +256,7 @@ export default function BrandOrderDetailPage() {
           },
           packageType,
           packageContent: packageContent.trim(),
-          declaredAmount: totalBrand,
+          declaredAmount: declaredAmountForShipping,
           parcel: {
             weight: Number(parcel.weight), length: Number(parcel.length),
             width: Number(parcel.width), height: Number(parcel.height),
