@@ -5,7 +5,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
 import {
-  ArrowLeft, Truck, Package, MapPin, CheckCircle2, Download,
+  ArrowLeft, Truck, Package, MapPin, CheckCircle2, Download, X, AlertCircle,
 } from "lucide-react";
 
 function money(n: any) {
@@ -259,6 +259,9 @@ export default function BrandOrderDetailPage() {
       const data = await res.json();
       if (!res.ok) throw new Error(data?.error || "Error creando la guía en Skydropx");
 
+      // DEBUG TEMPORAL: revisa la consola del navegador (F12) para ver la estructura real
+      console.log("RESPUESTA COMPLETA DE SKYDROPX /shipments:", JSON.stringify(data, null, 2));
+
       const attrs = data.data?.attributes || {};
       const selectedRate = rates.find((r) => r.id === selectedRateId);
 
@@ -456,9 +459,28 @@ export default function BrandOrderDetailPage() {
             </div>
 
             {logMsg && (
-              <div className="px-4 py-3 rounded-xl text-sm font-semibold"
-                style={logMsg.ok ? { backgroundColor: "#DCFCE7", color: "#16A34A" } : { backgroundColor: "#FEE2E2", color: "#DC2626" }}>
-                {logMsg.text}
+              <div className="fixed inset-0 z-50 flex items-start justify-center pt-24 px-4"
+                style={{ backgroundColor: "rgba(0,0,0,0.35)" }}
+                onClick={() => setLogMsg(null)}>
+                <div onClick={(e) => e.stopPropagation()}
+                  className="w-full max-w-md rounded-2xl p-5 shadow-lg relative"
+                  style={logMsg.ok
+                    ? { backgroundColor: "#fff", border: "1.5px solid rgba(22,163,74,0.3)" }
+                    : { backgroundColor: "#fff", border: "1.5px solid rgba(220,38,38,0.3)" }}>
+                  <button onClick={() => setLogMsg(null)}
+                    className="absolute top-3 right-3 w-7 h-7 flex items-center justify-center rounded-lg cursor-pointer"
+                    style={{ backgroundColor: "var(--nomi-gray)", color: "var(--nomi-muted)" }}>
+                    <X className="w-4 h-4" />
+                  </button>
+                  <div className="flex items-start gap-3 pr-6">
+                    {logMsg.ok
+                      ? <CheckCircle2 className="w-5 h-5 shrink-0 mt-0.5" style={{ color: "#16A34A" }} />
+                      : <AlertCircle className="w-5 h-5 shrink-0 mt-0.5" style={{ color: "#DC2626" }} />}
+                    <p className="text-sm font-semibold" style={{ color: logMsg.ok ? "#16A34A" : "#DC2626" }}>
+                      {logMsg.text}
+                    </p>
+                  </div>
+                </div>
               </div>
             )}
 
