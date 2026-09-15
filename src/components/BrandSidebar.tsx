@@ -6,7 +6,7 @@ import { supabase } from "@/lib/supabaseClient";
 import NomiLogo from "@/components/NomiLogo";
 import {
   LayoutDashboard, Package, ShoppingCart, User,
-  Tag, List, LogOut, Globe, BookOpen, PlusCircle,
+  Tag, List, LogOut, Globe, BookOpen, PlusCircle, Warehouse,
 } from "lucide-react";
 import { useEffect, useState } from "react";
 
@@ -16,6 +16,7 @@ const productItems = [
   { href: "/brand/products",       label: "Crear producto", icon: Package },
   { href: "/brand/products/list",  label: "Mis productos",  icon: List },
   { href: "/brand/orders",         label: "Ordenes",        icon: ShoppingCart },
+  { href: "/brand/warehouses",     label: "Mis bodegas",    icon: Warehouse },
   { href: "/brand/profile",        label: "Mi perfil",      icon: User },
 ];
 
@@ -24,6 +25,7 @@ const courseItems = [
   { href: "/brand/courses/new",  label: "Crear curso", icon: PlusCircle },
   { href: "/brand/courses",      label: "Mis cursos",  icon: BookOpen },
   { href: "/brand/orders",       label: "Ordenes",     icon: ShoppingCart },
+  { href: "/brand/warehouses",   label: "Mis bodegas", icon: Warehouse },
   { href: "/brand/profile",      label: "Mi perfil",   icon: User },
 ];
 
