@@ -253,6 +253,7 @@ export default function BrandOrderDetailPage() {
           },
           packageType,
           packageContent: packageContent.trim(),
+          declaredAmount: totalBrand,
         }),
       });
       const data = await res.json();

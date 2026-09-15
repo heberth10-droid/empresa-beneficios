@@ -73,12 +73,13 @@ async function handleQuote(body: any) {
 }
 
 async function handleShip(body: any) {
-  const { quotationId, rateId, warehouse, destination, packageType, packageContent } = body;
+  const { quotationId, rateId, warehouse, destination, packageType, packageContent, declaredAmount } = body;
 
   const shipmentBody = {
     shipment: {
       quotation_id: quotationId,
       rate_id: rateId,
+      declared_amount: declaredAmount,
       address_from: {
         name: warehouse.contact_name,
         phone: warehouse.contact_phone,
