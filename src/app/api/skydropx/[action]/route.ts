@@ -100,16 +100,20 @@ async function handleShip(body: any) {
           package_content: packageContent,
           package_type: packageType,
           declared_amount: String(declaredAmount),
-          declared_value: String(declaredAmount),
         },
       ],
     },
   };
 
-  return skydropxFetch('/shipments', {
-    method: 'POST',
-    body: JSON.stringify(shipmentBody),
-  });
+  try {
+    return await skydropxFetch('/shipments', {
+      method: 'POST',
+      body: JSON.stringify(shipmentBody),
+    });
+  } catch (err: any) {
+    // DEBUG TEMPORAL: incluimos el payload exacto que enviamos para poder compararlo con la documentacion
+    throw new Error(`${err.message} | PAYLOAD ENVIADO: ${JSON.stringify(shipmentBody)}`);
+  }
 }
 
 async function handlePackagings() {
