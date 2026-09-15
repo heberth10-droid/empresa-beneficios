@@ -180,15 +180,16 @@ export default function BrandOrderDetailPage() {
       const data = await res.json();
       if (!res.ok) throw new Error(data?.error || "Error cotizando con Skydropx");
 
-      const qId = data.data?.id || data.id;
-      const rateList = data.data?.attributes?.rates || data.rates || [];
+      const qId = data.id;
+      const allRates = data.rates || [];
+      const rateList = allRates.filter((r: any) => r.success && r.total != null);
       if (!qId || rateList.length === 0) {
-        setLogMsg({ ok: false, text: "Skydropx no devolvió tarifas para esta ruta. Intenta de nuevo en unos segundos." });
+        setLogMsg({ ok: false, text: "Ninguna transportadora acepta este paquete con las medidas ingresadas. Intenta con otras dimensiones o peso." });
         setQuoting(false); return;
       }
       setQuotationId(qId);
       setRates(rateList);
-      setLogMsg({ ok: true, text: `${rateList.length} tarifas encontradas` });
+      setLogMsg({ ok: true, text: `${rateList.length} tarifas disponibles` });
     } catch (e: any) {
       setLogMsg({ ok: false, text: e.message || "Error cotizando" });
     } finally { setQuoting(false); }
@@ -208,7 +209,7 @@ export default function BrandOrderDetailPage() {
       if (!res.ok) throw new Error(data?.error || "Error creando la guía en Skydropx");
 
       const attrs = data.data?.attributes || data;
-      const selectedRate = rates.find((r) => (r.id || r.rate_id) === selectedRateId);
+      const selectedRate = rates.find((r) => r.id === selectedRateId);
       const wh = warehouses.find((w) => w.id === selectedWarehouseId);
 
       const payload = {
@@ -217,9 +218,10 @@ export default function BrandOrderDetailPage() {
         width_cm: Number(parcel.width), height_cm: Number(parcel.height),
         skydropx_quotation_id: quotationId, skydropx_rate_id: selectedRateId,
         skydropx_shipment_id: data.data?.id || data.id || null,
-        carrier: selectedRate?.attributes?.carrier_name || selectedRate?.carrier_name || null,
-        service: selectedRate?.attributes?.service_level_name || selectedRate?.service || null,
-        shipping_cost: selectedRate?.attributes?.total || selectedRate?.price || null,
+        carrier: selectedRate?.provider_display_name || null,
+        service: selectedRate?.provider_service_name || null,
+        shipping_cost: selectedRate?.total ? Number(selectedRate.total) : null,
+        estimated_days: selectedRate?.days || null,
         tracking_number: attrs?.tracking_number || null,
         tracking_url: attrs?.tracking_url || null,
         label_url: attrs?.label_url || null,
@@ -451,11 +453,11 @@ export default function BrandOrderDetailPage() {
                   <div className="space-y-2">
                     <div className="text-sm font-black" style={labelStyle}>Selecciona una tarifa:</div>
                     {rates.map((r) => {
-                      const rId = r.id || r.rate_id;
-                      const carrier = r.attributes?.carrier_name || r.carrier_name || "Transportadora";
-                      const service = r.attributes?.service_level_name || r.service || "";
-                      const price = r.attributes?.total || r.price || 0;
-                      const days = r.attributes?.days || r.estimated_days;
+                      const rId = r.id;
+                      const carrier = r.provider_display_name || "Transportadora";
+                      const service = r.provider_service_name || "";
+                      const price = Number(r.total || 0);
+                      const days = r.days;
                       const selected = selectedRateId === rId;
                       return (
                         <label key={rId} onClick={() => setSelectedRateId(rId)}
