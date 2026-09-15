@@ -259,22 +259,27 @@ export default function BrandOrderDetailPage() {
       const data = await res.json();
       if (!res.ok) throw new Error(data?.error || "Error creando la guía en Skydropx");
 
-      const attrs = data.data?.attributes || data;
+      const attrs = data.data?.attributes || {};
       const selectedRate = rates.find((r) => r.id === selectedRateId);
+
+      const includedPackage = Array.isArray(data.included)
+        ? data.included.find((inc: any) => inc.type === "package")
+        : null;
+      const pkgAttrs = includedPackage?.attributes || {};
 
       const payload = {
         order_id: id, brand_id: brandId, warehouse_id: wh?.id || null, logistics_type: "NOMI",
         weight_kg: Number(parcel.weight), length_cm: Number(parcel.length),
         width_cm: Number(parcel.width), height_cm: Number(parcel.height),
         skydropx_quotation_id: quotationId, skydropx_rate_id: selectedRateId,
-        skydropx_shipment_id: data.data?.id || data.id || null,
-        carrier: selectedRate?.provider_display_name || null,
+        skydropx_shipment_id: data.data?.id || null,
+        carrier: attrs?.carrier_name || selectedRate?.provider_display_name || null,
         service: selectedRate?.provider_service_name || null,
-        shipping_cost: selectedRate?.total ? Number(selectedRate.total) : null,
+        shipping_cost: attrs?.total ? Number(attrs.total) : (selectedRate?.total ? Number(selectedRate.total) : null),
         estimated_days: selectedRate?.days || null,
-        tracking_number: attrs?.tracking_number || null,
-        tracking_url: attrs?.tracking_url || null,
-        label_url: attrs?.label_url || null,
+        tracking_number: pkgAttrs?.tracking_number || attrs?.master_tracking_number || null,
+        tracking_url: pkgAttrs?.tracking_url_provider || null,
+        label_url: pkgAttrs?.label_url || null,
         status: "LABEL_GENERATED", updated_at: new Date().toISOString(),
       };
 
