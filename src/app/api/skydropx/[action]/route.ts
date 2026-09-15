@@ -56,7 +56,7 @@ async function handleQuote(body: any) {
     quotation: {
       address_from: { country_code: 'CO', postal_code: warehouse.postal_code, area_level1: warehouse.state, area_level2: warehouse.city },
       address_to: { country_code: 'CO', postal_code: destination.postal_code || undefined, area_level1: destination.state, area_level2: destination.city },
-      parcels: [{ weight: parcel.weight, length: parcel.length, width: parcel.width, height: parcel.height, quantity: 1 }],
+      parcels: [{ weight: parcel.weight, length: parcel.length, width: parcel.width, height: parcel.height, quantity: 1, declared_amount: declaredAmount }],
       declared_amount: declaredAmount,
     },
   };
