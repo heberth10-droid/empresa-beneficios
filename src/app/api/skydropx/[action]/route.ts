@@ -99,7 +99,6 @@ async function handleShip(body: any) {
           package_number: '1',
           package_content: packageContent,
           package_type: packageType,
-          declared_amount: Number(declaredAmount),
         },
       ],
     },
