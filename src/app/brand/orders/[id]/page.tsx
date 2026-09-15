@@ -275,7 +275,7 @@ export default function BrandOrderDetailPage() {
         tracking_number: attrs?.tracking_number || null,
         tracking_url: attrs?.tracking_url || null,
         label_url: attrs?.label_url || null,
-        status: "CREATED", updated_at: new Date().toISOString(),
+        status: "LABEL_GENERATED", updated_at: new Date().toISOString(),
       };
 
       const { data: saved, error: saveErr } = await supabase
@@ -298,7 +298,7 @@ export default function BrandOrderDetailPage() {
       const payload = {
         order_id: id, brand_id: brandId, logistics_type: "OWN",
         own_carrier: ownCarrier.trim(), own_tracking_number: ownTracking.trim(),
-        status: "CREATED", updated_at: new Date().toISOString(),
+        status: "LABEL_GENERATED", updated_at: new Date().toISOString(),
       };
       const { data: saved, error } = await supabase
         .from("shipments").upsert(payload, { onConflict: "order_id" }).select().single();
@@ -405,7 +405,7 @@ export default function BrandOrderDetailPage() {
           <Truck className="w-4 h-4" style={{ color: "var(--nomi-teal)" }} /> Logística
         </h2>
 
-        {shipment && shipment.status === "CREATED" ? (
+        {shipment && ["QUOTED","LABEL_GENERATED","PICKED_UP","IN_TRANSIT","DELIVERED"].includes(shipment.status) ? (
           <div className="rounded-xl p-4 space-y-2 text-sm" style={{ backgroundColor: "#DCFCE7", border: "1.5px solid rgba(22,163,74,0.25)" }}>
             <div className="font-black flex items-center gap-2" style={{ color: "#16A34A" }}>
               <CheckCircle2 className="w-4 h-4" />
