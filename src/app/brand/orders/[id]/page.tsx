@@ -242,25 +242,18 @@ export default function BrandOrderDetailPage() {
       const res = await fetch("/api/skydropx/ship", {
         method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          quotationId,
           rateId: selectedRateId,
           warehouse: {
             name: wh?.name, contact_name: wh?.contact_name, contact_phone: wh?.contact_phone,
             contact_email: wh?.contact_email, address: wh?.address, reference: wh?.reference,
-            city: wh?.city, state: wh?.department, postal_code: wh?.postal_code || null,
           },
           destination: {
             name: order?.shipping_name, phone: order?.shipping_phone, email: destinationEmail,
             address: order?.shipping_address, notes: order?.shipping_notes,
-            city: order?.shipping_city, state: order?.shipping_department,
           },
           packageType,
           packageContent: packageContent.trim(),
           declaredAmount: declaredAmountForShipping,
-          parcel: {
-            weight: Number(parcel.weight), length: Number(parcel.length),
-            width: Number(parcel.width), height: Number(parcel.height),
-          },
         }),
       });
       const data = await res.json();

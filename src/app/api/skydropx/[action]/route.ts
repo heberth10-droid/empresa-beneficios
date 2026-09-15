@@ -73,50 +73,35 @@ async function handleQuote(body: any) {
 }
 
 async function handleShip(body: any) {
-  const { quotationId, rateId, warehouse, destination, packageType, packageContent, declaredAmount, parcel } = body;
+  const { rateId, warehouse, destination, packageType, packageContent, declaredAmount } = body;
 
   const shipmentBody = {
     shipment: {
-      quotation_id: quotationId,
       rate_id: rateId,
       address_from: {
         name: warehouse.contact_name,
+        company: warehouse.name || 'N/A',
         phone: warehouse.contact_phone,
         email: warehouse.contact_email,
         street1: warehouse.address,
         reference: warehouse.reference || warehouse.name,
-        country_code: 'CO',
-        postal_code: warehouse.postal_code || undefined,
-        area_level1: warehouse.state,
-        area_level2: warehouse.city,
       },
       address_to: {
         name: destination.name,
+        company: destination.name || 'N/A',
         phone: destination.phone,
         email: destination.email,
         street1: destination.address,
         reference: destination.notes || destination.address,
-        country_code: 'CO',
-        area_level1: destination.state,
-        area_level2: destination.city,
       },
-      parcels: [
+      packages: [
         {
-          weight: parcel?.weight,
-          length: parcel?.length,
-          width: parcel?.width,
-          height: parcel?.height,
-          quantity: 1,
-          package_type: packageType,
+          package_number: '1',
           package_content: packageContent,
+          package_type: packageType,
           declared_amount: declaredAmount,
-          declared_value: declaredAmount,
         },
       ],
-      package_type: packageType,
-      package_content: packageContent,
-      declared_amount: declaredAmount,
-      declared_value: declaredAmount,
     },
   };
 
