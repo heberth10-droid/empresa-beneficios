@@ -353,7 +353,8 @@ export default function BrandOrderDetailPage() {
         .from("shipments").upsert(payload, { onConflict: "order_id" }).select().single();
       if (error) throw new Error(error.message);
       setShipment(saved);
-      setLogMsg({ ok: true, text: "Datos de envío guardados" });
+      setLogMsg({ ok: true, text: "Datos de envío guardados. Orden marcada como Despachado." });
+      await updateStatus("DISPATCHED");
     } catch (e: any) {
       setLogMsg({ ok: false, text: e.message || "Error guardando" });
     } finally { setCreatingShipment(false); }
