@@ -77,6 +77,7 @@ export default function BrandOrderDetailPage() {
   const [packagings, setPackagings] = useState<any[]>([]);
   const [packageType, setPackageType] = useState("");
   const [packageContent, setPackageContent] = useState("");
+  const [refreshingShipment, setRefreshingShipment] = useState(false);
 
   const totalBrand = useMemo(() => {
     return items.reduce((acc, it) => acc + Number(it.price_snapshot || 0) * Number(it.qty || 0), 0);
@@ -223,6 +224,20 @@ export default function BrandOrderDetailPage() {
     } finally { setQuoting(false); }
   }
 
+  async function fetchShipmentPackageInfo(shipmentId: string) {
+    const res = await fetch("/api/skydropx/get_shipment", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ shipmentId }),
+    });
+    const data = await res.json();
+    if (!res.ok) return null;
+    const pkg = Array.isArray(data.included) ? data.included.find((i: any) => i.type === "package") : null;
+    return {
+      attrs: data.data?.attributes || {},
+      pkgAttrs: pkg?.attributes || {},
+    };
+  }
+
   async function handleCreateShipment() {
     if (!selectedRateId || !quotationId || !brandId) {
       setLogMsg({ ok: false, text: "Selecciona una tarifa primero" }); return;
@@ -295,6 +310,32 @@ export default function BrandOrderDetailPage() {
     } catch (e: any) {
       setLogMsg({ ok: false, text: e.message || "Error generando la guía" });
     } finally { setCreatingShipment(false); }
+  }
+
+  async function handleRefreshShipment() {
+    if (!shipment?.skydropx_shipment_id) return;
+    setRefreshingShipment(true);
+    try {
+      const info = await fetchShipmentPackageInfo(shipment.skydropx_shipment_id);
+      if (!info) { setLogMsg({ ok: false, text: "No se pudo consultar el estado del envío" }); return; }
+      const payload = {
+        carrier: info.attrs?.carrier_name || shipment.carrier,
+        tracking_number: info.pkgAttrs?.tracking_number || shipment.tracking_number,
+        tracking_url: info.pkgAttrs?.tracking_url_provider || shipment.tracking_url,
+        label_url: info.pkgAttrs?.label_url || shipment.label_url,
+        updated_at: new Date().toISOString(),
+      };
+      const { data: saved, error } = await supabase
+        .from("shipments").update(payload).eq("id", shipment.id).select().single();
+      if (error) { setLogMsg({ ok: false, text: error.message }); return; }
+      setShipment(saved);
+      setLogMsg({
+        ok: true,
+        text: saved.label_url ? "Guía actualizada correctamente" : "Aún está siendo procesada por Skydropx, intenta de nuevo en unos segundos",
+      });
+    } finally {
+      setRefreshingShipment(false);
+    }
   }
 
   async function handleSaveOwnLogistics() {
@@ -429,12 +470,18 @@ export default function BrandOrderDetailPage() {
                 <div><b>Transportadora:</b> {shipment.carrier || "—"}</div>
                 <div><b>Servicio:</b> {shipment.service || "—"}</div>
                 <div><b>Costo:</b> {shipment.shipping_cost ? money(shipment.shipping_cost) : "—"}</div>
-                <div><b>Número de guía:</b> {shipment.tracking_number || "—"}</div>
-                {shipment.label_url && (
+                <div><b>Número de guía:</b> {shipment.tracking_number || "En proceso..."}</div>
+                {shipment.label_url ? (
                   <a href={shipment.label_url} target="_blank" rel="noreferrer"
                     className="inline-flex items-center gap-1.5 mt-1 font-bold" style={{ color: "#16A34A" }}>
                     <Download className="w-3.5 h-3.5" /> Descargar guía (PDF)
                   </a>
+                ) : (
+                  <button onClick={handleRefreshShipment} disabled={refreshingShipment}
+                    className="inline-flex items-center gap-1.5 mt-1 font-bold cursor-pointer disabled:opacity-60"
+                    style={{ color: "#16A34A" }}>
+                    {refreshingShipment ? "Actualizando..." : "Actualizar guía"}
+                  </button>
                 )}
               </>
             )}

@@ -119,6 +119,11 @@ async function handlePackagings() {
   return skydropxFetch('/shipments/packagings');
 }
 
+async function handleGetShipment(body: any) {
+  const { shipmentId } = body;
+  return skydropxFetch(`/shipments/${shipmentId}`);
+}
+
 export async function POST(req: NextRequest, { params }: { params: Promise<{ action: string }> }) {
   try {
     const { action } = await params;
@@ -127,6 +132,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ act
       case 'quote': return NextResponse.json(await handleQuote(body));
       case 'ship': return NextResponse.json(await handleShip(body));
       case 'packagings': return NextResponse.json(await handlePackagings());
+      case 'get_shipment': return NextResponse.json(await handleGetShipment(body));
       default: return NextResponse.json({ error: 'Acción no válida' }, { status: 400 });
     }
   } catch (err: any) {
