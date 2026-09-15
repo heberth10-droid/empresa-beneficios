@@ -73,11 +73,46 @@ async function handleQuote(body: any) {
 }
 
 async function handleShip(body: any) {
-  const { quotationId, rateId } = body;
+  const { quotationId, rateId, warehouse, destination, packageType, packageContent } = body;
+
+  const shipmentBody = {
+    shipment: {
+      quotation_id: quotationId,
+      rate_id: rateId,
+      address_from: {
+        name: warehouse.contact_name,
+        phone: warehouse.contact_phone,
+        email: warehouse.contact_email,
+        street1: warehouse.address,
+        reference: warehouse.reference || warehouse.name,
+        country_code: 'CO',
+        postal_code: warehouse.postal_code || undefined,
+        area_level1: warehouse.state,
+        area_level2: warehouse.city,
+      },
+      address_to: {
+        name: destination.name,
+        phone: destination.phone,
+        email: destination.email,
+        street1: destination.address,
+        reference: destination.notes || destination.address,
+        country_code: 'CO',
+        area_level1: destination.state,
+        area_level2: destination.city,
+      },
+      package_type: packageType,
+      package_content: packageContent,
+    },
+  };
+
   return skydropxFetch('/shipments', {
     method: 'POST',
-    body: JSON.stringify({ shipment: { quotation_id: quotationId, rate_id: rateId } }),
+    body: JSON.stringify(shipmentBody),
   });
+}
+
+async function handlePackagings() {
+  return skydropxFetch('/shipments/packagings');
 }
 
 export async function POST(req: NextRequest, { params }: { params: Promise<{ action: string }> }) {
@@ -87,6 +122,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ act
     switch (action) {
       case 'quote': return NextResponse.json(await handleQuote(body));
       case 'ship': return NextResponse.json(await handleShip(body));
+      case 'packagings': return NextResponse.json(await handlePackagings());
       default: return NextResponse.json({ error: 'Acción no válida' }, { status: 400 });
     }
   } catch (err: any) {

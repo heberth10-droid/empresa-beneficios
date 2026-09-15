@@ -73,6 +73,10 @@ export default function BrandOrderDetailPage() {
   const [ownCarrier, setOwnCarrier] = useState("");
   const [ownTracking, setOwnTracking] = useState("");
   const [logMsg, setLogMsg] = useState<{ ok: boolean; text: string } | null>(null);
+  const [destinationEmail, setDestinationEmail] = useState("");
+  const [packagings, setPackagings] = useState<any[]>([]);
+  const [packageType, setPackageType] = useState("");
+  const [packageContent, setPackageContent] = useState("");
 
   const totalBrand = useMemo(() => {
     return items.reduce((acc, it) => acc + Number(it.price_snapshot || 0) * Number(it.qty || 0), 0);
@@ -94,7 +98,7 @@ export default function BrandOrderDetailPage() {
 
     const { data: o, error: oErr } = await supabase
       .from("orders")
-      .select("id, created_at, status, brand_status, shipping_name, shipping_phone, shipping_address, shipping_city, shipping_department, shipping_notes")
+      .select("id, created_at, status, brand_status, employee_id, shipping_name, shipping_phone, shipping_address, shipping_city, shipping_department, shipping_notes")
       .eq("id", id).single();
 
     if (oErr || !o) { setErrorMsg(oErr?.message || "No se pudo cargar la orden."); setLoading(false); return; }
@@ -104,6 +108,12 @@ export default function BrandOrderDetailPage() {
       return;
     }
     setOrder(o);
+
+    if ((o as any).employee_id) {
+      const { data: emp } = await supabase
+        .from("employees").select("email").eq("id", (o as any).employee_id).single();
+      if (emp?.email) setDestinationEmail(emp.email);
+    }
 
     const { data: prods, error: pErr } = await supabase
       .from("products").select("id, image_url, images, name").eq("brand_id", u.brand_id);
@@ -128,6 +138,22 @@ export default function BrandOrderDetailPage() {
     if (whs && whs.length > 0) {
       const def = whs.find((w) => w.is_default) || whs[0];
       setSelectedWarehouseId(def.id);
+    }
+
+    try {
+      const pkgRes = await fetch("/api/skydropx/packagings", {
+        method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({}),
+      });
+      const pkgData = await pkgRes.json();
+      const pkgList = pkgData.data || pkgData.packagings || pkgData || [];
+      if (Array.isArray(pkgList)) {
+        setPackagings(pkgList);
+        if (pkgList.length > 0) {
+          setPackageType(pkgList[0].code || pkgList[0].id || pkgList[0].value || "");
+        }
+      }
+    } catch {
+      // si falla, el proveedor puede escribirlo manualmente
     }
 
     const { data: sh } = await supabase.from("shipments").select("*").eq("order_id", id).maybeSingle();
@@ -182,6 +208,7 @@ export default function BrandOrderDetailPage() {
 
       const qId = data.id;
       const allRates = data.rates || [];
+      // Solo tarifas realmente cotizables (algunas quedan "not_applicable" por peso/tamaño/valor declarado)
       const rateList = allRates.filter((r: any) => r.success && r.total != null);
       if (!qId || rateList.length === 0) {
         setLogMsg({ ok: false, text: "Ninguna transportadora acepta este paquete con las medidas ingresadas. Intenta con otras dimensiones o peso." });
@@ -199,18 +226,42 @@ export default function BrandOrderDetailPage() {
     if (!selectedRateId || !quotationId || !brandId) {
       setLogMsg({ ok: false, text: "Selecciona una tarifa primero" }); return;
     }
+    if (!packageType) {
+      setLogMsg({ ok: false, text: "Selecciona un tipo de empaque" }); return;
+    }
+    if (!packageContent.trim()) {
+      setLogMsg({ ok: false, text: "Describe el contenido del paquete" }); return;
+    }
+    if (!destinationEmail) {
+      setLogMsg({ ok: false, text: "No se encontró el correo del destinatario. No se puede generar la guía." }); return;
+    }
     setCreatingShipment(true); setLogMsg(null);
     try {
+      const wh = warehouses.find((w) => w.id === selectedWarehouseId);
       const res = await fetch("/api/skydropx/ship", {
         method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ quotationId, rateId: selectedRateId }),
+        body: JSON.stringify({
+          quotationId,
+          rateId: selectedRateId,
+          warehouse: {
+            name: wh?.name, contact_name: wh?.contact_name, contact_phone: wh?.contact_phone,
+            contact_email: wh?.contact_email, address: wh?.address, reference: wh?.reference,
+            city: wh?.city, state: wh?.department, postal_code: wh?.postal_code || null,
+          },
+          destination: {
+            name: order?.shipping_name, phone: order?.shipping_phone, email: destinationEmail,
+            address: order?.shipping_address, notes: order?.shipping_notes,
+            city: order?.shipping_city, state: order?.shipping_department,
+          },
+          packageType,
+          packageContent: packageContent.trim(),
+        }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data?.error || "Error creando la guía en Skydropx");
 
       const attrs = data.data?.attributes || data;
       const selectedRate = rates.find((r) => r.id === selectedRateId);
-      const wh = warehouses.find((w) => w.id === selectedWarehouseId);
 
       const payload = {
         order_id: id, brand_id: brandId, warehouse_id: wh?.id || null, logistics_type: "NOMI",
@@ -450,7 +501,32 @@ export default function BrandOrderDetailPage() {
                 </button>
 
                 {rates.length > 0 && (
-                  <div className="space-y-2">
+                  <div className="space-y-4">
+                    <div>
+                      <label className="block text-xs font-bold mb-1.5 uppercase tracking-wide" style={labelStyle}>Tipo de empaque</label>
+                      {packagings.length > 0 ? (
+                        <select value={packageType} onChange={(e) => setPackageType(e.target.value)} style={selectStyle}>
+                          {packagings.map((p: any, i: number) => {
+                            const val = p.code || p.id || p.value || String(p);
+                            const label = p.name || p.description || p.label || val;
+                            return <option key={i} value={val}>{label}</option>;
+                          })}
+                        </select>
+                      ) : (
+                        <input style={inputStyle} value={packageType} onChange={(e) => setPackageType(e.target.value)}
+                          placeholder="Ej: 4G (caja)" />
+                      )}
+                    </div>
+                    <div>
+                      <label className="block text-xs font-bold mb-1.5 uppercase tracking-wide" style={labelStyle}>Contenido del paquete</label>
+                      <input style={inputStyle} value={packageContent} onChange={(e) => setPackageContent(e.target.value)}
+                        placeholder="Ej: Ropa y accesorios" />
+                    </div>
+                    {!destinationEmail && (
+                      <p className="text-xs" style={{ color: "var(--nomi-orange)" }}>
+                        No se encontró correo del destinatario — se necesita para generar la guía.
+                      </p>
+                    )}
                     <div className="text-sm font-black" style={labelStyle}>Selecciona una tarifa:</div>
                     {rates.map((r) => {
                       const rId = r.id;
