@@ -73,6 +73,11 @@ function CartPageContent() {
                       style={{ backgroundColor: "#EDE9FE", color: "#8B5CF6" }}>Curso</span>
                   )}
                 </div>
+                {it.variantName && (
+                  <p className="text-xs font-semibold mt-0.5" style={{ color: "var(--nomi-teal)" }}>
+                    {it.variantName}: {it.variantValue}
+                  </p>
+                )}
                 <p className="text-sm mt-0.5" style={{ color: "var(--nomi-muted)" }}>{money(it.price)}</p>
 
                 {!it.isCourse && (

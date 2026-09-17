@@ -41,6 +41,9 @@ type BulkProductRow = {
   description: string;
   images: string[];
   discount_price: number | null;
+  variant_name: string;
+  variant_values: string[];
+  variant_stock: number[];
   errors: string[];
 };
 
@@ -302,7 +305,21 @@ export default function BrandProductsPage() {
     if (!Number.isFinite(productStock) || productStock < 0) errors.push("stock invalido");
     if (productDiscount !== null && (!Number.isFinite(productDiscount) || productDiscount <= 0)) errors.push("discount_price invalido");
     if (productDiscount !== null && Number.isFinite(productPrice) && productDiscount >= productPrice) errors.push("discount_price debe ser menor al price");
-    return { rowNumber: index + 2, name: productName, sku: productSku, category: productCategory, subcategory: productSubcategory, product_brand: productBrand, product_brand_logo_url: productBrandLogoUrl, price: productPrice, cost_price: productCostPrice, stock: productStock, description: productDescription, images: productImages, discount_price: productDiscount, errors };
+
+    const variantName = String(clean.variant_name || "").trim();
+    const variantValuesRaw = String(clean.variant_values || "").trim();
+    const variantStockRaw = String(clean.variant_stock || "").trim();
+    const variantValues = variantValuesRaw ? variantValuesRaw.split(",").map((v) => v.trim()).filter(Boolean) : [];
+    const variantStock = variantStockRaw ? variantStockRaw.split(",").map((v) => Number(v.trim())) : [];
+    if (variantName) {
+      if (variantValues.length === 0) errors.push("variant_values vacio pero variant_name tiene valor");
+      if (variantStock.length !== variantValues.length) errors.push("variant_stock debe tener el mismo numero de valores que variant_values, separados por coma");
+      if (variantStock.some((s) => !Number.isFinite(s) || s < 0)) errors.push("variant_stock tiene valores invalidos");
+    } else if (variantValues.length > 0) {
+      errors.push("variant_values tiene valores pero falta variant_name");
+    }
+
+    return { rowNumber: index + 2, name: productName, sku: productSku, category: productCategory, subcategory: productSubcategory, product_brand: productBrand, product_brand_logo_url: productBrandLogoUrl, price: productPrice, cost_price: productCostPrice, stock: productStock, description: productDescription, images: productImages, discount_price: productDiscount, variant_name: variantName, variant_values: variantValues, variant_stock: variantStock, errors };
   }
 
   function validateColumns(rows: any[]) {
@@ -321,14 +338,14 @@ export default function BrandProductsPage() {
         const rawRows = results.data || [];
         const columnErrors = validateColumns(rawRows);
         if (columnErrors.length > 0) {
-          setBulkRows([{ rowNumber: 1, name: "", sku: "", category: "", subcategory: "", product_brand: "", product_brand_logo_url: "", price: 0, cost_price: null, stock: 0, description: "", images: [], discount_price: null, errors: columnErrors }]);
+          setBulkRows([{ rowNumber: 1, name: "", sku: "", category: "", subcategory: "", product_brand: "", product_brand_logo_url: "", price: 0, cost_price: null, stock: 0, description: "", images: [], discount_price: null, variant_name: "", variant_values: [], variant_stock: [], errors: columnErrors }]);
           setBulkParsing(false); return;
         }
         setBulkRows(rawRows.map((r: any, i: number) => normalizeBulkRow(r, i)));
         setBulkParsing(false);
       },
       error: (error: any) => {
-        setBulkRows([{ rowNumber: 1, name: "", sku: "", category: "", subcategory: "", product_brand: "", product_brand_logo_url: "", price: 0, cost_price: null, stock: 0, description: "", images: [], discount_price: null, errors: [error.message] }]);
+        setBulkRows([{ rowNumber: 1, name: "", sku: "", category: "", subcategory: "", product_brand: "", product_brand_logo_url: "", price: 0, cost_price: null, stock: 0, description: "", images: [], discount_price: null, variant_name: "", variant_values: [], variant_stock: [], errors: [error.message] }]);
         setBulkParsing(false);
       },
     });
@@ -420,14 +437,29 @@ export default function BrandProductsPage() {
         const pb = productBrandMap.get(row.product_brand.trim().toLowerCase());
         const importedImages = await importExternalImagesToSupabase(row);
         const payload = { brand_id: brand.id, product_brand_id: pb?.id || null, name: row.name, sku: row.sku, category: row.category, subcategory: row.subcategory, price: row.price, cost_price: row.cost_price, discount_price: row.discount_price, stock: row.stock, description: row.description, images: importedImages.length > 0 ? importedImages : row.images, active: true };
+        let productId = existingId;
         if (existingId) {
           const { error } = await supabase.from("products").update(payload).eq("id", existingId).eq("brand_id", brand.id);
           if (error) throw new Error(`Error actualizando SKU ${row.sku}: ${error.message}`);
           updated++;
         } else {
-          const { error } = await supabase.from("products").insert(payload);
-          if (error) throw new Error(`Error creando SKU ${row.sku}: ${error.message}`);
+          const { data: createdRow, error } = await supabase.from("products").insert(payload).select("id").single();
+          if (error || !createdRow) throw new Error(`Error creando SKU ${row.sku}: ${error?.message || ""}`);
+          productId = createdRow.id;
           created++;
+        }
+
+        // Variantes: si viene variant_name, se reemplazan todas las variantes existentes del producto
+        if (row.variant_name && row.variant_values.length > 0) {
+          if (existingId) {
+            await supabase.from("product_variants").delete().eq("product_id", productId);
+          }
+          const variantRows = row.variant_values.map((val, i) => ({
+            product_id: productId, name: row.variant_name, value: val,
+            stock: row.variant_stock[i] ?? 0, price_delta: 0,
+          }));
+          const { error: variantError } = await supabase.from("product_variants").insert(variantRows);
+          if (variantError) throw new Error(`Error creando variantes de SKU ${row.sku}: ${variantError.message}`);
         }
       }
       await loadCategories(); await loadSubcategories(); await loadProductBrands(brand.id);
@@ -440,8 +472,9 @@ export default function BrandProductsPage() {
   }
 
   function downloadTemplateCSV() {
-    const csv = "name,sku,category,subcategory,product_brand,product_brand_logo_url,price,cost_price,stock,description,images,discount_price\n" +
-      'Proteina Whey 2lb,WHEY-001,Suplementos,Proteinas,Nutrex,https://logo-marca.png,120000,78000,25,"Proteina de alta calidad","https://imagen1.jpg,https://imagen2.jpg",99000\n';
+    const csv = "name,sku,category,subcategory,product_brand,product_brand_logo_url,price,cost_price,stock,description,images,discount_price,variant_name,variant_values,variant_stock\n" +
+      'Proteina Whey 2lb,WHEY-001,Suplementos,Proteinas,Nutrex,https://logo-marca.png,120000,78000,25,"Proteina de alta calidad","https://imagen1.jpg,https://imagen2.jpg",99000,,,\n' +
+      'Camiseta Deportiva,CAM-001,Ropa,Camisetas,Nutrex,https://logo-marca.png,80000,50000,0,"Camiseta deportiva transpirable","https://imagen1.jpg",,Talla,"XS,S,M,L,XL","5,10,15,10,5"\n';
     const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
@@ -484,7 +517,7 @@ export default function BrandProductsPage() {
             onChange={(e) => { const file = e.target.files?.[0]; if (file) handleBulkFile(file); }}
             className="block w-full text-sm font-semibold cursor-pointer" style={{ color: "var(--nomi-teal)" }} />
           <p className="text-xs mt-2" style={{ color: "var(--nomi-muted)" }}>
-            Columnas requeridas: <b>name, sku, category, subcategory, product_brand, price, cost_price, stock, description, images</b>. Opcionales: <b>discount_price, product_brand_logo_url</b>.
+            Columnas requeridas: <b>name, sku, category, subcategory, product_brand, price, cost_price, stock, description, images</b>. Opcionales: <b>discount_price, product_brand_logo_url, variant_name, variant_values, variant_stock</b>.
           </p>
         </div>
 
@@ -514,7 +547,7 @@ export default function BrandProductsPage() {
               <table className="w-full text-sm">
                 <thead style={{ backgroundColor: "var(--nomi-gray)" }}>
                   <tr>
-                    {["Fila","Producto","SKU","Categoria","Subcategoria","Marca","Precio","Costo","Margen","Stock","Imgs","Estado"].map(h => (
+                    {["Fila","Producto","SKU","Categoria","Subcategoria","Marca","Precio","Costo","Margen","Stock","Imgs","Variantes","Estado"].map(h => (
                       <th key={h} className="px-3 py-2.5 text-left text-xs font-bold uppercase tracking-wide" style={{ color: "var(--nomi-muted)", borderBottom: "1px solid var(--nomi-border)" }}>{h}</th>
                     ))}
                   </tr>
@@ -536,6 +569,9 @@ export default function BrandProductsPage() {
                         <td className="px-3 py-2 text-xs" style={{ color: "var(--nomi-navy)" }}>{margin !== null && Number.isFinite(margin) ? `${margin.toFixed(1)}%` : "—"}</td>
                         <td className="px-3 py-2 text-xs" style={{ color: "var(--nomi-navy)" }}>{Number.isFinite(r.stock) ? r.stock : "—"}</td>
                         <td className="px-3 py-2 text-xs" style={{ color: "var(--nomi-muted)" }}>{r.images.length}</td>
+                        <td className="px-3 py-2 text-xs" style={{ color: "var(--nomi-navy)" }}>
+                          {r.variant_name ? `${r.variant_name}: ${r.variant_values.join(", ")}` : "—"}
+                        </td>
                         <td className="px-3 py-2 text-xs">
                           {hasErr
                             ? <span style={{ color: "#DC2626" }}>{r.errors.join(", ")}</span>

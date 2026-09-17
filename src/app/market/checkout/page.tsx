@@ -261,8 +261,8 @@ function CheckoutPageContent() {
       p_document_number: documentNumber.trim(),
       p_installments: installments,
       p_cart: productItems.length > 0
-        ? productItems.map((it) => ({ product_id: it.id, name: it.name, price: it.price, qty: it.qty }))
-        : courseItems.map((it) => ({ product_id: it.id, name: it.name, price: it.price, qty: it.qty })),
+        ? productItems.map((it) => ({ product_id: it.productId, variant_id: it.variantId || null, name: it.name, price: it.price, qty: it.qty }))
+        : courseItems.map((it) => ({ product_id: it.productId, name: it.name, price: it.price, qty: it.qty })),
       p_shipping_name: shippingName.trim() || "N/A",
       p_shipping_phone: shippingPhone.trim() || "N/A",
       p_shipping_address: shippingAddress.trim() || "N/A",

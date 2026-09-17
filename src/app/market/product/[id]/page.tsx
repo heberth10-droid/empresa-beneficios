@@ -67,6 +67,9 @@ export default function ProductView() {
   const [product, setProduct] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [adding, setAdding] = useState(false);
+  const [variants, setVariants] = useState<any[]>([]);
+  const [selectedVariantId, setSelectedVariantId] = useState<string>("");
+  const [variantMsg, setVariantMsg] = useState("");
   const [cartPreviewOpen, setCartPreviewOpen] = useState(false);
   const [selectedImg, setSelectedImg] = useState(0);
 
@@ -85,6 +88,11 @@ export default function ProductView() {
       const { data, error } = await supabase.from("products").select("*").eq("id", id).single();
       if (error || !data) { router.push("/market"); return; }
       setProduct(data);
+
+      const { data: variantRows } = await supabase
+        .from("product_variants").select("*").eq("product_id", id).order("created_at", { ascending: true });
+      setVariants(variantRows || []);
+
       setLoading(false);
     }
     load();
@@ -138,14 +146,35 @@ export default function ProductView() {
     return reviews.reduce((acc, r) => acc + Number(r.rating), 0) / reviews.length;
   }, [reviews]);
 
-  async function handleAdd() {
+  function handleAdd() {
     if (!product) return;
+    if (variants.length > 0 && !selectedVariantId) {
+      setVariantMsg("Selecciona una opcion antes de agregar al carrito");
+      return;
+    }
+    const variant = variants.find((v) => v.id === selectedVariantId) || null;
+    if (variant && Number(variant.stock || 0) <= 0) {
+      setVariantMsg("Esa opcion esta agotada");
+      return;
+    }
+
     setAdding(true);
     const base = Number(product.price ?? 0);
     const discount = Number(product.discount_price ?? 0);
-    const hasDiscount = discount > 0 && discount < base;
-    const price = hasDiscount ? discount : base;
-    addItem({ id: product.id, name: product.name, price: isNaN(price) ? 0 : price, image: currentImg }, 1);
+    const hasDisc = discount > 0 && discount < base;
+    const price = (hasDisc ? discount : base) + (variant ? Number(variant.price_delta || 0) : 0);
+    const cartLineId = variant ? `${product.id}::${variant.id}` : product.id;
+
+    addItem({
+      id: cartLineId,
+      productId: product.id,
+      variantId: variant?.id || null,
+      variantName: variant?.name || null,
+      variantValue: variant?.value || null,
+      name: product.name,
+      price: isNaN(price) ? 0 : price,
+      image: currentImg,
+    }, 1);
     setAdding(false);
     setCartPreviewOpen(true);
     setTimeout(() => setCartPreviewOpen(false), 4500);
@@ -183,7 +212,15 @@ export default function ProductView() {
   const discountPrice = Number(product.discount_price || 0);
   const hasDiscount = discountPrice > 0 && discountPrice < basePrice;
   const finalPrice = hasDiscount ? discountPrice : basePrice;
-  const cuota4 = Math.round(finalPrice / 4);
+  const selectedVariant = variants.find((v) => v.id === selectedVariantId) || null;
+  const effectivePrice = finalPrice + (selectedVariant ? Number(selectedVariant.price_delta || 0) : 0);
+  const cuota4 = Math.round(effectivePrice / 4);
+  const requiresVariant = variants.length > 0;
+  const effectiveStock = selectedVariant ? Number(selectedVariant.stock || 0) : (requiresVariant ? 0 : Number(product.stock || 0));
+  const variantGroups = variants.reduce((acc: Record<string, any[]>, v) => {
+    (acc[v.name] = acc[v.name] || []).push(v);
+    return acc;
+  }, {});
 
   return (
     <>
@@ -287,14 +324,14 @@ export default function ProductView() {
             <div className="space-y-2">
               {hasDiscount ? (
                 <div className="flex items-center gap-3">
-                  <span className="text-3xl font-black" style={{ color: "var(--nomi-navy)" }}>{formatCOP(finalPrice)}</span>
+                  <span className="text-3xl font-black" style={{ color: "var(--nomi-navy)" }}>{formatCOP(effectivePrice)}</span>
                   <span className="text-lg line-through" style={{ color: "var(--nomi-muted)" }}>{formatCOP(basePrice)}</span>
                   <span className="text-xs font-bold px-2 py-1 rounded-full" style={{ backgroundColor: "#DCFCE7", color: "#16A34A" }}>
                     -{Math.round((1 - finalPrice / basePrice) * 100)}%
                   </span>
                 </div>
               ) : (
-                <span className="text-3xl font-black" style={{ color: "var(--nomi-navy)" }}>{formatCOP(finalPrice)}</span>
+                <span className="text-3xl font-black" style={{ color: "var(--nomi-navy)" }}>{formatCOP(effectivePrice)}</span>
               )}
 
               <div className="rounded-xl px-4 py-3 space-y-1"
@@ -313,19 +350,56 @@ export default function ProductView() {
               </div>
             </div>
 
+            {requiresVariant && (
+              <div className="space-y-3">
+                {Object.entries(variantGroups).map(([groupName, options]: [string, any[]]) => (
+                  <div key={groupName}>
+                    <label className="block text-xs font-bold mb-2 uppercase tracking-wide" style={{ color: "var(--nomi-navy)" }}>
+                      {groupName}
+                    </label>
+                    <div className="flex flex-wrap gap-2">
+                      {options.map((opt) => {
+                        const selected = selectedVariantId === opt.id;
+                        const outOfStock = Number(opt.stock || 0) <= 0;
+                        return (
+                          <button key={opt.id} type="button" disabled={outOfStock}
+                            onClick={() => { setSelectedVariantId(opt.id); setVariantMsg(""); }}
+                            className="px-4 py-2 rounded-xl text-sm font-bold cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
+                            style={selected
+                              ? { backgroundColor: "var(--nomi-navy)", color: "#fff", border: "1.5px solid var(--nomi-navy)" }
+                              : { backgroundColor: "var(--nomi-gray)", color: "var(--nomi-navy)", border: "1.5px solid var(--nomi-border)" }}>
+                            {opt.value}{outOfStock ? " (agotado)" : ""}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                ))}
+                {variantMsg && <p className="text-xs font-semibold" style={{ color: "#DC2626" }}>{variantMsg}</p>}
+                {selectedVariant && effectiveStock > 0 && (
+                  <p className="text-xs" style={{ color: "var(--nomi-muted)" }}>{effectiveStock} disponibles</p>
+                )}
+              </div>
+            )}
+
             {product.description && (
               <p className="text-sm leading-relaxed" style={{ color: "var(--nomi-muted)" }}>{product.description}</p>
             )}
 
             <div className="flex gap-3">
-              <button onClick={handleAdd} disabled={adding}
+              <button onClick={handleAdd} disabled={adding || (requiresVariant && effectiveStock <= 0)}
                 className="flex-1 flex items-center justify-center gap-2 py-3.5 rounded-xl text-sm font-black cursor-pointer disabled:opacity-60 transition"
                 style={{ backgroundColor: "var(--nomi-orange)", color: "#fff" }}>
                 <ShoppingCart className="w-4 h-4" />
                 {adding ? "Agregando..." : "Agregar al carrito"}
               </button>
-              <button onClick={() => { handleAdd(); router.push("/market/checkout"); }}
-                className="flex-1 py-3.5 rounded-xl text-sm font-black cursor-pointer transition"
+              <button disabled={requiresVariant && effectiveStock <= 0}
+                onClick={() => {
+                  if (requiresVariant && !selectedVariantId) { setVariantMsg("Selecciona una opcion antes de continuar"); return; }
+                  handleAdd();
+                  router.push("/market/checkout");
+                }}
+                className="flex-1 py-3.5 rounded-xl text-sm font-black cursor-pointer transition disabled:opacity-60"
                 style={{ backgroundColor: "var(--nomi-navy)", color: "#fff" }}>
                 Comprar ahora
               </button>

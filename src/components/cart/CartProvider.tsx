@@ -3,7 +3,11 @@
 import React, { createContext, useContext, useEffect, useMemo, useState } from "react";
 
 export type CartItem = {
-  id: string;
+  id: string; // clave unica de la linea del carrito (productId + variantId si aplica)
+  productId: string;
+  variantId?: string | null;
+  variantName?: string | null;
+  variantValue?: string | null;
   name: string;
   price: number;
   image?: string | null;
@@ -37,6 +41,10 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
     if (Array.isArray(parsed)) {
       setItems(parsed.filter((x) => x && typeof x.id === "string").map((x) => ({
         id: String(x.id),
+        productId: String(x.productId ?? x.id),
+        variantId: x.variantId ? String(x.variantId) : null,
+        variantName: x.variantName ? String(x.variantName) : null,
+        variantValue: x.variantValue ? String(x.variantValue) : null,
         name: String(x.name ?? ""),
         price: Number(x.price ?? 0),
         image: x.image ? String(x.image) : null,

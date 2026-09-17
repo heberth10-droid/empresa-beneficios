@@ -33,6 +33,7 @@ export default function CourseDetailPage() {
     if (!course) return;
     addItem({
       id: course.id,
+      productId: course.id,
       name: course.name,
       price: course.price,
       image: course.image_url || "",

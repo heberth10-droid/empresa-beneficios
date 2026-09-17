@@ -71,6 +71,7 @@ export default function ProductCard({ product }: any) {
     if (isOut) return;
     addItem({
       id: product.id,
+      productId: product.id,
       name: product.name || "Producto",
       price: hasDiscount ? disc : base,
       image: img,
